@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Admin;
 
+use App\Domain\Catalog\ConfigurableProductService;
 use App\Domain\Catalog\ProductPricingService;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Admin\StoreProductRequest;
@@ -23,6 +24,7 @@ class ProductController extends Controller
 {
     public function __construct(
         private readonly ProductPricingService $pricing,
+        private readonly ConfigurableProductService $configurable,
         private readonly AuditLogger $auditLogger,
     ) {}
 
@@ -31,23 +33,29 @@ class ProductController extends Controller
         $filters = [
             'search' => $request->string('search')->toString(),
             'status' => $request->string('status')->toString(),
+            'type' => $request->string('type')->toString(),
         ];
 
         $products = Product::query()
+            ->whereNull('parent_id')
             ->with(['prices', 'media'])
             ->when($filters['search'], fn ($query, $search) => $query->where(
                 fn ($q) => $q->where('name', 'like', "%{$search}%")->orWhere('sku', 'like', "%{$search}%"),
             ))
             ->when($filters['status'], fn ($query, $status) => $query->where('status', $status))
+            ->when($filters['type'], fn ($query, $type) => $query->where('type', $type))
             ->latest()
             ->paginate(15)
             ->withQueryString()
             ->through(fn (Product $product) => [
                 'id' => $product->id,
+                'type' => $product->type,
                 'sku' => $product->sku,
                 'name' => $product->name,
                 'status' => $product->status,
-                'price' => $this->pricing->priceFor($product)['effective_price'],
+                'price' => $product->isConfigurable()
+                    ? $this->configurable->priceForConfigurable($product, 0)['effective_price'] ?? null
+                    : $this->pricing->priceFor($product)['effective_price'],
                 'thumbnail' => $product->primaryMedia('gallery')?->url,
             ]);
 
@@ -66,9 +74,10 @@ class ProductController extends Controller
     {
         $product = DB::transaction(function () use ($request) {
             $data = $request->validated();
+            $type = $data['type'] ?? Product::TYPE_SIMPLE;
 
             $product = Product::create([
-                'type' => Product::TYPE_SIMPLE,
+                'type' => $type,
                 'sku' => $data['sku'],
                 'name' => $data['name'],
                 'slug' => $this->uniqueSlug($data['slug'] ?? null, $data['name']),
@@ -81,6 +90,12 @@ class ProductController extends Controller
 
             $this->persistRelations($product, $data);
 
+            if ($type === Product::TYPE_CONFIGURABLE && ! empty($data['configurable_attributes'])) {
+                $attributeIds = array_map('intval', $data['configurable_attributes']);
+                $product->configurableAttributes()->sync($attributeIds);
+                $this->configurable->generateVariants($product, $attributeIds);
+            }
+
             return $product;
         });
 
@@ -91,46 +106,71 @@ class ProductController extends Controller
 
     public function edit(Product $product): Response
     {
-        $product->load(['prices', 'storeLinks', 'media', 'categories', 'attributeValues']);
+        $product->load(['prices', 'storeLinks', 'media', 'categories', 'attributeValues', 'parent', 'configurableAttributes']);
 
         $base = $product->basePrice();
 
+        $data = [
+            'id' => $product->id,
+            'type' => $product->type,
+            'parent_id' => $product->parent_id,
+            'sku' => $product->sku,
+            'name' => $product->name,
+            'slug' => $product->slug,
+            'short_description' => $product->short_description,
+            'description' => $product->description,
+            'status' => $product->status,
+            'visibility' => $product->visibility,
+            'weight' => $product->weight,
+            'price' => $base?->price,
+            'special_price' => $base?->special_price,
+            'special_price_from' => $base?->special_price_from?->toDateString(),
+            'special_price_to' => $base?->special_price_to?->toDateString(),
+            'stores' => $product->storeLinks->map(function ($link) use ($product) {
+                $override = $product->prices->firstWhere('store_id', $link->store_id);
+
+                return [
+                    'store_id' => $link->store_id,
+                    'is_active' => $link->is_active,
+                    'price' => $override?->price,
+                    'special_price' => $override?->special_price,
+                    'special_price_from' => $override?->special_price_from?->toDateString(),
+                    'special_price_to' => $override?->special_price_to?->toDateString(),
+                ];
+            })->values(),
+            'media' => $product->mediaInCollection('gallery')->pluck('id'),
+            'categories' => $product->categories->pluck('id'),
+            'attribute_values' => $product->attributeValues->mapWithKeys(function ($value) {
+                $decoded = json_decode((string) $value->value, true);
+
+                return [$value->attribute_id => is_array($decoded) ? $decoded : $value->value];
+            }),
+        ];
+
+        if ($product->isConfigurable()) {
+            $data['configurable_attributes'] = $product->configurableAttributes->pluck('id');
+
+            $data['variants'] = $product->variants()
+                ->with(['prices', 'attributeValues.attribute'])
+                ->get()
+                ->map(fn (Product $variant) => [
+                    'id' => $variant->id,
+                    'sku' => $variant->sku,
+                    'name' => $variant->name,
+                    'status' => $variant->status,
+                    'price' => $variant->basePrice()?->price,
+                    'options' => $variant->attributeValues->mapWithKeys(fn ($av) => [
+                        $av->attribute?->code => $av->value,
+                    ]),
+                ]);
+        } elseif ($product->parent) {
+            $data['parent_name'] = $product->parent->name;
+            $data['parent_id'] = $product->parent->id;
+        }
+
         return Inertia::render('admin/products/edit', [
             ...$this->formData(),
-            'product' => [
-                'id' => $product->id,
-                'sku' => $product->sku,
-                'name' => $product->name,
-                'slug' => $product->slug,
-                'short_description' => $product->short_description,
-                'description' => $product->description,
-                'status' => $product->status,
-                'visibility' => $product->visibility,
-                'weight' => $product->weight,
-                'price' => $base?->price,
-                'special_price' => $base?->special_price,
-                'special_price_from' => $base?->special_price_from?->toDateString(),
-                'special_price_to' => $base?->special_price_to?->toDateString(),
-                'stores' => $product->storeLinks->map(function ($link) use ($product) {
-                    $override = $product->prices->firstWhere('store_id', $link->store_id);
-
-                    return [
-                        'store_id' => $link->store_id,
-                        'is_active' => $link->is_active,
-                        'price' => $override?->price,
-                        'special_price' => $override?->special_price,
-                        'special_price_from' => $override?->special_price_from?->toDateString(),
-                        'special_price_to' => $override?->special_price_to?->toDateString(),
-                    ];
-                })->values(),
-                'media' => $product->mediaInCollection('gallery')->pluck('id'),
-                'categories' => $product->categories->pluck('id'),
-                'attribute_values' => $product->attributeValues->mapWithKeys(function ($value) {
-                    $decoded = json_decode((string) $value->value, true);
-
-                    return [$value->attribute_id => is_array($decoded) ? $decoded : $value->value];
-                }),
-            ],
+            'product' => $data,
         ]);
     }
 
@@ -151,6 +191,15 @@ class ProductController extends Controller
             ]);
 
             $this->persistRelations($product, $data);
+
+            if ($product->isConfigurable()) {
+                $attributeIds = array_map('intval', $data['configurable_attributes'] ?? []);
+                $product->configurableAttributes()->sync($attributeIds);
+
+                if (! empty($attributeIds)) {
+                    $this->configurable->generateVariants($product, $attributeIds);
+                }
+            }
         });
 
         $this->auditLogger->log('product.updated', $product, "Producto {$product->sku} actualizado");
@@ -291,6 +340,20 @@ class ProductController extends Controller
                     'name' => $attribute->name,
                     'type' => $attribute->type,
                     'is_required' => $attribute->is_required,
+                    'is_configurable' => $attribute->is_configurable,
+                    'options' => $attribute->options->map(fn ($option) => [
+                        'label' => $option->label,
+                        'value' => $option->value,
+                    ])->values(),
+                ]),
+            'configurableAttributes' => Attribute::with('options')
+                ->where('is_configurable', true)
+                ->orderBy('sort_order')->orderBy('name')->get()
+                ->map(fn (Attribute $attribute) => [
+                    'id' => $attribute->id,
+                    'code' => $attribute->code,
+                    'name' => $attribute->name,
+                    'type' => $attribute->type,
                     'options' => $attribute->options->map(fn ($option) => [
                         'label' => $option->label,
                         'value' => $option->value,

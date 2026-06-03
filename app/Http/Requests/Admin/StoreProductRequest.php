@@ -17,6 +17,7 @@ class StoreProductRequest extends FormRequest
     public function rules(): array
     {
         return [
+            'type' => ['required', 'in:simple,configurable'],
             'sku' => ['required', 'string', 'max:255', 'unique:products,sku'],
             'name' => ['required', 'string', 'max:255'],
             'slug' => ['nullable', 'string', 'max:255'],
@@ -46,6 +47,9 @@ class StoreProductRequest extends FormRequest
             'categories.*' => ['integer', 'exists:categories,id'],
 
             'attribute_values' => ['array'],
+
+            'configurable_attributes' => ['nullable', 'array'],
+            'configurable_attributes.*' => ['integer', 'exists:attributes,id'],
         ];
     }
 }

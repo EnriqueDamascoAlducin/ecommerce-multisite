@@ -10,6 +10,15 @@ type AttributeDef = {
     name: string;
     type: string;
     is_required: boolean;
+    is_configurable?: boolean;
+    options: { label: string; value: string }[];
+};
+
+type ConfigurableAttrDef = {
+    id: number;
+    code: string;
+    name: string;
+    type: string;
     options: { label: string; value: string }[];
 };
 
@@ -18,11 +27,13 @@ export default function ProductsCreate({
     availableImages,
     categories,
     attributes,
+    configurableAttributes,
 }: {
     stores: { id: number; label: string }[];
     availableImages: { id: number; url: string; name: string }[];
     categories: { id: number; label: string }[];
     attributes: AttributeDef[];
+    configurableAttributes?: ConfigurableAttrDef[];
 }) {
     return (
         <>
@@ -44,6 +55,7 @@ export default function ProductsCreate({
                             availableImages={availableImages}
                             categories={categories}
                             attributes={attributes}
+                            configurableAttributes={configurableAttributes}
                         />
                         <Button disabled={processing}>Crear producto</Button>
                     </div>

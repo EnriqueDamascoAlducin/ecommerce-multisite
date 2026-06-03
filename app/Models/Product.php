@@ -7,6 +7,7 @@ use Database\Factories\ProductFactory;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
@@ -21,9 +22,11 @@ class Product extends Model
 
     public const TYPE_SIMPLE = 'simple';
 
+    public const TYPE_CONFIGURABLE = 'configurable';
+
     /** @var list<string> */
     protected $fillable = [
-        'type', 'sku', 'name', 'slug', 'short_description', 'description',
+        'type', 'parent_id', 'sku', 'name', 'slug', 'short_description', 'description',
         'status', 'visibility', 'weight', 'attributes',
     ];
 
@@ -81,6 +84,40 @@ class Product extends Model
     }
 
     /**
+     * @return BelongsTo<Product, $this>
+     */
+    public function parent(): BelongsTo
+    {
+        return $this->belongsTo(self::class, 'parent_id');
+    }
+
+    /**
+     * @return HasMany<Product, $this>
+     */
+    public function children(): HasMany
+    {
+        return $this->hasMany(self::class, 'parent_id');
+    }
+
+    /**
+     * @return BelongsToMany<Attribute, $this>
+     */
+    public function configurableAttributes(): BelongsToMany
+    {
+        return $this->belongsToMany(Attribute::class, 'product_configurable_attributes');
+    }
+
+    /**
+     * Variantes hijas activas (productos simples con parent_id).
+     *
+     * @return HasMany<Product, $this>
+     */
+    public function variants(): HasMany
+    {
+        return $this->children()->where('type', self::TYPE_SIMPLE);
+    }
+
+    /**
      * Disponible total sumando todas las fuentes (físico − reservado).
      */
     public function totalAvailableQty(): int
@@ -91,6 +128,18 @@ class Product extends Model
     public function basePrice(): ?ProductPrice
     {
         return $this->prices->firstWhere('store_id', null);
+    }
+
+    /**
+     * Precio más bajo entre las variantes (para el padre configurable).
+     */
+    public function lowestVariantPrice(int $storeId): ?ProductPrice
+    {
+        $variants = $this->variants()->with(['prices' => fn ($q) => $q->where('store_id', $storeId)])->get();
+
+        $min = $variants->flatMap->prices->sortBy('price')->first();
+
+        return $min ?? $this->basePrice();
     }
 
     /**
@@ -107,5 +156,13 @@ class Product extends Model
     public function isActiveInStore(int $storeId): bool
     {
         return $this->storeLinks->firstWhere('store_id', $storeId)?->is_active ?? false;
+    }
+
+    /**
+     * ¿Este producto es configurable y tiene variantes?
+     */
+    public function isConfigurable(): bool
+    {
+        return $this->type === self::TYPE_CONFIGURABLE;
     }
 }

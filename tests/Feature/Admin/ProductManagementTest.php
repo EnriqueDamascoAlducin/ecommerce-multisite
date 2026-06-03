@@ -19,6 +19,7 @@ test('a super admin can list products', function () {
 
 test('a super admin can create a simple product with a base price', function () {
     $this->post(route('admin.products.store'), [
+        'type' => 'simple',
         'sku' => 'SKU-001',
         'name' => 'Camiseta',
         'status' => 'active',
@@ -38,6 +39,7 @@ test('a super admin can create a simple product with a base price', function () 
 
 test('the slug is generated automatically from the name', function () {
     $this->post(route('admin.products.store'), [
+        'type' => 'simple',
         'sku' => 'SKU-XYZ',
         'name' => 'Producto De Prueba',
         'status' => 'active',
@@ -52,6 +54,7 @@ test('the sku must be unique', function () {
     Product::factory()->create(['sku' => 'DUP']);
 
     $this->post(route('admin.products.store'), [
+        'type' => 'simple',
         'sku' => 'DUP',
         'name' => 'Otro',
         'status' => 'active',
@@ -64,6 +67,7 @@ test('a product can be activated and priced per store', function () {
     $store = Store::factory()->create();
 
     $this->post(route('admin.products.store'), [
+        'type' => 'simple',
         'sku' => 'SKU-STORE',
         'name' => 'Producto Tienda',
         'status' => 'active',
@@ -92,6 +96,7 @@ test('a super admin can update a product', function () {
     $product = Product::factory()->create();
 
     $this->put(route('admin.products.update', $product), [
+        'type' => 'simple',
         'sku' => $product->sku,
         'name' => 'Nombre Nuevo',
         'status' => 'inactive',

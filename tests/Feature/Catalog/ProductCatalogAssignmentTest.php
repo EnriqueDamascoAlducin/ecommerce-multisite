@@ -22,6 +22,7 @@ test('a product can be assigned to categories', function () {
     $b = Category::factory()->create(['website_id' => $this->website->id]);
 
     $this->post(route('admin.products.store'), [
+        'type' => 'simple',
         'sku' => 'SKU-CAT',
         'name' => 'Con categorías',
         'status' => 'active',
@@ -38,6 +39,7 @@ test('a product stores simple attribute values', function () {
     $material = Attribute::factory()->create(['code' => 'material', 'type' => 'text']);
 
     $this->post(route('admin.products.store'), [
+        'type' => 'simple',
         'sku' => 'SKU-ATTR',
         'name' => 'Con atributo',
         'status' => 'active',
@@ -59,6 +61,7 @@ test('a multiselect attribute value is stored as json', function () {
     $color = Attribute::factory()->multiselect()->create(['code' => 'color']);
 
     $this->post(route('admin.products.store'), [
+        'type' => 'simple',
         'sku' => 'SKU-MULTI',
         'name' => 'Multi',
         'status' => 'active',
@@ -79,6 +82,7 @@ test('an empty attribute value removes the row on update', function () {
     $product->attributeValues()->create(['attribute_id' => $material->id, 'value' => 'Cuero']);
 
     $this->put(route('admin.products.update', $product), [
+        'type' => 'simple',
         'sku' => $product->sku,
         'name' => $product->name,
         'status' => 'active',

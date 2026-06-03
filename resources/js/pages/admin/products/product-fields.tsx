@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import InputError from '@/components/input-error';
+import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 
@@ -13,6 +14,15 @@ type AttributeDef = {
     name: string;
     type: string;
     is_required: boolean;
+    is_configurable?: boolean;
+    options: AttributeOption[];
+};
+
+type ConfigurableAttrDef = {
+    id: number;
+    code: string;
+    name: string;
+    type: string;
     options: AttributeOption[];
 };
 
@@ -26,6 +36,8 @@ type StoreDefault = {
 };
 
 export type ProductDefaults = {
+    id?: number;
+    type: string;
     sku: string;
     name: string;
     slug: string | null;
@@ -42,6 +54,15 @@ export type ProductDefaults = {
     media: number[];
     categories: number[];
     attribute_values: Record<number, string | string[]>;
+    configurable_attributes?: number[];
+    variants?: {
+        id: number;
+        sku: string;
+        name: string;
+        status: string;
+        price: string | null;
+        options: Record<string, string>;
+    }[];
 };
 
 export function ProductFields({
@@ -50,6 +71,7 @@ export function ProductFields({
     availableImages,
     categories,
     attributes,
+    configurableAttributes,
     defaults,
 }: {
     errors: Record<string, string>;
@@ -57,10 +79,13 @@ export function ProductFields({
     availableImages: ImageOption[];
     categories: CategoryOption[];
     attributes: AttributeDef[];
+    configurableAttributes?: ConfigurableAttrDef[];
     defaults?: ProductDefaults;
 }) {
     const [selected, setSelected] = useState<number[]>(defaults?.media ?? []);
     const [selectedCategories, setSelectedCategories] = useState<number[]>(defaults?.categories ?? []);
+    const [productType, setProductType] = useState(defaults?.type ?? 'simple');
+    const [configurableAttrIds, setConfigurableAttrIds] = useState<number[]>(defaults?.configurable_attributes ?? []);
 
     const toggleImage = (id: number) => {
         setSelected((current) =>
@@ -74,6 +99,12 @@ export function ProductFields({
         );
     };
 
+    const toggleConfigurableAttr = (id: number) => {
+        setConfigurableAttrIds((current) =>
+            current.includes(id) ? current.filter((x) => x !== id) : [...current, id],
+        );
+    };
+
     const attributeDefault = (id: number): string | string[] | undefined => defaults?.attribute_values?.[id];
 
     const storeDefault = (storeId: number): StoreDefault | undefined =>
@@ -81,6 +112,23 @@ export function ProductFields({
 
     return (
         <div className="space-y-8">
+            {/* Tipo de producto */}
+            <section className="grid gap-4 sm:grid-cols-2">
+                <div className="grid gap-2">
+                    <Label htmlFor="type">Tipo de producto</Label>
+                    <select
+                        id="type"
+                        name="type"
+                        value={productType}
+                        onChange={(e) => setProductType(e.target.value)}
+                        className="rounded-md border border-neutral-300 bg-white px-3 py-2 text-sm dark:border-neutral-700 dark:bg-neutral-800"
+                    >
+                        <option value="simple">Producto simple</option>
+                        <option value="configurable">Producto configurable</option>
+                    </select>
+                </div>
+            </section>
+
             {/* Datos básicos */}
             <section className="grid gap-4 sm:grid-cols-2">
                 <div className="grid gap-2">
@@ -128,9 +176,12 @@ export function ProductFields({
                 </div>
             </section>
 
-            {/* Precio base */}
+            {/* Precio base (solo para simples; configurables usan precio de variante) */}
             <section>
                 <h2 className="mb-3 text-sm font-semibold">Precio base</h2>
+                {productType === 'configurable' && (
+                    <p className="mb-3 text-xs text-neutral-500">El precio se hereda de la variante más barata.</p>
+                )}
                 <div className="grid gap-4 sm:grid-cols-4">
                     <div className="grid gap-2">
                         <Label htmlFor="price">Precio</Label>
@@ -151,6 +202,77 @@ export function ProductFields({
                     </div>
                 </div>
             </section>
+
+            {/* Atributos configurables (solo para tipo configurable) */}
+            {productType === 'configurable' && configurableAttributes && configurableAttributes.length > 0 && (
+                <section>
+                    <h2 className="mb-1 text-sm font-semibold">Atributos configurables</h2>
+                    <p className="mb-3 text-xs text-neutral-500">
+                        Selecciona los atributos que definen las variantes. Se generará una variante por cada combinación de opciones.
+                    </p>
+                    {configurableAttrIds.map((id) => (
+                        <input key={id} type="hidden" name="configurable_attributes[]" value={id} />
+                    ))}
+                    <div className="flex flex-wrap gap-3">
+                        {configurableAttributes.map((attr) => (
+                            <label key={attr.id} className="flex items-center gap-2 rounded-lg border border-neutral-200 p-3 text-sm dark:border-neutral-800">
+                                <input
+                                    type="checkbox"
+                                    checked={configurableAttrIds.includes(attr.id)}
+                                    onChange={() => toggleConfigurableAttr(attr.id)}
+                                    className="size-4 rounded"
+                                />
+                                <div>
+                                    <span className="font-medium">{attr.name}</span>
+                                    <span className="ml-2 text-neutral-500">({attr.options.map((o) => o.label).join(', ')})</span>
+                                </div>
+                            </label>
+                        ))}
+                    </div>
+                </section>
+            )}
+
+            {/* Variantes (solo edición de configurable) */}
+            {defaults?.variants && defaults.variants.length > 0 && (
+                <section>
+                    <h2 className="mb-1 text-sm font-semibold">Variantes ({defaults.variants.length})</h2>
+                    <p className="mb-3 text-xs text-neutral-500">
+                        Variantes generadas automáticamente. Edítalas individualmente para ajustar precio o stock.
+                    </p>
+                    <div className="overflow-x-auto rounded-lg border border-neutral-200 dark:border-neutral-800">
+                        <table className="w-full text-sm">
+                            <thead className="bg-neutral-50 dark:bg-neutral-900">
+                                <tr>
+                                    <th className="px-3 py-2 text-left font-medium">SKU</th>
+                                    <th className="px-3 py-2 text-left font-medium">Opción</th>
+                                    <th className="px-3 py-2 text-left font-medium">Precio</th>
+                                    <th className="px-3 py-2 text-left font-medium">Estado</th>
+                                </tr>
+                            </thead>
+                            <tbody className="divide-y divide-neutral-200 dark:divide-neutral-800">
+                                {defaults.variants.map((variant) => (
+                                    <tr key={variant.id} className="hover:bg-neutral-50 dark:hover:bg-neutral-900">
+                                        <td className="px-3 py-2 font-mono text-xs">{variant.sku}</td>
+                                        <td className="px-3 py-2">
+                                            {Object.entries(variant.options).map(([code, value]) => (
+                                                <Badge key={code} variant="outline" className="mr-1">
+                                                    {code}: {value}
+                                                </Badge>
+                                            ))}
+                                        </td>
+                                        <td className="px-3 py-2">${variant.price ?? '—'}</td>
+                                        <td className="px-3 py-2">
+                                            <Badge variant={variant.status === 'active' ? 'default' : 'secondary'}>
+                                                {variant.status === 'active' ? 'Activo' : 'Inactivo'}
+                                            </Badge>
+                                        </td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                    </div>
+                </section>
+            )}
 
             {/* Disponibilidad y precio por tienda */}
             <section>

@@ -47,6 +47,9 @@ class UpdateProductRequest extends FormRequest
             'categories.*' => ['integer', 'exists:categories,id'],
 
             'attribute_values' => ['array'],
+
+            'configurable_attributes' => ['nullable', 'array'],
+            'configurable_attributes.*' => ['integer', 'exists:attributes,id'],
         ];
     }
 }

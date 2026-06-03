@@ -1,13 +1,30 @@
 import { Form, Head, Link } from '@inertiajs/react';
 import { ImageIcon } from 'lucide-react';
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { formatPrice, type Price, useStoreUrls } from '@/lib/storefront';
 
+type VariantInfo = {
+    id: number;
+    sku: string;
+    price: number;
+    special_price: number | null;
+    is_special: boolean;
+    options: Record<string, string>;
+    in_stock: boolean;
+    gallery: { url: string; alt: string }[];
+};
+
+type ConfigurableOption = {
+    attribute: { id: number; code: string; name: string };
+    options: { label: string; value: string }[];
+};
+
 type ProductDetail = {
     id: number;
+    type: string;
     sku: string;
     name: string;
     slug: string;
@@ -18,11 +35,54 @@ type ProductDetail = {
     gallery: { url: string; alt: string }[];
     attributes: { name: string; value: string }[];
     categories: { name: string; slug: string }[];
+    configurable_options?: ConfigurableOption[];
+    variants?: VariantInfo[];
 };
 
 export default function StorefrontProduct({ product }: { product: ProductDetail }) {
     const urls = useStoreUrls();
     const [activeImage, setActiveImage] = useState(0);
+    const [selectedOptions, setSelectedOptions] = useState<Record<string, string>>({});
+
+    const currentVariant = useMemo(() => {
+        if (!product.variants || product.variants.length === 0) return null;
+
+        const selectedKeys = Object.keys(selectedOptions);
+        if (selectedKeys.length === 0) return null;
+
+        const allSelected = product.configurable_options?.every(
+            (opt) => selectedOptions[opt.attribute.code],
+        );
+
+        if (!allSelected) return null;
+
+        return product.variants.find((v) =>
+            Object.entries(selectedOptions).every(
+                ([code, value]) => v.options[code] === value,
+            ),
+        ) ?? null;
+    }, [selectedOptions, product.variants, product.configurable_options]);
+
+    const displayPrice = currentVariant
+        ? {
+              price: currentVariant.price,
+              special_price: currentVariant.special_price,
+              effective_price: currentVariant.is_special ? currentVariant.special_price! : currentVariant.price,
+              is_special: currentVariant.is_special,
+          }
+        : product.price;
+
+    const inStock = currentVariant ? currentVariant.in_stock : product.in_stock;
+    const currentGallery = currentVariant && currentVariant.gallery.length > 0
+        ? currentVariant.gallery
+        : product.gallery;
+
+    const selectOption = (code: string, value: string) => {
+        setSelectedOptions((prev) => ({ ...prev, [code]: value }));
+        setActiveImage(0);
+    };
+
+    const addToCartProductId = currentVariant ? currentVariant.id : product.id;
 
     return (
         <>
@@ -42,15 +102,15 @@ export default function StorefrontProduct({ product }: { product: ProductDetail 
                 {/* Galería */}
                 <div>
                     <div className="flex aspect-square items-center justify-center overflow-hidden rounded-lg bg-neutral-100 dark:bg-neutral-900">
-                        {product.gallery.length > 0 ? (
-                            <img src={product.gallery[activeImage]?.url} alt={product.gallery[activeImage]?.alt} className="h-full w-full object-cover" />
+                        {currentGallery.length > 0 ? (
+                            <img src={currentGallery[activeImage]?.url} alt={currentGallery[activeImage]?.alt} className="h-full w-full object-cover" />
                         ) : (
                             <ImageIcon className="size-16 text-neutral-300" />
                         )}
                     </div>
-                    {product.gallery.length > 1 && (
+                    {currentGallery.length > 1 && (
                         <div className="mt-3 flex gap-2">
-                            {product.gallery.map((image, index) => (
+                            {currentGallery.map((image, index) => (
                                 <button
                                     key={index}
                                     type="button"
@@ -70,18 +130,18 @@ export default function StorefrontProduct({ product }: { product: ProductDetail 
                     <p className="mt-1 font-mono text-xs text-neutral-400">{product.sku}</p>
 
                     <div className="mt-4 flex items-center gap-3">
-                        {product.price.is_special && product.price.special_price ? (
+                        {displayPrice.is_special && displayPrice.special_price ? (
                             <>
-                                <span className="text-2xl font-bold text-red-600">{formatPrice(product.price.special_price)}</span>
-                                <span className="text-neutral-400 line-through">{formatPrice(product.price.price)}</span>
+                                <span className="text-2xl font-bold text-red-600">{formatPrice(displayPrice.special_price)}</span>
+                                <span className="text-neutral-400 line-through">{formatPrice(displayPrice.price)}</span>
                             </>
                         ) : (
-                            <span className="text-2xl font-bold">{formatPrice(product.price.effective_price)}</span>
+                            <span className="text-2xl font-bold">{formatPrice(displayPrice.effective_price)}</span>
                         )}
                     </div>
 
                     <div className="mt-3">
-                        {product.in_stock ? (
+                        {inStock ? (
                             <Badge>En stock</Badge>
                         ) : (
                             <Badge variant="outline">Agotado</Badge>
@@ -92,16 +152,48 @@ export default function StorefrontProduct({ product }: { product: ProductDetail 
                         <p className="mt-4 text-neutral-600 dark:text-neutral-400">{product.short_description}</p>
                     )}
 
-                    {product.in_stock && (
+                    {/* Selectores de variante */}
+                    {product.configurable_options && product.configurable_options.length > 0 && (
+                        <div className="mt-6 space-y-4">
+                            {product.configurable_options.map((opt) => (
+                                <div key={opt.attribute.code}>
+                                    <label className="mb-1 block text-sm font-medium">{opt.attribute.name}</label>
+                                    <div className="flex flex-wrap gap-2">
+                                        {opt.options.map((option) => {
+                                            const isSelected = selectedOptions[opt.attribute.code] === option.value;
+                                            return (
+                                                <button
+                                                    key={option.value}
+                                                    type="button"
+                                                    onClick={() => selectOption(opt.attribute.code, option.value)}
+                                                    className={`rounded-md border px-3 py-1.5 text-sm transition-colors ${
+                                                        isSelected
+                                                            ? 'border-neutral-900 bg-neutral-900 text-white dark:border-neutral-100 dark:bg-neutral-100 dark:text-neutral-900'
+                                                            : 'border-neutral-300 hover:border-neutral-500 dark:border-neutral-700 dark:hover:border-neutral-500'
+                                                    }`}
+                                                >
+                                                    {option.label}
+                                                </button>
+                                            );
+                                        })}
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    )}
+
+                    {inStock && (
                         <Form action="/carrito" method="post" className="mt-6 flex items-end gap-3">
                             {({ processing }) => (
                                 <>
-                                    <input type="hidden" name="product_id" value={product.id} />
+                                    <input type="hidden" name="product_id" value={addToCartProductId} />
                                     <div className="grid gap-1">
                                         <label htmlFor="quantity" className="text-xs text-neutral-500">Cantidad</label>
                                         <Input id="quantity" name="quantity" type="number" min={1} max={999} defaultValue={1} className="w-24" />
                                     </div>
-                                    <Button disabled={processing}>Agregar al carrito</Button>
+                                    <Button disabled={processing || (!currentVariant && !!product.configurable_options?.length)}>
+                                        Agregar al carrito
+                                    </Button>
                                 </>
                             )}
                         </Form>

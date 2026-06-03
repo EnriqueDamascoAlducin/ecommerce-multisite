@@ -1,7 +1,7 @@
 # Progreso del proyecto
 
 > Registro vivo de avance. Roadmap completo en [`ROADMAP.md`](./ROADMAP.md).
-> Última actualización: 2026-06-03 (Fase 17 cerrada).
+> Última actualización: 2026-06-03 (Fase 18 cerrada).
 
 ## Estado global
 
@@ -25,7 +25,8 @@
 | 25* — Emails transaccionales (subset MVP1) | 🟢 Terminada |
 | 16 — Invoices/facturas internas | 🟢 Terminada |
 | 17 — Shipments/envíos | 🟢 Terminada |
-| 18–29 | ⬜ Pendiente |
+| 18 — Productos configurables | 🟢 Terminada |
+| 19–29 | ⬜ Pendiente |
 
 Leyenda: ⬜ pendiente · 🟡 en curso · 🟢 terminada · 🔴 bloqueada
 
@@ -314,7 +315,7 @@ Leyenda: ⬜ pendiente · 🟡 en curso · 🟢 terminada · 🔴 bloqueada
 - `InvoiceNumberGenerator` sigue el patrón de `OrderNumberGenerator` (código de website + secuencia).
 - StoreInvoiceRequest simplificado: la validación de estado (`paid`/`processing` y no ya facturada) se hace en el controller.
 
-**Siguiente:** MVP 2 — Fase 18 (Productos configurables) u otra.
+**Siguiente:** MVP 2 — mejoras de checkout u otra fase del roadmap.
 
 ---
 
@@ -344,3 +345,33 @@ Leyenda: ⬜ pendiente · 🟡 en curso · 🟢 terminada · 🔴 bloqueada
 
 - [ ] (Opcional) `sudo apt install php8.3-sqlite3` en WSL para correr `php artisan test` con el default sqlite.
 - [ ] Al iniciar Fase 8: confirmar convención de carpetas frontend (`pages/admin` + `pages/storefront`, ya iniciada).
+- [ ] Precios de variantes: al editar un configurable se puede ajustar precio individual de cada variante.
+
+---
+
+### 2026-06-03 — Fase 18 cerrada (Productos configurables)
+
+**Hecho:**
+- **Migraciones:** `add_parent_id_to_products` (FK autorreferencial, nullable) + `product_configurable_attributes` (pivot: qué atributos definen las variantes del configurable).
+- **Modelo `Product`:** constante `TYPE_CONFIGURABLE`, relaciones `parent()`/`children()`/`variants()`/`configurableAttributes()`, helper `isConfigurable()`, `lowestVariantPrice()`.
+- **Servicio `ConfigurableProductService`:**
+  - `generateVariants()` — producto cartesiano de opciones, crea child simple por combinación con SKU `{parent}-{OPCION}-{OPCION}`, hereda stores/precios/categorías/media del padre.
+  - `resolveVariant()` — lookup por `_variant_key` en JSON para PDP.
+  - `getConfigurableOptions()` — atributos + opciones agrupadas para el select del front.
+  - `priceForConfigurable()` — precio del variant más barato disponible.
+- **Admin `ProductController`:** soporte `type=configurable` en create/edit. Al crear con `configurable_attributes` genera variantes automáticamente. `edit()` pasa `variants[]`, `configurable_attributes[]`. Index filtra `parent_id=null`.
+- **Requests:** `StoreProductRequest`/`UpdateProductRequest` aceptan `type` + `configurable_attributes[]`.
+- **UI admin `product-fields.tsx`:** selector tipo (simple/configurable), al elegir configurable muestra checkboxes de atributos (`is_configurable=true`), tabla de variantes generadas con SKU/opciones/precio/estado.
+- **UI storefront `product.tsx`:** botones de selección por atributo configurable, resuelve variante, muestra precio/stock/galería de la variante seleccionada, botón "Agregar al carrito" usa `variant.id`. Deshabilitado si no se han seleccionado todas las opciones.
+- **StorefrontController:** pasa `configurable_options` + `variants` (con precio, stock, galería por variante) al renderizar PDP de configurable.
+- **11 tests** (`ConfigurableProductTest`): crear configurable, 20 variantes (5 colores × 4 tallas), SKU correctos, heredar stores/precios, resolver variante, carrito, listado, edición con variantes, borrado en cascada, 0 variantes si sin atributos.
+
+**Verificación (todo verde):**
+- `pint --dirty` ✓ · `migrate` ✓ · `wayfinder:generate` ✓ · `types:check` (solo errores preexistentes) ✓ · `npm run build` ✓ · suite completa **263 passed, 4 skipped** (749 assertions). 11 tests nuevos.
+
+**Notas / decisiones:**
+- Variantes = productos simples con `parent_id`. Stock y precios son propios de cada variante (funciona con el sistema actual de inventario/precios sin cambios).
+- El precio del configurable en listados = el más barato de sus variantes activas.
+- `_variant_key` en columna JSON `attributes` para resolución O(1) de variante por opciones seleccionadas.
+- Al borrar un configurable, `cascadeOnDelete` elimina todas las variantes.
+- Faltante para futuro: editor de precios/stock individual por variante desde la UI del padre.
