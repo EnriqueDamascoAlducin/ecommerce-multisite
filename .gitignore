@@ -28,3 +28,11 @@ yarn-error.log
 /.nova
 /.vscode
 /.zed
+/.agents
+/.claude
+/.ai
+/.codex
+/.mcp.json
+/CLAUDE.md
+/AGENTS.md
+NUL
