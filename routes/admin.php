@@ -1,0 +1,134 @@
+<?php
+
+use App\Http\Controllers\Admin\AttributeController;
+use App\Http\Controllers\Admin\CategoryController;
+use App\Http\Controllers\Admin\InventoryController;
+use App\Http\Controllers\Admin\InventorySourceController;
+use App\Http\Controllers\Admin\MediaController;
+use App\Http\Controllers\Admin\OrderController;
+use App\Http\Controllers\Admin\PermissionController;
+use App\Http\Controllers\Admin\ProductController;
+use App\Http\Controllers\Admin\RoleController;
+use App\Http\Controllers\Admin\ShippingMethodController;
+use App\Http\Controllers\Admin\StoreConfigurationController;
+use App\Http\Controllers\Admin\StoreController;
+use App\Http\Controllers\Admin\StoreScopeController;
+use App\Http\Controllers\Admin\StoreShippingController;
+use App\Http\Controllers\Admin\UserController;
+use App\Http\Controllers\Admin\WebsiteController;
+use Illuminate\Support\Facades\Route;
+
+Route::middleware(['auth', 'verified'])->prefix('admin')->name('admin.')->group(function () {
+    Route::inertia('/', 'admin/dashboard')->name('dashboard');
+
+    // Usuarios administrativos
+    Route::middleware('permission:admin.users.view')->group(function () {
+        Route::get('users', [UserController::class, 'index'])->name('users.index');
+        Route::get('users/create', [UserController::class, 'create'])->middleware('permission:admin.users.create')->name('users.create');
+        Route::post('users', [UserController::class, 'store'])->middleware('permission:admin.users.create')->name('users.store');
+        Route::get('users/{user}/edit', [UserController::class, 'edit'])->middleware('permission:admin.users.edit')->name('users.edit');
+        Route::put('users/{user}', [UserController::class, 'update'])->middleware('permission:admin.users.edit')->name('users.update');
+        Route::delete('users/{user}', [UserController::class, 'destroy'])->middleware('permission:admin.users.delete')->name('users.destroy');
+    });
+
+    // Roles y permisos
+    Route::middleware('permission:admin.roles.view')->group(function () {
+        Route::get('roles', [RoleController::class, 'index'])->name('roles.index');
+        Route::get('roles/create', [RoleController::class, 'create'])->middleware('permission:admin.roles.create')->name('roles.create');
+        Route::post('roles', [RoleController::class, 'store'])->middleware('permission:admin.roles.create')->name('roles.store');
+        Route::get('roles/{role}/edit', [RoleController::class, 'edit'])->middleware('permission:admin.roles.edit')->name('roles.edit');
+        Route::put('roles/{role}', [RoleController::class, 'update'])->middleware('permission:admin.roles.edit')->name('roles.update');
+        Route::delete('roles/{role}', [RoleController::class, 'destroy'])->middleware('permission:admin.roles.delete')->name('roles.destroy');
+
+        Route::get('permissions', [PermissionController::class, 'index'])->name('permissions.index');
+    });
+
+    // Multisitio: websites, tiendas y configuración por scope.
+    Route::middleware('permission:settings.stores')->group(function () {
+        Route::resource('websites', WebsiteController::class)->except('show');
+        Route::resource('stores', StoreController::class)->except('show');
+
+        Route::get('configuration', [StoreConfigurationController::class, 'index'])->name('configuration.index');
+        Route::put('configuration', [StoreConfigurationController::class, 'update'])->name('configuration.update');
+    });
+
+    // Catálogo: productos simples
+    Route::middleware('permission:catalog.products.view')->group(function () {
+        Route::get('products', [ProductController::class, 'index'])->name('products.index');
+        Route::get('products/create', [ProductController::class, 'create'])->middleware('permission:catalog.products.create')->name('products.create');
+        Route::post('products', [ProductController::class, 'store'])->middleware('permission:catalog.products.create')->name('products.store');
+        Route::get('products/{product}/edit', [ProductController::class, 'edit'])->middleware('permission:catalog.products.edit')->name('products.edit');
+        Route::put('products/{product}', [ProductController::class, 'update'])->middleware('permission:catalog.products.edit')->name('products.update');
+        Route::delete('products/{product}', [ProductController::class, 'destroy'])->middleware('permission:catalog.products.delete')->name('products.destroy');
+    });
+
+    // Catálogo: categorías
+    Route::middleware('permission:catalog.categories.view')->group(function () {
+        Route::get('categories', [CategoryController::class, 'index'])->name('categories.index');
+        Route::get('categories/create', [CategoryController::class, 'create'])->middleware('permission:catalog.categories.create')->name('categories.create');
+        Route::post('categories', [CategoryController::class, 'store'])->middleware('permission:catalog.categories.create')->name('categories.store');
+        Route::get('categories/{category}/edit', [CategoryController::class, 'edit'])->middleware('permission:catalog.categories.edit')->name('categories.edit');
+        Route::put('categories/{category}', [CategoryController::class, 'update'])->middleware('permission:catalog.categories.edit')->name('categories.update');
+        Route::delete('categories/{category}', [CategoryController::class, 'destroy'])->middleware('permission:catalog.categories.delete')->name('categories.destroy');
+    });
+
+    // Catálogo: atributos
+    Route::middleware('permission:catalog.attributes.view')->group(function () {
+        Route::get('attributes', [AttributeController::class, 'index'])->name('attributes.index');
+        Route::get('attributes/create', [AttributeController::class, 'create'])->middleware('permission:catalog.attributes.create')->name('attributes.create');
+        Route::post('attributes', [AttributeController::class, 'store'])->middleware('permission:catalog.attributes.create')->name('attributes.store');
+        Route::get('attributes/{attribute}/edit', [AttributeController::class, 'edit'])->middleware('permission:catalog.attributes.edit')->name('attributes.edit');
+        Route::put('attributes/{attribute}', [AttributeController::class, 'update'])->middleware('permission:catalog.attributes.edit')->name('attributes.update');
+        Route::delete('attributes/{attribute}', [AttributeController::class, 'destroy'])->middleware('permission:catalog.attributes.delete')->name('attributes.destroy');
+    });
+
+    // Inventario: almacenes (fuentes de stock)
+    Route::middleware('permission:inventory.view')->group(function () {
+        Route::get('inventory-sources', [InventorySourceController::class, 'index'])->name('inventory-sources.index');
+        Route::get('inventory-sources/create', [InventorySourceController::class, 'create'])->middleware('permission:inventory.adjust')->name('inventory-sources.create');
+        Route::post('inventory-sources', [InventorySourceController::class, 'store'])->middleware('permission:inventory.adjust')->name('inventory-sources.store');
+        Route::get('inventory-sources/{inventorySource}/edit', [InventorySourceController::class, 'edit'])->middleware('permission:inventory.adjust')->name('inventory-sources.edit');
+        Route::put('inventory-sources/{inventorySource}', [InventorySourceController::class, 'update'])->middleware('permission:inventory.adjust')->name('inventory-sources.update');
+        Route::delete('inventory-sources/{inventorySource}', [InventorySourceController::class, 'destroy'])->middleware('permission:inventory.adjust')->name('inventory-sources.destroy');
+    });
+
+    // Inventario: stock por producto
+    Route::middleware('permission:inventory.view')->group(function () {
+        Route::get('inventory', [InventoryController::class, 'index'])->name('inventory.index');
+        Route::get('inventory/{product}', [InventoryController::class, 'edit'])->name('inventory.edit');
+        Route::put('inventory/{product}', [InventoryController::class, 'update'])->middleware('permission:inventory.adjust')->name('inventory.update');
+    });
+
+    // Ventas: órdenes
+    Route::middleware('permission:sales.orders.view')->group(function () {
+        Route::get('orders', [OrderController::class, 'index'])->name('orders.index');
+        Route::get('orders/{order}', [OrderController::class, 'show'])->name('orders.show');
+        Route::put('orders/{order}/status', [OrderController::class, 'updateStatus'])->middleware('permission:sales.orders.edit')->name('orders.status');
+        Route::post('orders/{order}/comment', [OrderController::class, 'addComment'])->middleware('permission:sales.orders.edit')->name('orders.comment');
+        Route::post('orders/{order}/cancel', [OrderController::class, 'cancel'])->middleware('permission:sales.orders.cancel')->name('orders.cancel');
+    });
+
+    // Envíos: métodos globales + configuración por tienda
+    Route::middleware('permission:settings.shipping')->group(function () {
+        Route::get('shipping', [ShippingMethodController::class, 'index'])->name('shipping.index');
+        Route::get('shipping/create', [ShippingMethodController::class, 'create'])->name('shipping.create');
+        Route::post('shipping', [ShippingMethodController::class, 'store'])->name('shipping.store');
+        Route::get('shipping/{shipping}/edit', [ShippingMethodController::class, 'edit'])->name('shipping.edit');
+        Route::put('shipping/{shipping}', [ShippingMethodController::class, 'update'])->name('shipping.update');
+        Route::delete('shipping/{shipping}', [ShippingMethodController::class, 'destroy'])->name('shipping.destroy');
+
+        Route::get('shipping-stores', [StoreShippingController::class, 'edit'])->name('shipping-stores.edit');
+        Route::put('shipping-stores', [StoreShippingController::class, 'update'])->name('shipping-stores.update');
+    });
+
+    // Biblioteca de medios
+    Route::middleware('permission:media.view')->group(function () {
+        Route::get('media', [MediaController::class, 'index'])->name('media.index');
+        Route::post('media', [MediaController::class, 'store'])->middleware('permission:media.upload')->name('media.store');
+        Route::put('media/{media}', [MediaController::class, 'update'])->middleware('permission:media.upload')->name('media.update');
+        Route::delete('media/{media}', [MediaController::class, 'destroy'])->middleware('permission:media.delete')->name('media.destroy');
+    });
+
+    // Cambio de scope (cualquier admin autenticado).
+    Route::post('scope', [StoreScopeController::class, 'update'])->name('scope.update');
+});
