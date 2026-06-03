@@ -154,6 +154,14 @@ class Order extends Model
         return $this->hasMany(PaymentTransaction::class)->latest();
     }
 
+    /**
+     * @return HasMany<Invoice, $this>
+     */
+    public function invoices(): HasMany
+    {
+        return $this->hasMany(Invoice::class);
+    }
+
     public function isCancellable(): bool
     {
         return ! in_array($this->status, self::NON_CANCELLABLE, true);

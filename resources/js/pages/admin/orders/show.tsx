@@ -4,6 +4,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { usePermissions } from '@/hooks/use-permissions';
+import invoices from '@/routes/admin/invoices';
 import orders from '@/routes/admin/orders';
 import { statusLabel } from './status-labels';
 
@@ -24,6 +25,7 @@ type OrderDetail = {
     store: string;
     placed_at: string | null;
     is_cancellable: boolean;
+    can_invoice: boolean;
     customer: { name: string; email: string } | null;
     items: { sku: string; name: string; quantity: number; unit_price: string; line_total: string }[];
     shipping_address: Address;
@@ -178,6 +180,12 @@ export default function OrderShow({ order, statuses }: { order: OrderDetail; sta
                                 <Button size="sm" variant="outline" onClick={addComment}>Agregar comentario</Button>
                             </div>
                         </div>
+                    )}
+
+                    {can('sales.invoices.create') && order.can_invoice && (
+                        <Button className="w-full" onClick={() => {
+                            router.post(invoices.store().url, { order_id: order.id }, { preserveScroll: true });
+                        }}>Generar factura</Button>
                     )}
 
                     {can('sales.orders.cancel') && order.is_cancellable && (

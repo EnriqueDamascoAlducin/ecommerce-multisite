@@ -58,12 +58,16 @@ class OrderController extends Controller
     {
         $order->load(['items', 'shippingAddress', 'billingAddress', 'customer:id,name,email', 'store:id,name', 'statusHistories.user:id,name', 'transactions']);
 
+        $canInvoice = in_array($order->status, [Order::STATUS_PAID, Order::STATUS_PROCESSING], true)
+            && ! $order->invoices()->exists();
+
         return Inertia::render('admin/orders/show', [
             'order' => [
                 ...$order->only(['id', 'number', 'status', 'email', 'currency', 'subtotal', 'discount', 'shipping_amount', 'tax', 'total', 'shipping_method_label', 'payment_method']),
                 'store' => $order->store->name,
                 'placed_at' => $order->placed_at?->toDateTimeString(),
                 'is_cancellable' => $order->isCancellable(),
+                'can_invoice' => $canInvoice,
                 'customer' => $order->customer?->only(['name', 'email']),
                 'items' => $order->items->map(fn ($item) => [
                     'sku' => $item->sku,

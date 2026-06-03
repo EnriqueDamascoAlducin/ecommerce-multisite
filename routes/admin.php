@@ -4,6 +4,7 @@ use App\Http\Controllers\Admin\AttributeController;
 use App\Http\Controllers\Admin\CategoryController;
 use App\Http\Controllers\Admin\InventoryController;
 use App\Http\Controllers\Admin\InventorySourceController;
+use App\Http\Controllers\Admin\InvoiceController;
 use App\Http\Controllers\Admin\MediaController;
 use App\Http\Controllers\Admin\OrderController;
 use App\Http\Controllers\Admin\PermissionController;
@@ -106,6 +107,14 @@ Route::middleware(['auth', 'verified'])->prefix('admin')->name('admin.')->group(
         Route::put('orders/{order}/status', [OrderController::class, 'updateStatus'])->middleware('permission:sales.orders.edit')->name('orders.status');
         Route::post('orders/{order}/comment', [OrderController::class, 'addComment'])->middleware('permission:sales.orders.edit')->name('orders.comment');
         Route::post('orders/{order}/cancel', [OrderController::class, 'cancel'])->middleware('permission:sales.orders.cancel')->name('orders.cancel');
+    });
+
+    // Ventas: facturas
+    Route::middleware('permission:sales.invoices.view')->group(function () {
+        Route::get('invoices', [InvoiceController::class, 'index'])->name('invoices.index');
+        Route::get('invoices/{invoice}', [InvoiceController::class, 'show'])->name('invoices.show');
+        Route::post('invoices', [InvoiceController::class, 'store'])->middleware('permission:sales.invoices.create')->name('invoices.store');
+        Route::post('invoices/{invoice}/cancel', [InvoiceController::class, 'cancel'])->middleware('permission:sales.invoices.cancel')->name('invoices.cancel');
     });
 
     // Envíos: métodos globales + configuración por tienda

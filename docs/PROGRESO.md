@@ -1,7 +1,7 @@
 # Progreso del proyecto
 
 > Registro vivo de avance. Roadmap completo en [`ROADMAP.md`](./ROADMAP.md).
-> Última actualización: 2026-06-03 (Fase 25 cerrada).
+> Última actualización: 2026-06-03 (Fase 16 cerrada).
 
 ## Estado global
 
@@ -23,7 +23,8 @@
 | 14 — Core de pagos | 🟢 Terminada |
 | 15 — Primera pasarela (Mercado Pago) | 🟢 Terminada |
 | 25* — Emails transaccionales (subset MVP1) | 🟢 Terminada |
-| 16–29 | ⬜ Pendiente |
+| 16 — Invoices/facturas internas | 🟢 Terminada |
+| 17–29 | ⬜ Pendiente |
 
 Leyenda: ⬜ pendiente · 🟡 en curso · 🟢 terminada · 🔴 bloqueada
 
@@ -288,6 +289,31 @@ Leyenda: ⬜ pendiente · 🟡 en curso · 🟢 terminada · 🔴 bloqueada
 - `pint --dirty` ✓ · `tsc --noEmit` ✓ · `npm run build` ✓ · suite completa **234 passed, 4 skipped** (622 assertions). 7 tests nuevos (`TransactionalEmailsTest`).
 
 **Siguiente:** MVP 2 — Fase 16 (Invoices/facturas internas) u otra del roadmap.
+
+---
+
+---
+
+### 2026-06-03 — Fase 16 cerrada (Invoices/facturas internas)
+
+**Hecho:**
+- **Migraciones + modelos:** `invoices` (número único por website, estado `pending/cancelled/paid`, totales, fechas) e `invoice_items` (snapshot de SKU, nombre, cantidad, precios). `Invoice::STATUSES` como constantes del modelo. Facctories incluidas.
+- **Servicios (`app/Domain/Sales`):** `InvoiceNumberGenerator` (secuencia por website, patrón `F-{website_code}-{seq}`), `GenerateInvoiceAction` (transacción: crea factura+ítems desde la orden, marca la orden facturada).
+- **Admin `InvoiceController`:** index con filtros (estado, búsqueda) + paginación, show con detalle e ítems, store (genera factura para orden pagada/processing ya no facturada), cancel (solo `pending`, regresa orden a `paid`).
+- **Permisos:** `sales.invoices.{view,create,cancel}` seedeados en roles Ventas/Super Admin/Administrador.
+- **UI:** index (`admin/invoices`) con tabla, filtros y paginación; show con tabla de ítems (SKU, nombre, cantidad, precios), totales, badge de estado y botón **Cancelar** (si `pending`).
+- **Integración con órdenes:** `InvoiceController::store` desde botón **Generar factura** en el sidebar del detalle de orden (visible solo si `can_invoice`). Wayfinder para todas las rutas admin.
+- **8 tests** (`InvoiceManagementTest`): generar factura desde orden pagada, duplicado bloqueado, cancelación, regreso de orden a pagada, permisos, listado con filtros, vista detalle.
+
+**Verificación (todo verde):**
+- `pint --dirty` ✓ · `types:check` (solo errores preexistentes) ✓ · `npm run build` ✓ · suite **242 passed, 4 skipped** (654 assertions). 8 tests nuevos.
+
+**Notas / decisiones:**
+- Factura **interna, sin validez fiscal (CFDI)**. La facturación electrónica queda fuera del roadmap.
+- `InvoiceNumberGenerator` sigue el patrón de `OrderNumberGenerator` (código de website + secuencia).
+- StoreInvoiceRequest simplificado: la validación de estado (`paid`/`processing` y no ya facturada) se hace en el controller.
+
+**Siguiente:** MVP 2 — Fase 17 (Shipments), Fase 18 (configurables), o la que se decida.
 
 ---
 
