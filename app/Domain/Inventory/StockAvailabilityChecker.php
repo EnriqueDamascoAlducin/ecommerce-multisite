@@ -3,6 +3,7 @@
 namespace App\Domain\Inventory;
 
 use App\Models\InventorySource;
+use App\Models\InventoryStock;
 use App\Models\Product;
 
 /**
@@ -79,7 +80,7 @@ class StockAvailabilityChecker
         return $stocks->sum(fn ($stock) => $stock->available_qty) >= $quantity;
     }
 
-    private function resolveStock(Product $product, ?InventorySource $source): ?\App\Models\InventoryStock
+    private function resolveStock(Product $product, ?InventorySource $source): ?InventoryStock
     {
         $sourceId = $source?->id ?? InventorySource::default()?->id;
 

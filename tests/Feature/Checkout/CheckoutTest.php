@@ -1,5 +1,6 @@
 <?php
 
+use App\Models\Cart;
 use App\Models\InventorySource;
 use App\Models\Order;
 use App\Models\ShippingMethod;
@@ -87,7 +88,7 @@ test('placing an order converts the cart and records initial history', function 
     $this->post(route('checkout.store'), checkoutPayload());
 
     $order = Order::firstOrFail();
-    expect(\App\Models\Cart::firstOrFail()->status)->toBe('converted');
+    expect(Cart::firstOrFail()->status)->toBe('converted');
     $this->assertDatabaseHas('order_status_histories', ['order_id' => $order->id, 'to_status' => 'pending_payment', 'from_status' => null]);
 });
 

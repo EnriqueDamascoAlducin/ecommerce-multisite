@@ -1,7 +1,7 @@
 <?php
 
+use App\Models\CartItem;
 use App\Models\InventorySource;
-use App\Models\Product;
 use App\Models\Store;
 use App\Models\Website;
 
@@ -63,7 +63,7 @@ test('the cart page shows items and backend totals', function () {
 test('a cart item quantity can be updated', function () {
     $product = sellableProduct($this->store, $this->source);
     $this->post(route('cart.store'), ['product_id' => $product->id, 'quantity' => 1]);
-    $item = App\Models\CartItem::firstOrFail();
+    $item = CartItem::firstOrFail();
 
     $this->patch(route('cart.update', $item), ['quantity' => 5])->assertRedirect();
 
@@ -73,7 +73,7 @@ test('a cart item quantity can be updated', function () {
 test('updating quantity to zero removes the item', function () {
     $product = sellableProduct($this->store, $this->source);
     $this->post(route('cart.store'), ['product_id' => $product->id, 'quantity' => 2]);
-    $item = App\Models\CartItem::firstOrFail();
+    $item = CartItem::firstOrFail();
 
     $this->patch(route('cart.update', $item), ['quantity' => 0])->assertRedirect();
 
@@ -83,7 +83,7 @@ test('updating quantity to zero removes the item', function () {
 test('a cart item can be removed', function () {
     $product = sellableProduct($this->store, $this->source);
     $this->post(route('cart.store'), ['product_id' => $product->id, 'quantity' => 1]);
-    $item = App\Models\CartItem::firstOrFail();
+    $item = CartItem::firstOrFail();
 
     $this->delete(route('cart.destroy', $item))->assertRedirect();
 
@@ -114,7 +114,7 @@ test('a hidden product cannot be added to the cart', function () {
 });
 
 test('a guest cannot modify a cart item from another cart', function () {
-    $foreignItem = App\Models\CartItem::factory()->create();
+    $foreignItem = CartItem::factory()->create();
 
     $this->delete(route('cart.destroy', $foreignItem))->assertForbidden();
 });

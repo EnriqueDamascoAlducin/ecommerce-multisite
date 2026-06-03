@@ -1,5 +1,8 @@
 <?php
 
+use App\Models\InventorySource;
+use App\Models\Product;
+use App\Models\Store;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
@@ -53,10 +56,10 @@ function something()
  * Producto vendible en una tienda: activo, con precio base, habilitado en la
  * tienda y con stock físico gestionado. Reutilizado por los tests de carrito.
  */
-function sellableProduct(\App\Models\Store $store, \App\Models\InventorySource $source, float $price = 100, int $stock = 10): \App\Models\Product
+function sellableProduct(Store $store, InventorySource $source, float $price = 100, int $stock = 10): Product
 {
-    $product = \App\Models\Product::factory()->create([
-        'status' => \App\Models\Product::STATUS_ACTIVE,
+    $product = Product::factory()->create([
+        'status' => Product::STATUS_ACTIVE,
         'visibility' => 'both',
     ]);
 

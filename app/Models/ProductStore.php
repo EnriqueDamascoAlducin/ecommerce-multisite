@@ -2,13 +2,14 @@
 
 namespace App\Models;
 
+use Database\Factories\ProductStoreFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class ProductStore extends Model
 {
-    /** @use HasFactory<\Database\Factories\ProductStoreFactory> */
+    /** @use HasFactory<ProductStoreFactory> */
     use HasFactory;
 
     /** @var list<string> */

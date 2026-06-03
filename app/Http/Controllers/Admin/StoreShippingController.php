@@ -10,6 +10,7 @@ use App\Models\StoreShippingMethod;
 use App\Services\AuditLogger;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -124,7 +125,7 @@ class StoreShippingController extends Controller
     }
 
     /**
-     * @return \Illuminate\Support\Collection<int, array{id: int, label: string}>
+     * @return Collection<int, array{id: int, label: string}>
      */
     private function storeOptions()
     {

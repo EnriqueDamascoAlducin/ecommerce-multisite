@@ -2,13 +2,14 @@
 
 namespace App\Models;
 
+use Database\Factories\StoreViewFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class StoreView extends Model
 {
-    /** @use HasFactory<\Database\Factories\StoreViewFactory> */
+    /** @use HasFactory<StoreViewFactory> */
     use HasFactory;
 
     /** @var list<string> */

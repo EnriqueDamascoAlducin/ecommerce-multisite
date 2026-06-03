@@ -2,13 +2,14 @@
 
 namespace App\Models;
 
+use Database\Factories\StoreDomainFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class StoreDomain extends Model
 {
-    /** @use HasFactory<\Database\Factories\StoreDomainFactory> */
+    /** @use HasFactory<StoreDomainFactory> */
     use HasFactory;
 
     /** @var list<string> */

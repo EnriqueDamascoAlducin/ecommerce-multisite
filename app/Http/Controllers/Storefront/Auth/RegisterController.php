@@ -7,6 +7,7 @@ use App\Domain\Store\StoreContext;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Storefront\CustomerRegisterRequest;
 use App\Models\Customer;
+use App\Notifications\CustomerRegistered;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Support\Facades\Auth;
 use Inertia\Inertia;
@@ -39,6 +40,8 @@ class RegisterController extends Controller
         Auth::guard('customer')->login($customer);
 
         $this->cart->mergeForCustomer($customer);
+
+        $customer->notify(new CustomerRegistered($customer));
 
         return to_route('customer.account')->with('success', '¡Cuenta creada!');
     }

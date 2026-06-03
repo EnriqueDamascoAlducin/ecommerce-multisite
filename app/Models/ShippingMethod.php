@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use Database\Factories\ShippingMethodFactory;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -9,7 +10,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class ShippingMethod extends Model
 {
-    /** @use HasFactory<\Database\Factories\ShippingMethodFactory> */
+    /** @use HasFactory<ShippingMethodFactory> */
     use HasFactory;
 
     public const TYPE_FLAT_RATE = 'flat_rate';

@@ -9,6 +9,7 @@ use App\Models\Store;
 use App\Models\Website;
 use App\Services\AuditLogger;
 use Illuminate\Http\RedirectResponse;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -148,7 +149,7 @@ class StoreController extends Controller
     }
 
     /**
-     * @return \Illuminate\Support\Collection<int, array{id: int, name: string}>
+     * @return Collection<int, array{id: int, name: string}>
      */
     private function websiteOptions()
     {

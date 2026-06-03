@@ -1,7 +1,7 @@
 # Progreso del proyecto
 
 > Registro vivo de avance. Roadmap completo en [`ROADMAP.md`](./ROADMAP.md).
-> Última actualización: 2026-06-03 (Fases 14 y 15 cerradas).
+> Última actualización: 2026-06-03 (Fase 25 cerrada).
 
 ## Estado global
 
@@ -22,7 +22,7 @@
 | 13 — Órdenes | 🟢 Terminada |
 | 14 — Core de pagos | 🟢 Terminada |
 | 15 — Primera pasarela (Mercado Pago) | 🟢 Terminada |
-| 25* — Emails transaccionales (subset MVP1) | ⬜ Siguiente |
+| 25* — Emails transaccionales (subset MVP1) | 🟢 Terminada |
 | 16–29 | ⬜ Pendiente |
 
 Leyenda: ⬜ pendiente · 🟡 en curso · 🟢 terminada · 🔴 bloqueada
@@ -266,6 +266,28 @@ Leyenda: ⬜ pendiente · 🟡 en curso · 🟢 terminada · 🔴 bloqueada
 **Verificación (todo verde):** `pint` ✓ · `tsc` ✓ · `npm run build` ✓ · suite **214 passed, 4 skipped** (574 assertions).
 
 **Siguiente:** Fase 14 — Core de pagos (`PaymentGatewayInterface`, transacciones, webhooks, idempotencia) seguida de Fase 15 — Mercado Pago, que cierra el flujo de venta del MVP1.
+
+---
+
+### 2026-06-03 — Fase 25 cerrada (Emails transaccionales — subset MVP1)
+
+**Hecho:**
+- **4 notificaciones** en `app/Notifications/`:
+  - `OrderCreated` — se envía al colocar la orden en el checkout, con detalle de ítems, subtotal, envío y total.
+  - `PaymentApproved` — se envía cuando `PaymentService::applyToOrder` transiciona la orden a `paid`.
+  - `PaymentFailed` — se envía cuando `PaymentService::applyToOrder` transiciona la orden a `failed`, con sugerencias de solución.
+  - `CustomerRegistered` — se envía al crear cuenta en el storefront, con enlace a la tienda.
+- **Implementación:** todas las notificaciones implementan `ShouldQueue` (encoladas por defecto contra `QUEUE_CONNECTION=database`), usan `MailMessage` (API consistente con `CustomerResetPasswordNotification`), son **multisitio-aware** (usan `$order->store->name` y `$customer->website->name` para personalizar el contenido).
+- **Puntos de enganche (3 modificaciones):**
+  - `CheckoutController::store()` → `OrderCreated`
+  - `PaymentService::applyToOrder()` → `PaymentApproved` / `PaymentFailed` (solo en transiciones a `paid` o `failed`; no se envía para `pending` ni `refunded`).
+  - `RegisterController::store()` → `CustomerRegistered`
+- **Idempotencia:** los emails de pago se envían una sola vez porque `applyToOrder` retorna si la orden ya está en el estado destino (webhooks duplicados no regeneran la notificación).
+
+**Verificación (todo verde):**
+- `pint --dirty` ✓ · `tsc --noEmit` ✓ · `npm run build` ✓ · suite completa **234 passed, 4 skipped** (622 assertions). 7 tests nuevos (`TransactionalEmailsTest`).
+
+**Siguiente:** MVP 2 — Fase 16 (Invoices/facturas internas) u otra del roadmap.
 
 ---
 

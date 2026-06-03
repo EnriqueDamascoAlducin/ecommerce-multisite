@@ -4,7 +4,6 @@ use App\Models\Cart;
 use App\Models\CartItem;
 use App\Models\Customer;
 use App\Models\InventorySource;
-use App\Models\Product;
 use App\Models\Store;
 use App\Models\Website;
 use Illuminate\Support\Facades\Hash;

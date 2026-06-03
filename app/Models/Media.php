@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use Database\Factories\MediaFactory;
 use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -11,7 +12,7 @@ use Illuminate\Support\Facades\URL;
 
 class Media extends Model
 {
-    /** @use HasFactory<\Database\Factories\MediaFactory> */
+    /** @use HasFactory<MediaFactory> */
     use HasFactory;
 
     public const VISIBILITY_PUBLIC = 'public';

@@ -3,16 +3,17 @@
 namespace App\Models;
 
 use App\Models\Concerns\HasMedia;
+use Database\Factories\StoreFactory;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Store extends Model
 {
-    /** @use HasFactory<\Database\Factories\StoreFactory> */
+    /** @use HasFactory<StoreFactory> */
     use HasFactory, HasMedia;
 
     /** @var list<string> */

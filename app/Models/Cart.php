@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use Database\Factories\CartFactory;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -10,7 +11,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Cart extends Model
 {
-    /** @use HasFactory<\Database\Factories\CartFactory> */
+    /** @use HasFactory<CartFactory> */
     use HasFactory;
 
     public const STATUS_ACTIVE = 'active';

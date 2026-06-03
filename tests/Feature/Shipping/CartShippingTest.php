@@ -1,5 +1,6 @@
 <?php
 
+use App\Models\CartItem;
 use App\Models\InventorySource;
 use App\Models\ShippingMethod;
 use App\Models\Store;
@@ -71,7 +72,7 @@ test('a selected method is dropped when it stops being available', function () {
 
     // Restringimos el método a subtotales altos y bajamos la cantidad.
     StoreShippingMethod::where('shipping_method_id', $this->flat->id)->update(['min_subtotal' => 5000]);
-    $item = App\Models\CartItem::firstOrFail();
+    $item = CartItem::firstOrFail();
     $this->patch(route('cart.update', $item), ['quantity' => 1]); // subtotal 100
 
     $this->get(route('cart.index'))

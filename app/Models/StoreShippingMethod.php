@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use Database\Factories\StoreShippingMethodFactory;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -10,7 +11,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class StoreShippingMethod extends Model
 {
-    /** @use HasFactory<\Database\Factories\StoreShippingMethodFactory> */
+    /** @use HasFactory<StoreShippingMethodFactory> */
     use HasFactory;
 
     /** @var list<string> */

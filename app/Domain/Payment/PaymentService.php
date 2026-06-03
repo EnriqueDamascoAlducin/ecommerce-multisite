@@ -6,8 +6,11 @@ use App\Domain\Inventory\StockReservationService;
 use App\Models\Order;
 use App\Models\PaymentTransaction;
 use App\Models\PaymentWebhookEvent;
+use App\Notifications\PaymentApproved;
+use App\Notifications\PaymentFailed;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Notification;
 
 /**
  * Núcleo de pagos: inicia cobros a través de la pasarela elegida y procesa las
@@ -140,6 +143,12 @@ class PaymentService
         }
 
         $order->transitionTo($target, "Pago: {$status->value} ({$gateway}).");
+
+        if ($target === Order::STATUS_PAID) {
+            Notification::route('mail', $order->email)->notify(new PaymentApproved($order));
+        } elseif ($target === Order::STATUS_FAILED) {
+            Notification::route('mail', $order->email)->notify(new PaymentFailed($order));
+        }
 
         if ($status->releasesStock()) {
             $this->reservations->releaseByReference("order:{$order->id}");

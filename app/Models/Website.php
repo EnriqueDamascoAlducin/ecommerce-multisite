@@ -3,13 +3,14 @@
 namespace App\Models;
 
 use App\Models\Concerns\HasMedia;
+use Database\Factories\WebsiteFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Website extends Model
 {
-    /** @use HasFactory<\Database\Factories\WebsiteFactory> */
+    /** @use HasFactory<WebsiteFactory> */
     use HasFactory, HasMedia;
 
     /** @var list<string> */

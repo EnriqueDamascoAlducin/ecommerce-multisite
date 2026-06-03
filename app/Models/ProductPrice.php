@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use Database\Factories\ProductPriceFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -9,7 +10,7 @@ use Illuminate\Support\Carbon;
 
 class ProductPrice extends Model
 {
-    /** @use HasFactory<\Database\Factories\ProductPriceFactory> */
+    /** @use HasFactory<ProductPriceFactory> */
     use HasFactory;
 
     /** @var list<string> */

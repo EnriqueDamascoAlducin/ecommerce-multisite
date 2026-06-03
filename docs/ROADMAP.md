@@ -65,7 +65,7 @@ resources/js/pages/{admin,storefront}/...   (se mantiene la raíz pages/ del sta
 | 13 | Órdenes | Ciclo de vida + historial + snapshots. |
 | 14 | Core de pagos | `PaymentGatewayInterface`, transacciones, webhooks, idempotencia. |
 | 15 | Primera pasarela | **Mercado Pago** primero. Cierra el flujo de venta. |
-| 25* | Emails transaccionales (subset) | Orden creada, pago aprobado/fallido, registro. Resto en MVP2. |
+| 25* | Emails transaccionales (subset) ✅ | Orden creada, pago aprobado/fallido, registro. Resto en MVP2. |
 
 > **Mínimo de pago/envío en MVP1:** 1 método de envío (tarifa fija) + 1 pasarela (Mercado Pago).
 
@@ -82,7 +82,7 @@ Fase 7 robusto (movimientos/ajustes/historial) · 16 Invoices internas · 17 Shi
 > El detalle completo de cada fase (modelos, tablas, servicios, entregables) está en `PROJECT_CONTEXT.md`. Aquí solo el resumen ejecutable. Cada fase se planea en profundidad al iniciarla siguiendo el flujo:
 > subtareas → migraciones → modelos → relaciones → services/actions → controllers → requests/validaciones → policies/middleware → UI React → tests → seeders → docs → comandos → checklist manual.
 
-> Estado de ejecución detallado en [`PROGRESO.md`](./PROGRESO.md). Fases 1–15 ✅ terminadas.
+> Estado de ejecución detallado en [`PROGRESO.md`](./PROGRESO.md). Fases 1–15 ✅ y Fase 25* ✅ terminadas.
 
 ### Fase 1 — Base técnica ✅
 - MySQL en `.env`/`.env.example` + `config/database.php`.

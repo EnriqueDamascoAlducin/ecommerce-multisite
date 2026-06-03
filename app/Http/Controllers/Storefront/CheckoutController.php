@@ -11,8 +11,10 @@ use App\Domain\Payment\PaymentService;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Storefront\PlaceOrderRequest;
 use App\Models\Order;
+use App\Notifications\OrderCreated;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Notification;
 use Inertia\Inertia;
 use Inertia\Response;
 use Symfony\Component\HttpFoundation\Response as SymfonyResponse;
@@ -53,6 +55,8 @@ class CheckoutController extends Controller
 
         // Permite al invitado ver su orden recién creada.
         $request->session()->push(self::RECENT_ORDERS_KEY, $order->id);
+
+        Notification::route('mail', $order->email)->notify(new OrderCreated($order));
 
         // Inicia el cobro con la pasarela elegida. Si requiere checkout alojado
         // (p. ej. Mercado Pago), redirige al cliente fuera del sitio.

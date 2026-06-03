@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Notifications\CustomerResetPasswordNotification;
+use Database\Factories\CustomerFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
@@ -11,7 +12,7 @@ use Illuminate\Notifications\Notifiable;
 
 class Customer extends Authenticatable
 {
-    /** @use HasFactory<\Database\Factories\CustomerFactory> */
+    /** @use HasFactory<CustomerFactory> */
     use HasFactory, Notifiable;
 
     /** @var list<string> */
