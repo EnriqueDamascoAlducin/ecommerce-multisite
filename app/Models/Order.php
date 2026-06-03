@@ -162,6 +162,14 @@ class Order extends Model
         return $this->hasMany(Invoice::class);
     }
 
+    /**
+     * @return HasMany<Shipment, $this>
+     */
+    public function shipments(): HasMany
+    {
+        return $this->hasMany(Shipment::class);
+    }
+
     public function isCancellable(): bool
     {
         return ! in_array($this->status, self::NON_CANCELLABLE, true);

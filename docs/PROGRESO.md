@@ -1,7 +1,7 @@
 # Progreso del proyecto
 
 > Registro vivo de avance. Roadmap completo en [`ROADMAP.md`](./ROADMAP.md).
-> Última actualización: 2026-06-03 (Fase 16 cerrada).
+> Última actualización: 2026-06-03 (Fase 17 cerrada).
 
 ## Estado global
 
@@ -24,7 +24,8 @@
 | 15 — Primera pasarela (Mercado Pago) | 🟢 Terminada |
 | 25* — Emails transaccionales (subset MVP1) | 🟢 Terminada |
 | 16 — Invoices/facturas internas | 🟢 Terminada |
-| 17–29 | ⬜ Pendiente |
+| 17 — Shipments/envíos | 🟢 Terminada |
+| 18–29 | ⬜ Pendiente |
 
 Leyenda: ⬜ pendiente · 🟡 en curso · 🟢 terminada · 🔴 bloqueada
 
@@ -313,7 +314,29 @@ Leyenda: ⬜ pendiente · 🟡 en curso · 🟢 terminada · 🔴 bloqueada
 - `InvoiceNumberGenerator` sigue el patrón de `OrderNumberGenerator` (código de website + secuencia).
 - StoreInvoiceRequest simplificado: la validación de estado (`paid`/`processing` y no ya facturada) se hace en el controller.
 
-**Siguiente:** MVP 2 — Fase 17 (Shipments), Fase 18 (configurables), o la que se decida.
+**Siguiente:** MVP 2 — Fase 18 (Productos configurables) u otra.
+
+---
+
+### 2026-06-03 — Fase 17 cerrada (Shipments/envíos)
+
+**Hecho:**
+- **Migraciones + modelos:** `shipments` (número por website, estado pending/shipped/delivered/cancelled, carrier, tracking, total_qty, notas, fechas) e `shipment_items` (pivot con order_item_id + quantity). `Shipment::STATUSES` como constantes. Factory incluida.
+- **Servicios (`app/Domain/Sales`):** `ShipmentNumberGenerator` (patrón `{code}-ENV-{seq}`), `CreateShipmentAction` (transacción: crea envío+ítems, **consume reserva de stock** — baja físico y reservado, registra movimiento, transiciona la orden).
+- **Admin `ShipmentController`:** index con filtros + paginación, show con detalle e ítems, store (valida estado shippable), markShipped (guarda carrier/rastreo), markDelivered (transiciona a `complete` si todos entregados), cancel (solo pending).
+- **Permisos:** `sales.shipments.{view,create,edit,cancel}` seedeados en roles Ventas/Super Admin/Administrador.
+- **UI admin:** index con tabla de envíos (orden, estado, transportista, rastreo, qty, fecha), show con detalle de ítems + acciones contextuales (despachar con carrier/rastreo, marcar entregado, cancelar).
+- **Orden `show.tsx`:** tabla de envíos en la timeline, formulario de **generación parcial** (selector de cantidad por ítem, respeta ya enviado).
+- **Stock:** al crear envío, `consumeStockReservation` reduce `physical_qty` y `reserved_qty` y marca la reserva como `consumed` (parcial si aplica).
+- **10 tests** (`ShipmentManagementTest`): generación, duplicado bloqueado, parcial, consumo de stock, marcar enviado, marcar entregado+complete, cancelar, listado, vista, permisos.
+
+**Verificación (todo verde):**
+- `pint --dirty` ✓ · `types:check` (solo errores preexistentes) ✓ · `npm run build` ✓ · suite completa **252 passed, 4 skipped** (689 assertions). 10 tests nuevos.
+
+**Notas / decisiones:**
+- Envíos pueden ser **parciales** (múltiples envíos por orden). `ShipmentNumberGenerator` incremental por website.
+- Al marcar como entregado, si todos los envíos están entregados, la orden pasa a `complete`.
+- Carrier y tracking se capturan al despachar (no al crear el envío), permitiendo crear el envío y luego agregar datos de rastreo.
 
 ---
 

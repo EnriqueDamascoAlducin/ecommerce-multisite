@@ -10,6 +10,7 @@ use App\Http\Controllers\Admin\OrderController;
 use App\Http\Controllers\Admin\PermissionController;
 use App\Http\Controllers\Admin\ProductController;
 use App\Http\Controllers\Admin\RoleController;
+use App\Http\Controllers\Admin\ShipmentController;
 use App\Http\Controllers\Admin\ShippingMethodController;
 use App\Http\Controllers\Admin\StoreConfigurationController;
 use App\Http\Controllers\Admin\StoreController;
@@ -115,6 +116,16 @@ Route::middleware(['auth', 'verified'])->prefix('admin')->name('admin.')->group(
         Route::get('invoices/{invoice}', [InvoiceController::class, 'show'])->name('invoices.show');
         Route::post('invoices', [InvoiceController::class, 'store'])->middleware('permission:sales.invoices.create')->name('invoices.store');
         Route::post('invoices/{invoice}/cancel', [InvoiceController::class, 'cancel'])->middleware('permission:sales.invoices.cancel')->name('invoices.cancel');
+    });
+
+    // Ventas: envíos
+    Route::middleware('permission:sales.shipments.view')->group(function () {
+        Route::get('shipments', [ShipmentController::class, 'index'])->name('shipments.index');
+        Route::get('shipments/{shipment}', [ShipmentController::class, 'show'])->name('shipments.show');
+        Route::post('shipments', [ShipmentController::class, 'store'])->middleware('permission:sales.shipments.create')->name('shipments.store');
+        Route::post('shipments/{shipment}/ship', [ShipmentController::class, 'markShipped'])->middleware('permission:sales.shipments.edit')->name('shipments.ship');
+        Route::post('shipments/{shipment}/deliver', [ShipmentController::class, 'markDelivered'])->middleware('permission:sales.shipments.edit')->name('shipments.deliver');
+        Route::post('shipments/{shipment}/cancel', [ShipmentController::class, 'cancel'])->middleware('permission:sales.shipments.cancel')->name('shipments.cancel');
     });
 
     // Envíos: métodos globales + configuración por tienda

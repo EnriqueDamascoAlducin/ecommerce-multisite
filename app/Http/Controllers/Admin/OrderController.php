@@ -8,6 +8,7 @@ use App\Http\Requests\Admin\UpdateOrderStatusRequest;
 use App\Models\Order;
 use App\Models\OrderStatusHistory;
 use App\Models\PaymentTransaction;
+use App\Models\Shipment;
 use App\Services\AuditLogger;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -61,6 +62,18 @@ class OrderController extends Controller
         $canInvoice = in_array($order->status, [Order::STATUS_PAID, Order::STATUS_PROCESSING], true)
             && ! $order->invoices()->exists();
 
+        $canShip = in_array($order->status, [
+            Order::STATUS_PAID, Order::STATUS_PROCESSING, Order::STATUS_INVOICED, Order::STATUS_PARTIALLY_SHIPPED,
+        ], true) && $order->items()->where('quantity', '>', 0)->exists();
+
+        $order->load(['shipments' => fn ($q) => $q->with('items')]);
+
+        $shipmentItems = $order->shipments->pluck('items')->flatten()->groupBy('order_item_id')->map->sum('quantity');
+        $orderItemsMaxQty = $order->items->map(fn ($item) => [
+            'id' => $item->id,
+            'max_qty' => $item->quantity - ($shipmentItems->get($item->id) ?? 0),
+        ]);
+
         return Inertia::render('admin/orders/show', [
             'order' => [
                 ...$order->only(['id', 'number', 'status', 'email', 'currency', 'subtotal', 'discount', 'shipping_amount', 'tax', 'total', 'shipping_method_label', 'payment_method']),
@@ -68,9 +81,11 @@ class OrderController extends Controller
                 'placed_at' => $order->placed_at?->toDateTimeString(),
                 'is_cancellable' => $order->isCancellable(),
                 'can_invoice' => $canInvoice,
+                'can_ship' => $canShip,
+                'shipment_items_available' => $orderItemsMaxQty->filter(fn ($i) => $i['max_qty'] > 0)->values(),
                 'customer' => $order->customer?->only(['name', 'email']),
                 'items' => $order->items->map(fn ($item) => [
-                    'sku' => $item->sku,
+                    'id' => $item->id, 'sku' => $item->sku,
                     'name' => $item->name,
                     'quantity' => $item->quantity,
                     'unit_price' => (string) $item->unit_price,
@@ -84,6 +99,15 @@ class OrderController extends Controller
                     'comment' => $h->comment,
                     'user' => $h->user?->name,
                     'created_at' => $h->created_at?->toDateTimeString(),
+                ])->values(),
+                'shipments' => $order->shipments->map(fn (Shipment $s) => [
+                    'id' => $s->id,
+                    'number' => $s->number,
+                    'status' => $s->status,
+                    'carrier_label' => $s->carrier_label,
+                    'tracking_number' => $s->tracking_number,
+                    'total_qty' => $s->total_qty,
+                    'shipped_at' => $s->shipped_at?->toDateTimeString(),
                 ])->values(),
                 'transactions' => $order->transactions->map(fn (PaymentTransaction $t) => [
                     'gateway' => $t->gateway,

@@ -26,6 +26,7 @@ class RolesAndPermissionsSeeder extends Seeder
         'inventory' => ['view', 'adjust'],
         'sales.orders' => ['view', 'edit', 'cancel'],
         'sales.invoices' => ['view', 'create', 'cancel'],
+        'sales.shipments' => ['view', 'create', 'edit', 'cancel'],
         'settings' => ['payments', 'shipping', 'stores'],
     ];
 

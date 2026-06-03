@@ -2,10 +2,12 @@ import { Head, Link, router } from '@inertiajs/react';
 import { useState } from 'react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { usePermissions } from '@/hooks/use-permissions';
 import invoices from '@/routes/admin/invoices';
 import orders from '@/routes/admin/orders';
+import shipments from '@/routes/admin/shipments';
 import { statusLabel } from './status-labels';
 
 type Address = {
@@ -26,11 +28,14 @@ type OrderDetail = {
     placed_at: string | null;
     is_cancellable: boolean;
     can_invoice: boolean;
+    can_ship: boolean;
+    shipment_items_available: { id: number; max_qty: number }[];
     customer: { name: string; email: string } | null;
-    items: { sku: string; name: string; quantity: number; unit_price: string; line_total: string }[];
+    items: { id: number; sku: string; name: string; quantity: number; unit_price: string; line_total: string }[];
     shipping_address: Address;
     billing_address: Address;
     history: { from_status: string | null; to_status: string; comment: string | null; user: string | null; created_at: string | null }[];
+    shipments: { id: number; number: string; status: string; carrier_label: string | null; tracking_number: string | null; total_qty: number; shipped_at: string | null }[];
     transactions: { gateway: string; status: string; amount: string; currency: string; gateway_transaction_id: string | null; created_at: string | null }[];
 };
 
@@ -42,6 +47,9 @@ export default function OrderShow({ order, statuses }: { order: OrderDetail; sta
     const [status, setStatus] = useState(order.status);
     const [statusComment, setStatusComment] = useState('');
     const [comment, setComment] = useState('');
+    const [shipQty, setShipQty] = useState<Record<number, number>>(
+        Object.fromEntries(order.shipment_items_available.map((i) => [i.id, i.max_qty])),
+    );
 
     const updateStatus = () => {
         router.put(orders.status(order.id).url, { status, comment: statusComment }, { preserveScroll: true, onSuccess: () => setStatusComment('') });
@@ -56,6 +64,19 @@ export default function OrderShow({ order, statuses }: { order: OrderDetail; sta
         if (confirm('¿Cancelar esta orden y liberar el stock reservado?')) {
             router.post(orders.cancel(order.id).url, {}, { preserveScroll: true });
         }
+    };
+
+    const generateShipment = () => {
+        const items = order.items
+            .filter((i) => (shipQty[i.id] ?? 0) > 0)
+            .map((i) => ({ order_item_id: i.id, quantity: shipQty[i.id] }));
+
+        if (items.length === 0) {
+            alert('Selecciona al menos un producto con cantidad > 0.');
+            return;
+        }
+
+        router.post(shipments.store().url, { order_id: order.id, items }, { preserveScroll: true });
     };
 
     const fmtAddress = (a: Address) =>
@@ -135,6 +156,36 @@ export default function OrderShow({ order, statuses }: { order: OrderDetail; sta
                         </section>
                     )}
 
+                    {order.shipments.length > 0 && (
+                        <section className="overflow-hidden rounded-lg border border-neutral-200 dark:border-neutral-800">
+                            <h3 className="border-b border-neutral-200 px-4 py-2 font-medium dark:border-neutral-800">Envíos</h3>
+                            <table className="w-full text-left text-sm">
+                                <thead className="border-b border-neutral-200 text-neutral-500 dark:border-neutral-800">
+                                    <tr>
+                                        <th className="px-4 py-2 font-medium">Número</th>
+                                        <th className="px-4 py-2 font-medium">Estado</th>
+                                        <th className="px-4 py-2 font-medium">Transportista</th>
+                                        <th className="px-4 py-2 font-medium">Rastreo</th>
+                                        <th className="px-4 py-2 text-right font-medium">Qty</th>
+                                        <th className="px-4 py-2 font-medium">Fecha</th>
+                                    </tr>
+                                </thead>
+                                <tbody className="divide-y divide-neutral-100 dark:divide-neutral-800">
+                                    {order.shipments.map((s) => (
+                                        <tr key={s.id} className="hover:bg-neutral-50 dark:hover:bg-neutral-800/50">
+                                            <td className="px-4 py-2 font-mono text-xs"><Link href={shipments.show(s.id).url} className="font-medium hover:underline">{s.number}</Link></td>
+                                            <td className="px-4 py-2"><Badge variant="outline">{statusLabel(s.status)}</Badge></td>
+                                            <td className="px-4 py-2 text-xs text-neutral-500">{s.carrier_label ?? '—'}</td>
+                                            <td className="px-4 py-2 font-mono text-xs">{s.tracking_number ?? '—'}</td>
+                                            <td className="px-4 py-2 text-right">{s.total_qty}</td>
+                                            <td className="px-4 py-2 text-xs text-neutral-500">{s.shipped_at}</td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        </section>
+                    )}
+
                     <section>
                         <h3 className="mb-3 font-medium">Historial</h3>
                         <ol className="space-y-2">
@@ -186,6 +237,32 @@ export default function OrderShow({ order, statuses }: { order: OrderDetail; sta
                         <Button className="w-full" onClick={() => {
                             router.post(invoices.store().url, { order_id: order.id }, { preserveScroll: true });
                         }}>Generar factura</Button>
+                    )}
+
+                    {can('sales.shipments.create') && order.can_ship && (
+                        <div className="rounded-lg border border-neutral-200 p-4 dark:border-neutral-800">
+                            <h3 className="mb-2 text-sm font-medium">Generar envío</h3>
+                            <div className="grid gap-2">
+                                {order.shipment_items_available.map((item) => {
+                                    const orderItem = order.items.find((i) => i.id === item.id);
+                                    return (
+                                        <div key={item.id} className="flex items-center gap-2 text-sm">
+                                            <span className="flex-1 truncate">{orderItem?.name}</span>
+                                            <Input
+                                                type="number"
+                                                min={0}
+                                                max={item.max_qty}
+                                                value={shipQty[item.id] ?? 0}
+                                                onChange={(e) => setShipQty((prev) => ({ ...prev, [item.id]: Math.min(item.max_qty, Math.max(0, Number(e.target.value))) }))}
+                                                className="w-20 text-center"
+                                            />
+                                            <span className="w-6 text-right text-neutral-500">/{item.max_qty}</span>
+                                        </div>
+                                    );
+                                })}
+                                <Button size="sm" className="mt-1" onClick={generateShipment}>Crear envío</Button>
+                            </div>
+                        </div>
                     )}
 
                     {can('sales.orders.cancel') && order.is_cancellable && (
