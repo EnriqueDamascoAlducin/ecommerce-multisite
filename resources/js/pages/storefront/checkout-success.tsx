@@ -3,6 +3,11 @@ import { CheckCircle2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { formatPrice, useStoreUrls } from '@/lib/storefront';
 
+type AddressFields = {
+    first_name: string; last_name: string; line1: string; line2: string | null;
+    city: string; state: string; postal_code: string; country: string;
+};
+
 type OrderSummary = {
     number: string;
     status: string;
@@ -12,6 +17,7 @@ type OrderSummary = {
     subtotal: string;
     payment_method: string | null;
     items: { name: string; quantity: number; line_total: string }[];
+    shipping_address: AddressFields | null;
 };
 
 export default function CheckoutSuccess({ order }: { order: OrderSummary }) {
@@ -45,6 +51,18 @@ export default function CheckoutSuccess({ order }: { order: OrderSummary }) {
                     <div className="flex justify-between border-t border-neutral-100 pt-2 text-base font-semibold dark:border-neutral-800"><dt>Total</dt><dd>{formatPrice(order.total)}</dd></div>
                 </dl>
             </div>
+
+            {order.shipping_address && (
+                <div className="mx-auto mt-6 max-w-2xl rounded-lg border border-neutral-200 p-4 text-left dark:border-neutral-800">
+                    <h3 className="mb-2 text-sm font-medium text-neutral-500 uppercase tracking-wide">Dirección de envío</h3>
+                    <p className="text-sm">
+                        {order.shipping_address.first_name} {order.shipping_address.last_name}<br />
+                        {order.shipping_address.line1}
+                        {order.shipping_address.line2 && <><br />{order.shipping_address.line2}</>}<br />
+                        {order.shipping_address.city}, {order.shipping_address.state} {order.shipping_address.postal_code}
+                    </p>
+                </div>
+            )}
 
             <div className="mt-6 text-center">
                 <Button asChild>

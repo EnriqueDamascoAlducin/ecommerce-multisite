@@ -1,7 +1,7 @@
 # Progreso del proyecto
 
 > Registro vivo de avance. Roadmap completo en [`ROADMAP.md`](./ROADMAP.md).
-> Última actualización: 2026-06-03 (Fase 18 cerrada).
+> Última actualización: 2026-06-03 (Checkout multi-paso).
 
 ## Estado global
 
@@ -346,6 +346,28 @@ Leyenda: ⬜ pendiente · 🟡 en curso · 🟢 terminada · 🔴 bloqueada
 - [ ] (Opcional) `sudo apt install php8.3-sqlite3` en WSL para correr `php artisan test` con el default sqlite.
 - [ ] Al iniciar Fase 8: confirmar convención de carpetas frontend (`pages/admin` + `pages/storefront`, ya iniciada).
 - [ ] Precios de variantes: al editar un configurable se puede ajustar precio individual de cada variante.
+
+---
+
+### 2026-06-03 — Mejoras de checkout (multi-paso + direcciones guardadas + éxito con dirección)
+
+**Hecho:**
+- **Checkout multi-paso** en `checkout.tsx`: flujo dividido en 4 pasos con indicador de progreso:
+  - Paso 1: **Contacto** — email del comprador
+  - Paso 2: **Dirección de envío** — con selección de direcciones guardadas del cliente
+  - Paso 3: **Método de envío** — radio buttons con costo
+  - Paso 4: **Pago y revisión** — selector de pago, facturación (misma/diferente), resumen del pedido con dirección de envío, y botón "Realizar pedido"
+- **Navegación Atrás/Continuar** entre pasos con validación cliente-side antes de avanzar
+- **Selección de direcciones guardadas:** si el cliente tiene direcciones, se muestran como tarjetas seleccionables; al elegir una se auto-rellenan los campos del formulario; opción "+ Nueva dirección" para escribir una nueva
+- **Página de éxito (`checkout-success.tsx`):** ahora muestra la **dirección de envío** completa
+- **`orderSummary()` en `CheckoutController`:** incluye `shipping_address` (datos completos desde `shippingAddress` de la orden)
+- **3 tests nuevos** (CheckoutTest): direcciones de cliente en página checkout, facturación diferente del envío, dirección de envío en página de éxito
+- Notificación `OrderCreated` ya implementaba `ShouldQueue` (no requirió cambios)
+
+**Verificación (todo verde):**
+- `pint --format agent` ✓ · `types:check` (solo errores preexistentes) ✓ · `npm run build` ✓ · suite completa **265 passed, 4 skipped** (776 assertions).
+
+**Siguiente:** Siguiente fase del roadmap (MVP2).
 
 ---
 

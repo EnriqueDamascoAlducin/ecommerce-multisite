@@ -1,6 +1,8 @@
 <?php
 
 use App\Models\Cart;
+use App\Models\Customer;
+use App\Models\CustomerAddress;
 use App\Models\InventorySource;
 use App\Models\Order;
 use App\Models\ShippingMethod;
@@ -125,4 +127,73 @@ test('email is required to place an order', function () {
 
     $this->post(route('checkout.store'), checkoutPayload(['email' => '']))
         ->assertSessionHasErrors('email');
+});
+
+test('checkout page includes customer addresses for logged in customers', function () {
+    $customer = Customer::factory()->create(['website_id' => $this->website->id]);
+    CustomerAddress::factory()->create([
+        'customer_id' => $customer->id,
+        'first_name' => 'Luis',
+        'last_name' => 'Pérez',
+        'line1' => 'Av. Reforma 123',
+        'city' => 'CDMX',
+        'state' => 'CDMX',
+        'postal_code' => '06600',
+        'country' => 'MX',
+        'is_default_shipping' => true,
+    ]);
+
+    $product = sellableProduct($this->store, $this->source, 100);
+
+    $this->actingAs($customer, 'customer');
+    $this->post(route('cart.store'), ['product_id' => $product->id, 'quantity' => 1]);
+
+    $this->get(route('checkout.index'))
+        ->assertInertia(fn ($page) => $page
+            ->component('storefront/checkout')
+            ->has('addresses', 1)
+            ->has('customer')
+            ->where('customer.email', $customer->email)
+            ->where('addresses.0.first_name', 'Luis')
+        );
+});
+
+test('checkout with different billing address creates both addresses', function () {
+    $product = sellableProduct($this->store, $this->source, 200, stock: 10);
+    $this->post(route('cart.store'), ['product_id' => $product->id, 'quantity' => 1]);
+
+    $payload = checkoutPayload([
+        'billing_same' => '0',
+        'billing' => [
+            'first_name' => 'María',
+            'last_name' => 'García',
+            'line1' => 'Calle 456',
+            'city' => 'Monterrey',
+            'state' => 'NL',
+            'postal_code' => '64000',
+            'country' => 'MX',
+        ],
+    ]);
+
+    $this->post(route('checkout.store'), $payload)->assertRedirect();
+
+    $order = Order::firstOrFail();
+    expect($order->billingAddress->first_name)->toBe('María')
+        ->and($order->shippingAddress->first_name)->toBe('Ana');
+});
+
+test('success page includes shipping address', function () {
+    $product = sellableProduct($this->store, $this->source, 200, stock: 10);
+    $this->post(route('cart.store'), ['product_id' => $product->id, 'quantity' => 1]);
+
+    $this->post(route('checkout.store'), checkoutPayload());
+
+    $order = Order::firstOrFail();
+
+    $this->get(route('checkout.success', $order))
+        ->assertInertia(fn ($page) => $page
+            ->component('storefront/checkout-success')
+            ->where('order.shipping_address.first_name', 'Ana')
+            ->where('order.shipping_address.line1', 'Calle 123')
+        );
 });

@@ -123,7 +123,7 @@ class CheckoutController extends Controller
      */
     private function orderSummary(Order $order): array
     {
-        $order->load('items');
+        $order->load('items', 'shippingAddress');
 
         return [
             'number' => $order->number,
@@ -138,6 +138,9 @@ class CheckoutController extends Controller
                 'quantity' => $item->quantity,
                 'line_total' => (string) $item->line_total,
             ])->values(),
+            'shipping_address' => $order->shippingAddress?->only([
+                'first_name', 'last_name', 'line1', 'line2', 'city', 'state', 'postal_code', 'country',
+            ]),
         ];
     }
 }
