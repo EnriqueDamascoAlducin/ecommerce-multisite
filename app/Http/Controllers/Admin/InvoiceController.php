@@ -7,6 +7,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\Admin\StoreInvoiceRequest;
 use App\Models\Invoice;
 use App\Models\Order;
+use App\Services\AuditLogger;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
@@ -16,6 +17,7 @@ class InvoiceController extends Controller
 {
     public function __construct(
         private readonly GenerateInvoiceAction $generateInvoice,
+        private readonly AuditLogger $auditLogger,
     ) {}
 
     public function index(Request $request): Response
@@ -89,7 +91,9 @@ class InvoiceController extends Controller
             return back()->with('error', 'Solo se pueden facturar órdenes pagadas o en proceso.');
         }
 
-        $this->generateInvoice->execute($order);
+        $invoice = $this->generateInvoice->execute($order);
+
+        $this->auditLogger->log('invoice.created', $invoice, "Factura {$invoice->number} generada para la orden {$order->number}");
 
         return to_route('admin.orders.show', $order)->with('success', 'Factura generada.');
     }
@@ -105,6 +109,8 @@ class InvoiceController extends Controller
         $invoice->update(['status' => Invoice::STATUS_CANCELLED]);
 
         $order->transitionTo(Order::STATUS_PAID, "Factura {$invoice->number} cancelada.");
+
+        $this->auditLogger->log('invoice.cancelled', $invoice, "Factura {$invoice->number} cancelada");
 
         return back()->with('success', 'Factura cancelada.');
     }

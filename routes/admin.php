@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Admin\AttributeController;
+use App\Http\Controllers\Admin\AuditLogController;
 use App\Http\Controllers\Admin\CategoryController;
 use App\Http\Controllers\Admin\InventoryController;
 use App\Http\Controllers\Admin\InventorySourceController;
@@ -105,6 +106,11 @@ Route::middleware(['auth', 'verified'])->prefix('admin')->name('admin.')->group(
     // Reportes de ventas
     Route::middleware('permission:reports.view')->group(function () {
         Route::get('reports', [ReportController::class, 'index'])->name('reports.index');
+    });
+
+    // Auditoría (registro de acciones administrativas)
+    Route::middleware('permission:audit.view')->group(function () {
+        Route::get('audit', [AuditLogController::class, 'index'])->name('audit.index');
     });
 
     // Ventas: órdenes

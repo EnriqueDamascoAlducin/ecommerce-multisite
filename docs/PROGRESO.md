@@ -1,7 +1,7 @@
 # Progreso del proyecto
 
 > Registro vivo de avance. Roadmap completo en [`ROADMAP.md`](./ROADMAP.md).
-> Última actualización: 2026-06-03 (Fase 26 — Reportes básicos).
+> Última actualización: 2026-06-03 (Fase 27 — Logs/auditoría).
 
 ## Estado global
 
@@ -28,13 +28,23 @@
 | 18 — Productos configurables | 🟢 Terminada |
 | 21 — Segunda pasarela (Openpay) | 🟢 Terminada |
 | 26 — Reportes básicos | 🟢 Terminada |
-| 19, 20, 22–24, 27–29 | ⬜ Pendiente |
+| 27 — Logs/auditoría | 🟢 Terminada |
+| 19, 20, 22–24, 28–29 | ⬜ Pendiente |
 
 Leyenda: ⬜ pendiente · 🟡 en curso · 🟢 terminada · 🔴 bloqueada
 
 ---
 
 ## Bitácora
+
+### 2026-06-03 — Fase 27 cerrada (Logs/auditoría)
+
+**Hecho:**
+- **Visor de auditoría** `admin/audit` (`AuditLogController`): tabla paginada con filtros por **acción, usuario, texto en descripción y rango de fechas**. Muestra fecha, usuario (o «Sistema»), acción, descripción, objeto (`subject_type #id`) e IP. Bajo permiso **`audit.view`** (nuevo en el seeder; lo reciben Super Admin, Administrador y Solo lectura). Ítem "Auditoría" en el menú.
+- **Cobertura ampliada:** el `AuditLogger` ya estaba instrumentado en casi todos los controllers admin (users, roles, catálogo, inventario, stores, websites, envíos-config, órdenes…). Se añadió el logging que faltaba en los módulos nuevos: **Facturas** (`invoice.created`, `invoice.cancelled`) y **Envíos** (`shipment.created/shipped/delivered/cancelled`).
+- La auditoría sigue siendo *append-only* (sin edición/borrado desde la UI).
+
+**Verificación (todo verde):** `pint` ✓ · `tsc` ✓ · `build` ✓ · suite **281 passed, 4 skipped** (872 assertions). 4 tests nuevos.
 
 ### 2026-06-03 — Fase 26 cerrada (Reportes básicos)
 

@@ -7,6 +7,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\Admin\StoreShipmentRequest;
 use App\Models\Order;
 use App\Models\Shipment;
+use App\Services\AuditLogger;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
@@ -16,6 +17,7 @@ class ShipmentController extends Controller
 {
     public function __construct(
         private readonly CreateShipmentAction $createShipment,
+        private readonly AuditLogger $auditLogger,
     ) {}
 
     public function index(Request $request): Response
@@ -90,7 +92,9 @@ class ShipmentController extends Controller
 
         $items = $request->validated('items');
 
-        $this->createShipment->execute($order, $items);
+        $shipment = $this->createShipment->execute($order, $items);
+
+        $this->auditLogger->log('shipment.created', $shipment, "Envío {$shipment->number} creado para la orden {$order->number}");
 
         return to_route('admin.orders.show', $order)->with('success', 'Envío registrado.');
     }
@@ -118,6 +122,8 @@ class ShipmentController extends Controller
         $order = $shipment->order;
         $order->transitionTo(Order::STATUS_SHIPPED, "Envío {$shipment->number} despachado.");
 
+        $this->auditLogger->log('shipment.shipped', $shipment, "Envío {$shipment->number} despachado");
+
         return back()->with('success', 'Envío marcado como enviado.');
     }
 
@@ -142,6 +148,8 @@ class ShipmentController extends Controller
             $order->transitionTo(Order::STATUS_COMPLETE, 'Envío completado y entregado.');
         }
 
+        $this->auditLogger->log('shipment.delivered', $shipment, "Envío {$shipment->number} entregado");
+
         return back()->with('success', 'Envío marcado como entregado.');
     }
 
@@ -155,6 +163,8 @@ class ShipmentController extends Controller
 
         $order = $shipment->order;
         $order->transitionTo($order->status, "Envío {$shipment->number} cancelado.");
+
+        $this->auditLogger->log('shipment.cancelled', $shipment, "Envío {$shipment->number} cancelado");
 
         return back()->with('success', 'Envío cancelado.');
     }

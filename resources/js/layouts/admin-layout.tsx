@@ -10,6 +10,7 @@ import {
     Package,
     PackageCheck,
     Receipt,
+    ScrollText,
     Settings,
     ShieldCheck,
     Store,
@@ -26,6 +27,7 @@ import { useCurrentUrl } from '@/hooks/use-current-url';
 import { usePermissions } from '@/hooks/use-permissions';
 import { cn } from '@/lib/utils';
 import { dashboard } from '@/routes/admin';
+import audit from '@/routes/admin/audit';
 import attributes from '@/routes/admin/attributes';
 import categories from '@/routes/admin/categories';
 import configuration from '@/routes/admin/configuration';
@@ -71,6 +73,7 @@ const navItems: AdminNavItem[] = [
     { title: 'Websites', href: websites.index(), icon: Globe, permission: 'settings.stores' },
     { title: 'Tiendas', href: stores.index(), icon: Store, permission: 'settings.stores' },
     { title: 'Configuración', href: configuration.index(), icon: Settings, permission: 'settings.stores' },
+    { title: 'Auditoría', href: audit.index(), icon: ScrollText, permission: 'audit.view' },
 ];
 
 export default function AdminLayout({
