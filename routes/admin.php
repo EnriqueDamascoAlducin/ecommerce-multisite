@@ -9,6 +9,7 @@ use App\Http\Controllers\Admin\MediaController;
 use App\Http\Controllers\Admin\OrderController;
 use App\Http\Controllers\Admin\PermissionController;
 use App\Http\Controllers\Admin\ProductController;
+use App\Http\Controllers\Admin\ReportController;
 use App\Http\Controllers\Admin\RoleController;
 use App\Http\Controllers\Admin\ShipmentController;
 use App\Http\Controllers\Admin\ShippingMethodController;
@@ -99,6 +100,11 @@ Route::middleware(['auth', 'verified'])->prefix('admin')->name('admin.')->group(
         Route::get('inventory', [InventoryController::class, 'index'])->name('inventory.index');
         Route::get('inventory/{product}', [InventoryController::class, 'edit'])->name('inventory.edit');
         Route::put('inventory/{product}', [InventoryController::class, 'update'])->middleware('permission:inventory.adjust')->name('inventory.update');
+    });
+
+    // Reportes de ventas
+    Route::middleware('permission:reports.view')->group(function () {
+        Route::get('reports', [ReportController::class, 'index'])->name('reports.index');
     });
 
     // Ventas: órdenes

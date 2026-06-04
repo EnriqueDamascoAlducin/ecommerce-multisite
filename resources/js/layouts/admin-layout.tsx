@@ -1,5 +1,6 @@
 import { Link, router, usePage } from '@inertiajs/react';
 import {
+    BarChart3,
     FileText,
     FolderTree,
     Globe,
@@ -36,6 +37,7 @@ import adminOrders from '@/routes/admin/orders';
 import shipments from '@/routes/admin/shipments';
 import permissions from '@/routes/admin/permissions';
 import products from '@/routes/admin/products';
+import reports from '@/routes/admin/reports';
 import roles from '@/routes/admin/roles';
 import { update as updateScope } from '@/routes/admin/scope';
 import shipping from '@/routes/admin/shipping';
@@ -52,6 +54,7 @@ type AdminNavItem = {
 
 const navItems: AdminNavItem[] = [
     { title: 'Dashboard', href: dashboard(), icon: LayoutDashboard },
+    { title: 'Reportes', href: reports.index(), icon: BarChart3, permission: 'reports.view' },
     { title: 'Usuarios', href: users.index(), icon: Users, permission: 'admin.users.view' },
     { title: 'Roles', href: roles.index(), icon: ShieldCheck, permission: 'admin.roles.view' },
     { title: 'Permisos', href: permissions.index(), icon: KeyRound, permission: 'admin.roles.view' },

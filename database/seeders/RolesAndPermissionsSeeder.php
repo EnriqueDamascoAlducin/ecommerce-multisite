@@ -27,6 +27,7 @@ class RolesAndPermissionsSeeder extends Seeder
         'sales.orders' => ['view', 'edit', 'cancel'],
         'sales.invoices' => ['view', 'create', 'cancel'],
         'sales.shipments' => ['view', 'create', 'edit', 'cancel'],
+        'reports' => ['view'],
         'settings' => ['payments', 'shipping', 'stores'],
     ];
 
@@ -41,9 +42,9 @@ class RolesAndPermissionsSeeder extends Seeder
             'Administrador' => $this->reject($permissions, fn (string $p) => str_starts_with($p, 'admin.roles.')),
             'Catálogo' => $this->filter($permissions, fn (string $p) => str_starts_with($p, 'catalog.') || str_starts_with($p, 'media.') || $p === 'inventory.view'),
             'Inventario' => $this->filter($permissions, fn (string $p) => str_starts_with($p, 'inventory.')),
-            'Ventas' => $this->filter($permissions, fn (string $p) => str_starts_with($p, 'sales.')),
+            'Ventas' => $this->filter($permissions, fn (string $p) => str_starts_with($p, 'sales.') || $p === 'reports.view'),
             'Marketing' => ['catalog.products.view', 'media.view', 'media.upload'],
-            'Soporte' => ['sales.orders.view', 'admin.users.view'],
+            'Soporte' => ['sales.orders.view', 'admin.users.view', 'reports.view'],
             'Solo lectura' => $this->filter($permissions, fn (string $p) => str_ends_with($p, '.view')),
         ];
 

@@ -1,7 +1,7 @@
 # Progreso del proyecto
 
 > Registro vivo de avance. Roadmap completo en [`ROADMAP.md`](./ROADMAP.md).
-> Última actualización: 2026-06-03 (Fase 21 — Openpay).
+> Última actualización: 2026-06-03 (Fase 26 — Reportes básicos).
 
 ## Estado global
 
@@ -27,13 +27,24 @@
 | 17 — Shipments/envíos | 🟢 Terminada |
 | 18 — Productos configurables | 🟢 Terminada |
 | 21 — Segunda pasarela (Openpay) | 🟢 Terminada |
-| 19, 20, 22–24, 26–29 | ⬜ Pendiente |
+| 26 — Reportes básicos | 🟢 Terminada |
+| 19, 20, 22–24, 27–29 | ⬜ Pendiente |
 
 Leyenda: ⬜ pendiente · 🟡 en curso · 🟢 terminada · 🔴 bloqueada
 
 ---
 
 ## Bitácora
+
+### 2026-06-03 — Fase 26 cerrada (Reportes básicos)
+
+**Hecho:**
+- **`ReportService`** (`app/Domain/Sales`): agrega métricas de ventas acotadas por rango de fechas (`placed_at`) y, opcionalmente, por tienda. KPIs (`summary`), `revenueByDay`, `ordersByStatus`, `topProducts` (por SKU) y `byStore`. El ingreso sólo cuenta estados confirmados (`paid`, `invoiced`, `partially_shipped`, `shipped`, `complete`).
+- **`ReportController` + ruta** `admin/reports` bajo permiso **`reports.view`** (nuevo en el seeder; asignado a Super Admin, Administrador, Ventas, Soporte y Solo lectura). Rango por defecto: últimos 30 días.
+- **UI** `admin/reports/index.tsx`: tarjetas de KPI, **gráfica de ingresos por día** (barras en CSS, sin dependencias nuevas), tablas de top productos / por tienda / por estado, y filtros (desde, hasta, tienda). Ítem "Reportes" en el menú admin.
+- **Tests** (`ReportsTest`): suma de ingresos/unidades sólo de órdenes confirmadas, agregación de top productos por SKU, filtro por tienda, exclusión por rango de fechas y bloqueo por permisos.
+
+**Verificación (todo verde):** `pint` ✓ · `tsc` ✓ · `build` ✓ · suite **277 passed, 4 skipped** (847 assertions). 5 tests nuevos.
 
 ### 2026-06-03 — Fase 21 cerrada (Openpay — segunda pasarela)
 
