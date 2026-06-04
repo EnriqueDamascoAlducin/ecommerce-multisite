@@ -34,6 +34,20 @@ Leyenda: ⬜ pendiente · 🟡 en curso · 🟢 terminada · 🔴 bloqueada
 
 ## Bitácora
 
+### 2026-06-03 — Revisión post-OpenCode: fixes + seeder de productos
+
+**Revisado el avance de OpenCode (Fases 16, 17, 18, 25 + checkout multi-paso). Hallazgos y correcciones:**
+- **fix tsc:** 3 errores de tipos en `product.tsx` (introducidos por Fase 18, reportados como "preexistentes" sin serlo). Corregido ampliando `formatPrice` a `string|number|null`.
+- **fix nav admin:** las páginas/rutas de Facturas y Envíos (shipments) existían pero no estaban en el sidebar. Agregadas; el item de métodos se renombró a "Métodos de envío".
+- **fix configurables (2 bugs reales en la creación):**
+  1. El **nombre de variante** sólo tomaba la última opción (multi-atributo): una variante color+talla quedaba como "Playera M" en vez de "Playera Rojo M". `ConfigurableProductService::generateVariants` ahora acumula todas las etiquetas.
+  2. El **precio de configurables en el índice admin** se calculaba con `storeId = 0` → siempre null. Nuevo `lowestVariantBasePrice()` (sin scope de tienda) usado en `ProductController::index`.
+- **Seeder de productos** (`ProductSeeder`, registrado en `DatabaseSeeder`): productos simples (iPhone, Sony, balón, croquetas) y **configurables** (Playera color+talla = 20 variantes; Gorra color = 5), todos con precio base, tiendas activas y stock; las variantes reciben stock individual. Idempotente por SKU.
+
+**Verificación (todo verde):** `pint` ✓ · `tsc` ✓ (ya limpio) · `build` ✓ · suite **265 passed, 4 skipped** · `db:seed` corre y genera las variantes con nombres correctos.
+
+**Pendiente real de MVP2:** 21 (Openpay), 24 (APIs básicas), 26 (Reportes), 27 (Logs/auditoría ampliada). Las fases 19 (Bundles) y 20 (Descargables) son MVP3.
+
 ### 2026-06-03 — Fases 14 y 15 cerradas (Core de pagos + Mercado Pago)
 
 **Fase 14 — Core de pagos (agnóstico de pasarela):**

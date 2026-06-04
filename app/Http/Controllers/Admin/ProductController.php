@@ -54,7 +54,7 @@ class ProductController extends Controller
                 'name' => $product->name,
                 'status' => $product->status,
                 'price' => $product->isConfigurable()
-                    ? $this->configurable->priceForConfigurable($product, 0)['effective_price'] ?? null
+                    ? $this->configurable->lowestVariantBasePrice($product)
                     : $this->pricing->priceFor($product)['effective_price'],
                 'thumbnail' => $product->primaryMedia('gallery')?->url,
             ]);

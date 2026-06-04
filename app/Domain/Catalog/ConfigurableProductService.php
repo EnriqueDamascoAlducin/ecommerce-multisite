@@ -35,7 +35,7 @@ class ConfigurableProductService
 
         foreach ($combinations as $combination) {
             $variantSkus = [];
-            $variantName = $product->name;
+            $variantLabels = [];
             $variantKeyParts = [];
 
             foreach ($combination as $option) {
@@ -43,13 +43,19 @@ class ConfigurableProductService
                     continue;
                 }
                 $variantSkus[] = Str::upper(Str::slug($option->value, '_'));
-                $variantName = $product->name.' '.$option->label;
+                $variantLabels[] = $option->label;
 
                 $attr = $attributes->firstWhere('id', $option->attribute_id);
                 if ($attr) {
                     $variantKeyParts[] = "{$attr->code}:{$option->value}";
                 }
             }
+
+            // El nombre acumula todas las etiquetas (p. ej. "Playera Rojo M"),
+            // no solo la última opción.
+            $variantName = $variantLabels === []
+                ? $product->name
+                : $product->name.' '.implode(' ', $variantLabels);
 
             $variantSku = $product->sku.'-'.implode('-', $variantSkus);
             $variantKey = implode('|', $variantKeyParts);
@@ -151,6 +157,23 @@ class ConfigurableProductService
             'special_price' => $priceRow->special_price ? (float) $priceRow->special_price : null,
             'is_special' => $priceRow->isSpecialActive(),
         ];
+    }
+
+    /**
+     * Precio efectivo más bajo entre las variantes activas, sin scope de tienda
+     * (para listados administrativos). Cae al precio base del padre si no hay variantes.
+     */
+    public function lowestVariantBasePrice(Product $product): float|string|null
+    {
+        $cheapest = $product->variants()
+            ->where('status', Product::STATUS_ACTIVE)
+            ->with(['prices' => fn ($q) => $q->whereNull('store_id')])
+            ->get()
+            ->flatMap->prices
+            ->sortBy('price')
+            ->first();
+
+        return $cheapest?->effectivePrice() ?? $product->basePrice()?->price;
     }
 
     /**
