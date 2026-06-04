@@ -1,11 +1,13 @@
 import { Link, router, usePage } from '@inertiajs/react';
 import {
+    FileText,
     FolderTree,
     Globe,
     Image,
     KeyRound,
     LayoutDashboard,
     Package,
+    PackageCheck,
     Receipt,
     Settings,
     ShieldCheck,
@@ -28,8 +30,10 @@ import categories from '@/routes/admin/categories';
 import configuration from '@/routes/admin/configuration';
 import inventory from '@/routes/admin/inventory';
 import inventorySources from '@/routes/admin/inventory-sources';
+import invoices from '@/routes/admin/invoices';
 import media from '@/routes/admin/media';
 import adminOrders from '@/routes/admin/orders';
+import shipments from '@/routes/admin/shipments';
 import permissions from '@/routes/admin/permissions';
 import products from '@/routes/admin/products';
 import roles from '@/routes/admin/roles';
@@ -56,8 +60,10 @@ const navItems: AdminNavItem[] = [
     { title: 'Atributos', href: attributes.index(), icon: Tags, permission: 'catalog.attributes.view' },
     { title: 'Inventario', href: inventory.index(), icon: Boxes, permission: 'inventory.view' },
     { title: 'Almacenes', href: inventorySources.index(), icon: Warehouse, permission: 'inventory.view' },
-    { title: 'Envíos', href: shipping.index(), icon: Truck, permission: 'settings.shipping' },
     { title: 'Órdenes', href: adminOrders.index(), icon: Receipt, permission: 'sales.orders.view' },
+    { title: 'Facturas', href: invoices.index(), icon: FileText, permission: 'sales.invoices.view' },
+    { title: 'Envíos', href: shipments.index(), icon: PackageCheck, permission: 'sales.shipments.view' },
+    { title: 'Métodos de envío', href: shipping.index(), icon: Truck, permission: 'settings.shipping' },
     { title: 'Medios', href: media.index(), icon: Image, permission: 'media.view' },
     { title: 'Websites', href: websites.index(), icon: Globe, permission: 'settings.stores' },
     { title: 'Tiendas', href: stores.index(), icon: Store, permission: 'settings.stores' },

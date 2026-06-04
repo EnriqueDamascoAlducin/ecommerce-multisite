@@ -13,7 +13,7 @@ export type Price = {
 
 const formatter = new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' });
 
-export function formatPrice(value: string | null): string {
+export function formatPrice(value: string | number | null): string {
     if (value === null || value === '') {
         return '—';
     }
