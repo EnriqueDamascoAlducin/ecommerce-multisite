@@ -12,6 +12,7 @@ import {
     Receipt,
     ScrollText,
     Settings,
+    Ticket,
     ShieldCheck,
     Store,
     Tags,
@@ -39,6 +40,7 @@ import adminOrders from '@/routes/admin/orders';
 import shipments from '@/routes/admin/shipments';
 import permissions from '@/routes/admin/permissions';
 import products from '@/routes/admin/products';
+import promotions from '@/routes/admin/promotions';
 import reports from '@/routes/admin/reports';
 import roles from '@/routes/admin/roles';
 import { update as updateScope } from '@/routes/admin/scope';
@@ -69,6 +71,7 @@ const navItems: AdminNavItem[] = [
     { title: 'Facturas', href: invoices.index(), icon: FileText, permission: 'sales.invoices.view' },
     { title: 'Envíos', href: shipments.index(), icon: PackageCheck, permission: 'sales.shipments.view' },
     { title: 'Métodos de envío', href: shipping.index(), icon: Truck, permission: 'settings.shipping' },
+    { title: 'Promociones', href: promotions.index(), icon: Ticket, permission: 'promotions.view' },
     { title: 'Medios', href: media.index(), icon: Image, permission: 'media.view' },
     { title: 'Websites', href: websites.index(), icon: Globe, permission: 'settings.stores' },
     { title: 'Tiendas', href: stores.index(), icon: Store, permission: 'settings.stores' },

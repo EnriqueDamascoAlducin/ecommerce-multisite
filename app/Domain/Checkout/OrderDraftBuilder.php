@@ -36,6 +36,7 @@ class OrderDraftBuilder
             'total' => $totals['total'],
             'shipping_method_code' => $cart->shipping_method_code,
             'shipping_method_label' => $data['shipping_method_label'] ?? null,
+            'coupon_code' => $cart->coupon_code,
             'payment_method' => $data['payment_method'],
             'placed_at' => now(),
         ];

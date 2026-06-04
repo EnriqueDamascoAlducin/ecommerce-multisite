@@ -15,4 +15,14 @@ class CartException extends RuntimeException
     {
         return new self('El método de envío seleccionado no está disponible.');
     }
+
+    public static function invalidCoupon(): self
+    {
+        return new self('El cupón no es válido o ya expiró.');
+    }
+
+    public static function couponMinimumNotMet(string $minimum): self
+    {
+        return new self("Este cupón requiere un subtotal mínimo de \${$minimum}.");
+    }
 }

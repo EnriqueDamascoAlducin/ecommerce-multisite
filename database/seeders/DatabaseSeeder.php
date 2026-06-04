@@ -21,6 +21,7 @@ class DatabaseSeeder extends Seeder
             CatalogSeeder::class,
             InventorySeeder::class,
             ProductSeeder::class,
+            PromotionSeeder::class,
             ShippingSeeder::class,
             CustomerSeeder::class,
         ]);

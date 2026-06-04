@@ -1,7 +1,9 @@
 import { Head, Link, router } from '@inertiajs/react';
-import { ImageIcon } from 'lucide-react';
+import { ImageIcon, X } from 'lucide-react';
+import { useState } from 'react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import { formatPrice, useStoreUrls } from '@/lib/storefront';
 
 type CartItemRow = {
@@ -31,13 +33,25 @@ export default function StorefrontCart({
     totals,
     shippingOptions,
     selectedShipping,
+    coupon,
 }: {
     items: CartItemRow[];
     totals: Totals;
     shippingOptions: ShippingOption[];
     selectedShipping: string | null;
+    coupon: string | null;
 }) {
     const urls = useStoreUrls();
+    const [code, setCode] = useState('');
+
+    const applyCoupon = () => {
+        if (!code.trim()) return;
+        router.post('/carrito/cupon', { code }, { preserveScroll: true, onSuccess: () => setCode('') });
+    };
+
+    const removeCoupon = () => {
+        router.delete('/carrito/cupon', { preserveScroll: true });
+    };
 
     const setQuantity = (item: CartItemRow, quantity: number) => {
         router.patch(`/carrito/${item.id}`, { quantity }, { preserveScroll: true });
@@ -136,11 +150,40 @@ export default function StorefrontCart({
                             </div>
                         )}
 
+                        <div className="mb-4 border-b border-neutral-100 pb-4 dark:border-neutral-800">
+                            <p className="mb-2 text-sm font-medium">Cupón</p>
+                            {coupon ? (
+                                <div className="flex items-center justify-between rounded-md border border-green-200 bg-green-50 px-3 py-2 text-sm dark:border-green-900 dark:bg-green-950/40">
+                                    <span className="font-mono font-medium text-green-700 dark:text-green-400">{coupon}</span>
+                                    <button type="button" onClick={removeCoupon} className="text-neutral-400 hover:text-red-600" aria-label="Quitar cupón">
+                                        <X className="size-4" />
+                                    </button>
+                                </div>
+                            ) : (
+                                <div className="flex gap-2">
+                                    <Input
+                                        value={code}
+                                        onChange={(e) => setCode(e.target.value)}
+                                        onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), applyCoupon())}
+                                        placeholder="Código"
+                                        className="h-9"
+                                    />
+                                    <Button type="button" variant="outline" size="sm" onClick={applyCoupon}>Aplicar</Button>
+                                </div>
+                            )}
+                        </div>
+
                         <dl className="space-y-2 text-sm">
                             <div className="flex justify-between">
                                 <dt className="text-neutral-500">Subtotal ({totals.items_count})</dt>
                                 <dd>{formatPrice(totals.subtotal)}</dd>
                             </div>
+                            {Number(totals.discount) > 0 && (
+                                <div className="flex justify-between text-green-700 dark:text-green-400">
+                                    <dt>Descuento</dt>
+                                    <dd>−{formatPrice(totals.discount)}</dd>
+                                </div>
+                            )}
                             <div className="flex justify-between">
                                 <dt className="text-neutral-500">Envío</dt>
                                 <dd>{Number(totals.shipping) === 0 ? '—' : formatPrice(totals.shipping)}</dd>

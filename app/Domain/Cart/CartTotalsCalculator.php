@@ -2,16 +2,20 @@
 
 namespace App\Domain\Cart;
 
+use App\Domain\Promotion\CartRuleEvaluator;
 use App\Domain\Shipping\ShippingService;
 use App\Models\Cart;
 
 /**
- * Calcula los totales del carrito en el backend (fuente de verdad).
- * Los descuentos quedan en 0 hasta la fase de cupones/reglas.
+ * Calcula los totales del carrito en el backend (fuente de verdad), aplicando
+ * las reglas de carrito/cupones (descuento y envío gratis).
  */
 class CartTotalsCalculator
 {
-    public function __construct(private readonly ShippingService $shipping) {}
+    public function __construct(
+        private readonly ShippingService $shipping,
+        private readonly CartRuleEvaluator $rules,
+    ) {}
 
     /**
      * @return array{items_count: int, subtotal: string, discount: string, shipping: string, total: string}
@@ -25,15 +29,16 @@ class CartTotalsCalculator
             0.0,
         );
 
-        $discount = 0.0; // cupones / reglas de carrito: fases futuras.
-        $shipping = (float) $this->shipping->amountForCart($cart);
+        $promotion = $this->rules->evaluate($cart, $subtotal);
+        $discount = $promotion['discount'];
+        $shipping = $promotion['free_shipping'] ? 0.0 : (float) $this->shipping->amountForCart($cart);
 
         return [
             'items_count' => (int) $items->sum('quantity'),
             'subtotal' => $this->money($subtotal),
             'discount' => $this->money($discount),
             'shipping' => $this->money($shipping),
-            'total' => $this->money($subtotal - $discount + $shipping),
+            'total' => $this->money(max(0.0, $subtotal - $discount + $shipping)),
         ];
     }
 

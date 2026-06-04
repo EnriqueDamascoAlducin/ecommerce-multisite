@@ -1,7 +1,7 @@
 # Progreso del proyecto
 
 > Registro vivo de avance. Roadmap completo en [`ROADMAP.md`](./ROADMAP.md).
-> Última actualización: 2026-06-03 (Fase 24 — APIs básicas).
+> Última actualización: 2026-06-03 (Fase 22 — Cupones y reglas de carrito).
 
 ## Estado global
 
@@ -30,13 +30,26 @@
 | 26 — Reportes básicos | 🟢 Terminada |
 | 27 — Logs/auditoría | 🟢 Terminada |
 | 24 — APIs básicas | 🟢 Terminada |
-| 19, 20, 22, 23, 28, 29 | ⬜ Pendiente |
+| 22 — Cupones y reglas de carrito | 🟢 Terminada |
+| 19, 20, 23, 28, 29 | ⬜ Pendiente |
 
 Leyenda: ⬜ pendiente · 🟡 en curso · 🟢 terminada · 🔴 bloqueada
 
 ---
 
 ## Bitácora
+
+### 2026-06-03 — Fase 22 cerrada (Cupones y reglas de carrito)
+
+**Hecho:**
+- **Modelo `CartPriceRule`** + migración `cart_price_rules` (website nullable, `coupon_code` nullable = regla automática, `action` percent/fixed/free_shipping, `value`, `min_subtotal`, ventana `starts_at`/`ends_at`, `is_active`, `usage_limit`/`times_used`). Columna `coupon_code` añadida a `carts` y `orders`.
+- **`app/Domain/Promotion/CartRuleEvaluator`**: evalúa reglas automáticas + la del cupón aplicado (por sitio, vigencia, usos y subtotal mínimo); devuelve descuento total y envío gratis.
+- **Totales:** `CartTotalsCalculator` ahora aplica descuento y envío gratis (misma forma de retorno). `CartService::applyCoupon/removeCoupon` con validación (inválido/expirado/mínimo). El checkout guarda `coupon_code` en la orden y `PlaceOrderAction` incrementa `times_used`.
+- **Storefront:** input de cupón + línea de descuento en el carrito (y descuento en el checkout). Rutas `cart.coupon.apply/remove`.
+- **Admin:** CRUD de reglas en `admin/promotions` bajo permiso **`promotions.*`** (nuevo en el seeder; lo recibe Marketing además de Super Admin/Administrador). Ítem "Promociones" en el menú. Auditoría de create/update/delete.
+- **Seeder `PromotionSeeder`:** cupón demo `BIENVENIDA10` (10%) + regla automática de envío gratis sobre $1500.
+
+**Verificación (todo verde):** `pint` ✓ · `tsc` ✓ · `build` ✓ · suite **305 passed, 4 skipped** (971 assertions). 14 tests nuevos (`CouponTest` + `PromotionManagementTest`).
 
 ### 2026-06-03 — Fase 24 cerrada (APIs básicas)
 

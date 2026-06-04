@@ -10,6 +10,7 @@ use App\Http\Controllers\Admin\MediaController;
 use App\Http\Controllers\Admin\OrderController;
 use App\Http\Controllers\Admin\PermissionController;
 use App\Http\Controllers\Admin\ProductController;
+use App\Http\Controllers\Admin\PromotionController;
 use App\Http\Controllers\Admin\ReportController;
 use App\Http\Controllers\Admin\RoleController;
 use App\Http\Controllers\Admin\ShipmentController;
@@ -106,6 +107,16 @@ Route::middleware(['auth', 'verified'])->prefix('admin')->name('admin.')->group(
     // Reportes de ventas
     Route::middleware('permission:reports.view')->group(function () {
         Route::get('reports', [ReportController::class, 'index'])->name('reports.index');
+    });
+
+    // Promociones: reglas de carrito y cupones
+    Route::middleware('permission:promotions.view')->group(function () {
+        Route::get('promotions', [PromotionController::class, 'index'])->name('promotions.index');
+        Route::get('promotions/create', [PromotionController::class, 'create'])->middleware('permission:promotions.create')->name('promotions.create');
+        Route::post('promotions', [PromotionController::class, 'store'])->middleware('permission:promotions.create')->name('promotions.store');
+        Route::get('promotions/{cartPriceRule}/edit', [PromotionController::class, 'edit'])->middleware('permission:promotions.edit')->name('promotions.edit');
+        Route::put('promotions/{cartPriceRule}', [PromotionController::class, 'update'])->middleware('permission:promotions.edit')->name('promotions.update');
+        Route::delete('promotions/{cartPriceRule}', [PromotionController::class, 'destroy'])->middleware('permission:promotions.delete')->name('promotions.destroy');
     });
 
     // Auditoría (registro de acciones administrativas)

@@ -23,7 +23,7 @@ class Cart extends Model
     /** @var list<string> */
     protected $fillable = [
         'store_id', 'customer_id', 'session_token', 'status', 'currency',
-        'shipping_method_code', 'expires_at',
+        'shipping_method_code', 'coupon_code', 'expires_at',
     ];
 
     /**

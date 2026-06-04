@@ -10,9 +10,11 @@ use App\Domain\Store\ScopedConfigService;
 use App\Domain\Store\StoreContext;
 use App\Models\Cart;
 use App\Models\CartItem;
+use App\Models\CartPriceRule;
 use App\Models\Customer;
 use App\Models\Product;
 use App\Models\Store;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Str;
 
 /**
@@ -77,6 +79,46 @@ class CartService
         }
 
         $cart->update(['shipping_method_code' => $code]);
+    }
+
+    /**
+     * Aplica un cupón al carrito tras validar que la regla existe, está vigente
+     * y el subtotal cumple el mínimo.
+     */
+    public function applyCoupon(string $code): void
+    {
+        $cart = $this->current();
+        $cart->loadMissing('store');
+
+        $rule = CartPriceRule::active()
+            ->where('coupon_code', $code)
+            ->where(fn (Builder $q) => $q->whereNull('website_id')->orWhere('website_id', $cart->store?->website_id))
+            ->first();
+
+        if (! $rule || ! $rule->isUsable()) {
+            throw CartException::invalidCoupon();
+        }
+
+        $subtotal = $cart->items->reduce(
+            fn (float $carry, CartItem $item) => $carry + ((float) $item->unit_price * $item->quantity),
+            0.0,
+        );
+
+        if (! $rule->meetsMinimum($subtotal)) {
+            throw CartException::couponMinimumNotMet(number_format((float) $rule->min_subtotal, 2, '.', ''));
+        }
+
+        $cart->update(['coupon_code' => $code]);
+    }
+
+    /**
+     * Quita el cupón aplicado al carrito.
+     */
+    public function removeCoupon(): void
+    {
+        $cart = $this->current(false);
+
+        $cart?->update(['coupon_code' => null]);
     }
 
     /**

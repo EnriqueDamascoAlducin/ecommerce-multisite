@@ -73,7 +73,7 @@ resources/js/pages/{admin,storefront}/...   (se mantiene la raíz pages/ del sta
 Fase 7 robusto (movimientos/ajustes/historial) · 16 Invoices internas ✅ · 17 Shipments ✅ · 18 Productos configurables ✅ · mejoras de checkout ✅ · 21 (Openpay) ✅ · 26 Reportes básicos ✅ · 27 Logs/auditoría ✅ · 24 APIs básicas ✅.
 
 ### 🔵 MVP 3 — Magento avanzado
-19 Bundles · 20 Descargables · 23 Reglas de catálogo · 22 Reglas de carrito y cupones · 21 (PayPal + Kueski) · 24 APIs completas · 28 QA/performance · 29 DevOps/producción.
+19 Bundles · 20 Descargables · 23 Reglas de catálogo · 22 Reglas de carrito y cupones ✅ · 21 (PayPal + Kueski) · 24 APIs completas · 28 QA/performance · 29 DevOps/producción.
 
 ---
 
@@ -82,7 +82,7 @@ Fase 7 robusto (movimientos/ajustes/historial) · 16 Invoices internas ✅ · 17
 > El detalle completo de cada fase (modelos, tablas, servicios, entregables) está en `PROJECT_CONTEXT.md`. Aquí solo el resumen ejecutable. Cada fase se planea en profundidad al iniciarla siguiendo el flujo:
 > subtareas → migraciones → modelos → relaciones → services/actions → controllers → requests/validaciones → policies/middleware → UI React → tests → seeders → docs → comandos → checklist manual.
 
-> Estado de ejecución detallado en [`PROGRESO.md`](./PROGRESO.md). Fases 1–18, 21, 24, 26, 27 ✅ y Fase 25* ✅ terminadas.
+> Estado de ejecución detallado en [`PROGRESO.md`](./PROGRESO.md). Fases 1–18, 21, 22, 24, 26, 27 ✅ y Fase 25* ✅ terminadas.
 
 ### Fase 1 — Base técnica ✅
 - MySQL en `.env`/`.env.example` + `config/database.php`.

@@ -386,6 +386,12 @@ export default function Checkout({
                                 <dt className="text-neutral-500">Subtotal</dt>
                                 <dd>{formatPrice(totals.subtotal)}</dd>
                             </div>
+                            {Number(totals.discount) > 0 && (
+                                <div className="flex justify-between text-green-700 dark:text-green-400">
+                                    <dt>Descuento</dt>
+                                    <dd>−{formatPrice(totals.discount)}</dd>
+                                </div>
+                            )}
                             <div className="flex justify-between">
                                 <dt className="text-neutral-500">Envío</dt>
                                 <dd>{Number(totals.shipping) === 0 ? '—' : formatPrice(totals.shipping)}</dd>

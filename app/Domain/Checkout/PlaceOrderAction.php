@@ -6,6 +6,7 @@ use App\Domain\Cart\CartTotalsCalculator;
 use App\Domain\Inventory\StockReservationService;
 use App\Domain\Inventory\StockService;
 use App\Models\Cart;
+use App\Models\CartPriceRule;
 use App\Models\Order;
 use Illuminate\Support\Facades\DB;
 
@@ -45,6 +46,7 @@ class PlaceOrderAction
             }
 
             $this->reserveStock($cart, $order);
+            $this->consumeCoupon($cart);
 
             $order->statusHistories()->create([
                 'from_status' => null,
@@ -80,5 +82,20 @@ class PlaceOrderAction
                 $this->reservations->reserve($product, $item->quantity, $reference, $source);
             }
         }
+    }
+
+    /**
+     * Incrementa el contador de usos del cupón aplicado al carrito (si lo hay).
+     */
+    private function consumeCoupon(Cart $cart): void
+    {
+        if (! $cart->coupon_code) {
+            return;
+        }
+
+        CartPriceRule::where('coupon_code', $cart->coupon_code)
+            ->where('is_active', true)
+            ->get()
+            ->each(fn (CartPriceRule $rule) => $rule->increment('times_used'));
     }
 }

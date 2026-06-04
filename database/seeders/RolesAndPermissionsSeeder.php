@@ -29,6 +29,7 @@ class RolesAndPermissionsSeeder extends Seeder
         'sales.shipments' => ['view', 'create', 'edit', 'cancel'],
         'reports' => ['view'],
         'audit' => ['view'],
+        'promotions' => ['view', 'create', 'edit', 'delete'],
         'settings' => ['payments', 'shipping', 'stores'],
     ];
 
@@ -44,7 +45,10 @@ class RolesAndPermissionsSeeder extends Seeder
             'Catálogo' => $this->filter($permissions, fn (string $p) => str_starts_with($p, 'catalog.') || str_starts_with($p, 'media.') || $p === 'inventory.view'),
             'Inventario' => $this->filter($permissions, fn (string $p) => str_starts_with($p, 'inventory.')),
             'Ventas' => $this->filter($permissions, fn (string $p) => str_starts_with($p, 'sales.') || $p === 'reports.view'),
-            'Marketing' => ['catalog.products.view', 'media.view', 'media.upload'],
+            'Marketing' => array_merge(
+                $this->filter($permissions, fn (string $p) => str_starts_with($p, 'promotions.')),
+                ['catalog.products.view', 'media.view', 'media.upload'],
+            ),
             'Soporte' => ['sales.orders.view', 'admin.users.view', 'reports.view'],
             'Solo lectura' => $this->filter($permissions, fn (string $p) => str_ends_with($p, '.view')),
         ];

@@ -51,7 +51,28 @@ class CartController extends Controller
             'currency' => $cart->currency,
             'shippingOptions' => $this->shipping->optionsForCart($cart),
             'selectedShipping' => $cart->shipping_method_code,
+            'coupon' => $cart->coupon_code,
         ]);
+    }
+
+    public function applyCoupon(Request $request): RedirectResponse
+    {
+        $data = $request->validate(['code' => ['required', 'string', 'max:50']]);
+
+        try {
+            $this->cart->applyCoupon(trim($data['code']));
+        } catch (CartException $e) {
+            return back()->with('error', $e->getMessage());
+        }
+
+        return back()->with('success', 'Cupón aplicado.');
+    }
+
+    public function removeCoupon(): RedirectResponse
+    {
+        $this->cart->removeCoupon();
+
+        return back()->with('success', 'Cupón eliminado.');
     }
 
     public function shipping(Request $request): RedirectResponse

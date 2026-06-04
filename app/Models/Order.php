@@ -64,7 +64,7 @@ class Order extends Model
     protected $fillable = [
         'website_id', 'store_id', 'customer_id', 'number', 'status', 'email', 'currency',
         'subtotal', 'discount', 'shipping_amount', 'tax', 'total',
-        'shipping_method_code', 'shipping_method_label', 'payment_method', 'placed_at',
+        'shipping_method_code', 'shipping_method_label', 'coupon_code', 'payment_method', 'placed_at',
     ];
 
     /**
