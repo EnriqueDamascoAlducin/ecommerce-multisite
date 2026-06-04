@@ -22,6 +22,7 @@ class RolesAndPermissionsSeeder extends Seeder
         'catalog.products' => ['view', 'create', 'edit', 'delete'],
         'catalog.categories' => ['view', 'create', 'edit', 'delete'],
         'catalog.attributes' => ['view', 'create', 'edit', 'delete'],
+        'catalog.labels' => ['view', 'create', 'edit', 'delete'],
         'media' => ['view', 'upload', 'delete'],
         'inventory' => ['view', 'adjust'],
         'sales.orders' => ['view', 'edit', 'cancel'],

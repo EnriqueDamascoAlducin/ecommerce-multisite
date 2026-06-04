@@ -48,6 +48,9 @@ class StoreProductRequest extends FormRequest
             'categories' => ['array'],
             'categories.*' => ['integer', 'exists:categories,id'],
 
+            'labels' => ['array'],
+            'labels.*' => ['integer', 'exists:product_labels,id'],
+
             'attribute_values' => ['array'],
 
             'configurable_attributes' => ['nullable', 'array'],

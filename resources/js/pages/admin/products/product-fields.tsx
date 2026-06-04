@@ -29,6 +29,8 @@ type ConfigurableAttrDef = {
 
 type ComponentProduct = { id: number; sku: string; name: string };
 
+type LabelOption = { id: number; text: string; text_color: string; background_color: string; website: string | null };
+
 type BundleItemDefault = { product_id: number; sku?: string; name?: string; quantity: number };
 
 type DownloadableLinkDefault = {
@@ -66,6 +68,7 @@ export type ProductDefaults = {
     stores: StoreDefault[];
     media: number[];
     categories: number[];
+    labels?: number[];
     attribute_values: Record<number, string | string[]>;
     configurable_attributes?: number[];
     price_type?: string | null;
@@ -89,6 +92,7 @@ export function ProductFields({
     attributes,
     configurableAttributes,
     componentProducts,
+    labels,
     defaults,
 }: {
     errors: Record<string, string>;
@@ -98,10 +102,12 @@ export function ProductFields({
     attributes: AttributeDef[];
     configurableAttributes?: ConfigurableAttrDef[];
     componentProducts?: ComponentProduct[];
+    labels?: LabelOption[];
     defaults?: ProductDefaults;
 }) {
     const [selected, setSelected] = useState<number[]>(defaults?.media ?? []);
     const [selectedCategories, setSelectedCategories] = useState<number[]>(defaults?.categories ?? []);
+    const [selectedLabels, setSelectedLabels] = useState<number[]>(defaults?.labels ?? []);
     const [productType, setProductType] = useState(defaults?.type ?? 'simple');
     const [configurableAttrIds, setConfigurableAttrIds] = useState<number[]>(defaults?.configurable_attributes ?? []);
     const [priceType, setPriceType] = useState(defaults?.price_type ?? 'dynamic');
@@ -190,6 +196,12 @@ export function ProductFields({
 
     const toggleCategory = (id: number) => {
         setSelectedCategories((current) =>
+            current.includes(id) ? current.filter((x) => x !== id) : [...current, id],
+        );
+    };
+
+    const toggleLabel = (id: number) => {
+        setSelectedLabels((current) =>
             current.includes(id) ? current.filter((x) => x !== id) : [...current, id],
         );
     };
@@ -614,6 +626,37 @@ export function ProductFields({
                     ))}
                     {categories.length === 0 && (
                         <p className="text-sm text-neutral-500">No hay categorías. Créalas en la sección Categorías.</p>
+                    )}
+                </div>
+            </section>
+
+            {/* Etiquetas (badges) */}
+            <section>
+                <h2 className="mb-1 text-sm font-semibold">Etiquetas</h2>
+                <p className="mb-3 text-xs text-neutral-500">Resalta el producto con badges del catálogo de etiquetas (por website).</p>
+                {selectedLabels.map((id) => (
+                    <input key={id} type="hidden" name="labels[]" value={id} />
+                ))}
+                <div className="flex flex-wrap gap-3">
+                    {(labels ?? []).map((label) => (
+                        <label key={label.id} className="flex items-center gap-2 rounded-lg border border-neutral-200 p-2 text-sm dark:border-neutral-800">
+                            <input
+                                type="checkbox"
+                                checked={selectedLabels.includes(label.id)}
+                                onChange={() => toggleLabel(label.id)}
+                                className="size-4 rounded"
+                            />
+                            <span
+                                className="inline-flex items-center rounded-md border-transparent px-2 py-0.5 text-xs font-medium"
+                                style={{ color: label.text_color, backgroundColor: label.background_color }}
+                            >
+                                {label.text}
+                            </span>
+                            {label.website && <span className="text-xs text-neutral-400">{label.website}</span>}
+                        </label>
+                    ))}
+                    {(labels ?? []).length === 0 && (
+                        <p className="text-sm text-neutral-500">No hay etiquetas. Créalas en la sección Etiquetas.</p>
                     )}
                 </div>
             </section>

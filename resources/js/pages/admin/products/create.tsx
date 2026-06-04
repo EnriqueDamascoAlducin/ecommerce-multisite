@@ -29,6 +29,7 @@ export default function ProductsCreate({
     attributes,
     configurableAttributes,
     componentProducts,
+    labels,
 }: {
     stores: { id: number; label: string }[];
     availableImages: { id: number; url: string; name: string }[];
@@ -36,6 +37,7 @@ export default function ProductsCreate({
     attributes: AttributeDef[];
     configurableAttributes?: ConfigurableAttrDef[];
     componentProducts?: { id: number; sku: string; name: string }[];
+    labels?: { id: number; text: string; text_color: string; background_color: string; website: string | null }[];
 }) {
     return (
         <>
@@ -59,6 +61,7 @@ export default function ProductsCreate({
                             attributes={attributes}
                             configurableAttributes={configurableAttributes}
                             componentProducts={componentProducts}
+                            labels={labels}
                         />
                         <Button disabled={processing}>Crear producto</Button>
                     </div>

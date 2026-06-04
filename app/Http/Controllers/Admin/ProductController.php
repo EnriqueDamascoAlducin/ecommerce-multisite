@@ -12,6 +12,7 @@ use App\Models\Attribute;
 use App\Models\Category;
 use App\Models\Media;
 use App\Models\Product;
+use App\Models\ProductLabel;
 use App\Models\Store;
 use App\Services\AuditLogger;
 use Illuminate\Http\RedirectResponse;
@@ -40,7 +41,7 @@ class ProductController extends Controller
 
         $products = Product::query()
             ->whereNull('parent_id')
-            ->with(['prices', 'media'])
+            ->with(['prices', 'media', 'labels'])
             ->when($filters['search'], fn ($query, $search) => $query->where(
                 fn ($q) => $q->where('name', 'like', "%{$search}%")->orWhere('sku', 'like', "%{$search}%"),
             ))
@@ -61,6 +62,11 @@ class ProductController extends Controller
                     default => $this->pricing->priceFor($product)['effective_price'],
                 },
                 'thumbnail' => $product->primaryMedia('gallery')?->url,
+                'labels' => $product->labels->map(fn (ProductLabel $label) => [
+                    'text' => $label->text,
+                    'text_color' => $label->text_color,
+                    'background_color' => $label->background_color,
+                ])->values(),
             ]);
 
         return Inertia::render('admin/products/index', [
@@ -121,7 +127,7 @@ class ProductController extends Controller
 
     public function edit(Product $product): Response
     {
-        $product->load(['prices', 'storeLinks', 'media', 'categories', 'attributeValues', 'parent', 'configurableAttributes', 'bundleItems.product', 'downloadableLinks']);
+        $product->load(['prices', 'storeLinks', 'media', 'categories', 'labels', 'attributeValues', 'parent', 'configurableAttributes', 'bundleItems.product', 'downloadableLinks']);
 
         $base = $product->basePrice();
 
@@ -156,6 +162,7 @@ class ProductController extends Controller
             })->values(),
             'media' => $product->mediaInCollection('gallery')->pluck('id'),
             'categories' => $product->categories->pluck('id'),
+            'labels' => $product->labels->pluck('id'),
             'attribute_values' => $product->attributeValues->mapWithKeys(function ($value) {
                 $decoded = json_decode((string) $value->value, true);
 
@@ -290,6 +297,8 @@ class ProductController extends Controller
         $product->syncMediaCollection(array_map('intval', $data['media'] ?? []), 'gallery');
 
         $product->categories()->sync(array_map('intval', $data['categories'] ?? []));
+
+        $product->labels()->sync(array_map('intval', $data['labels'] ?? []));
 
         $this->persistAttributeValues($product, $data['attribute_values'] ?? []);
     }
@@ -442,6 +451,14 @@ class ProductController extends Controller
                 ->map(fn (Category $category) => [
                     'id' => $category->id,
                     'label' => "{$category->website->name} / {$category->name}",
+                ]),
+            'labels' => ProductLabel::active()->with('website:id,name')->orderBy('website_id')->orderBy('sort_order')->get()
+                ->map(fn (ProductLabel $label) => [
+                    'id' => $label->id,
+                    'text' => $label->text,
+                    'text_color' => $label->text_color,
+                    'background_color' => $label->background_color,
+                    'website' => $label->website?->name,
                 ]),
             'attributes' => Attribute::with('options')->orderBy('sort_order')->orderBy('name')->get()
                 ->map(fn (Attribute $attribute) => [

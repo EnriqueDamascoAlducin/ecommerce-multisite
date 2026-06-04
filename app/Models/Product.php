@@ -116,6 +116,16 @@ class Product extends Model
     }
 
     /**
+     * Etiquetas (badges) asignadas al producto, ordenadas por prioridad.
+     *
+     * @return BelongsToMany<ProductLabel, $this>
+     */
+    public function labels(): BelongsToMany
+    {
+        return $this->belongsToMany(ProductLabel::class)->orderBy('sort_order');
+    }
+
+    /**
      * Componentes cuando el producto es un bundle.
      *
      * @return HasMany<BundleItem, $this>

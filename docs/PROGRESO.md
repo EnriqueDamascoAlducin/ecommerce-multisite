@@ -1,7 +1,7 @@
 # Progreso del proyecto
 
 > Registro vivo de avance. Roadmap completo en [`ROADMAP.md`](./ROADMAP.md).
-> Última actualización: 2026-06-04 (Pasarelas de pago configurables desde el admin).
+> Última actualización: 2026-06-04 (Etiquetas/badges de productos).
 
 ## Estado global
 
@@ -43,6 +43,18 @@ Leyenda: ⬜ pendiente · 🟡 en curso · 🟢 terminada · 🔴 bloqueada
 ---
 
 ## Bitácora
+
+### 2026-06-04 — Etiquetas (badges) de productos
+
+- **Catálogo reutilizable de etiquetas por website.** Tabla `product_labels` (`website_id`, `text`, `text_color`, `background_color`, `is_active`, `sort_order`) + pivote `product_product_label` (muchos a muchos con productos). Modelo `ProductLabel` (`scopeActive`, `belongsTo Website`, `belongsToMany Product`) y relación `Product::labels()` ordenada por `sort_order`.
+- **Admin CRUD** (`/admin/product-labels`, permiso nuevo `catalog.labels.*`): `ProductLabelController` + `ProductLabelRequest` (texto, colores validados como hex `#RRGGBB`, modo). Páginas React con selector de color (`<input type=color>` + hex) y **vista previa en vivo** del badge.
+- **Asignación manual** en el formulario de producto (sección «Etiquetas», igual que categorías): `ProductController` sincroniza `labels()`, expone las activas en `formData`, devuelve seleccionadas en `edit` y las muestra en el listado admin. Validación `labels[]` en `Store/UpdateProductRequest`.
+- **Render**: componente compartido `resources/js/components/product-labels.tsx` (`<Badge>` con colores inline) reutilizado en **tarjetas de catálogo**, **ficha de producto (PDP)** y **listado admin**. El storefront solo muestra etiquetas **activas** y del **website actual**, ordenadas por `sort_order` (`StorefrontController::labelsFor`).
+- **Seeder demo**: «Oferta» (rojo) y «Nuevo» (verde) en Interferenciales, asignadas a Sony XM5 e iPhone 15.
+- **Tests (10):** `Admin/ProductLabelManagementTest` (crear+auditoría, hex inválido, color requerido, update, delete, Soporte prohibido) y `Catalog/ProductLabelTest` (pivote, PDP solo activas/website actual, tarjeta expone etiquetas, orden por `sort_order`).
+- **Verificación:** `pint` ✓ · `tsc` ✓ · `build` ✓ · suite **399 passed, 4 skipped** (1 rojo ajeno: WIP del mega menú).
+- **Nota de commit (colisión multi-agente):** se commitearon **solo los archivos propios** de esta feature. Los 3 archivos compartidos con el WIP en paralelo del otro agente quedaron **sin commitear**: `routes/admin.php` (rutas `product-labels`), `app/Http/Controllers/Storefront/StorefrontController.php` (`labelsFor`/eager-load `labels`) y `resources/js/layouts/admin-layout.tsx` (ítem de menú «Etiquetas»). Hasta que esos 3 cambios se integren, la feature funciona **localmente** pero queda **inactiva en un checkout limpio** (sin rutas → la generación de Wayfinder no produce `@/routes/admin/product-labels`, las páginas admin de etiquetas no compilan en build limpio). **Pendiente: integrar esos 3 hunks tras coordinar con el otro agente.**
+
 
 ### 2026-06-04 — Pasarelas de pago configurables desde el admin (por sitio)
 

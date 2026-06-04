@@ -8,6 +8,7 @@ use App\Models\Category;
 use App\Models\DownloadableLink;
 use App\Models\InventorySource;
 use App\Models\Product;
+use App\Models\ProductLabel;
 use App\Models\Store;
 use App\Models\Website;
 use Illuminate\Database\Seeder;
@@ -41,6 +42,7 @@ class ProductSeeder extends Seeder
         $this->simple('IPHONE-15', 'iPhone 15', 19999, $source, 25, $interStores, $this->cats($interferenciales, ['celulares']));
         $sony = $this->simple('SONY-XM5', 'Audífonos Sony WH-1000XM5', 7499, $source, 40, $interStores, $this->cats($interferenciales, ['audio']));
         $balon = $this->simple('BALON-FUT-PRO', 'Balón de Fútbol Pro', 599, $source, 100, $interStores, $this->cats($interferenciales, ['futbol']));
+        $iphone = Product::where('sku', 'IPHONE-15')->first();
 
         // --- Configurables (Interferenciales) ---
         // Playera con color + talla (5 × 4 = 20 variantes).
@@ -54,6 +56,22 @@ class ProductSeeder extends Seeder
 
         // --- Descargable (Interferenciales) ---
         $this->downloadable('EBOOK-RUNNING', 'Ebook: Guía de Running', 149, $interStores, $this->cats($interferenciales, ['running']));
+
+        // --- Etiquetas (badges) demo (Interferenciales) ---
+        $oferta = ProductLabel::firstOrCreate(
+            ['website_id' => $interferenciales->id, 'text' => 'Oferta'],
+            ['text_color' => '#ffffff', 'background_color' => '#dc2626', 'sort_order' => 0, 'is_active' => true],
+        );
+        $nuevo = ProductLabel::firstOrCreate(
+            ['website_id' => $interferenciales->id, 'text' => 'Nuevo'],
+            ['text_color' => '#ffffff', 'background_color' => '#16a34a', 'sort_order' => 1, 'is_active' => true],
+        );
+
+        $sony->labels()->syncWithoutDetaching([$oferta->id]);
+
+        if ($iphone) {
+            $iphone->labels()->syncWithoutDetaching([$nuevo->id]);
+        }
 
         // --- Simples (Veterinaria) ---
         $veterinaria = Website::where('code', 'veterinaria')->first();

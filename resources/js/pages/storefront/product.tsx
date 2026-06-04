@@ -1,6 +1,7 @@
 import { Form, Head, Link } from '@inertiajs/react';
 import { ImageIcon } from 'lucide-react';
 import { useMemo, useState } from 'react';
+import { ProductLabels, type ProductLabelData } from '@/components/product-labels';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -38,6 +39,7 @@ type ProductDetail = {
     configurable_options?: ConfigurableOption[];
     variants?: VariantInfo[];
     bundle_items?: { name: string; sku: string; quantity: number }[];
+    labels?: ProductLabelData[];
 };
 
 export default function StorefrontProduct({ product }: { product: ProductDetail }) {
@@ -127,6 +129,7 @@ export default function StorefrontProduct({ product }: { product: ProductDetail 
 
                 {/* Información */}
                 <div>
+                    <ProductLabels labels={product.labels} className="mb-2" />
                     <h1 className="text-2xl font-semibold">{product.name}</h1>
                     <p className="mt-1 font-mono text-xs text-neutral-400">{product.sku}</p>
 

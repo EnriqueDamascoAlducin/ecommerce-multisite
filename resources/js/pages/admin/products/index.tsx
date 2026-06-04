@@ -1,5 +1,6 @@
 import { Form, Head, Link, router } from '@inertiajs/react';
 import { ImageIcon } from 'lucide-react';
+import { ProductLabels, type ProductLabelData } from '@/components/product-labels';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -13,6 +14,7 @@ type ProductRow = {
     status: string;
     price: string | null;
     thumbnail: string | null;
+    labels: ProductLabelData[];
 };
 
 type Paginated<T> = {
@@ -85,7 +87,12 @@ export default function ProductsIndex({
                                     </div>
                                 </td>
                                 <td className="px-4 py-3 font-mono text-xs">{product.sku}</td>
-                                <td className="px-4 py-3">{product.name}</td>
+                                <td className="px-4 py-3">
+                                    <div className="flex flex-col gap-1">
+                                        <span>{product.name}</span>
+                                        <ProductLabels labels={product.labels} />
+                                    </div>
+                                </td>
                                 <td className="px-4 py-3">{product.price ?? '—'}</td>
                                 <td className="px-4 py-3">
                                     <Badge variant={product.status === 'active' ? 'default' : 'outline'}>
