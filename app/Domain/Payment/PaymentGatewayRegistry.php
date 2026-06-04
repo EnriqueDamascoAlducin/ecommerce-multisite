@@ -39,6 +39,16 @@ class PaymentGatewayRegistry
     }
 
     /**
+     * Todas las pasarelas registradas, estén o no configuradas (para el admin).
+     *
+     * @return list<PaymentGateway>
+     */
+    public function all(): array
+    {
+        return array_values($this->gateways);
+    }
+
+    /**
      * Pasarelas disponibles (configuradas) para mostrar en el checkout.
      *
      * @return list<PaymentGateway>

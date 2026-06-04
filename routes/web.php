@@ -23,7 +23,8 @@ Route::get('media/{media}/download', [MediaController::class, 'download'])
 
 // Notificaciones de pago (server-to-server). Sin auth ni CSRF; cada pasarela
 // valida la autenticidad de la notificación.
-Route::post('webhooks/payments/{gateway}', [PaymentWebhookController::class, 'handle'])
+// El {website} (opcional) indica de qué sitio usar las credenciales en multisitio.
+Route::post('webhooks/payments/{gateway}/{website?}', [PaymentWebhookController::class, 'handle'])
     ->name('webhooks.payments');
 
 Route::middleware(['auth', 'verified'])->group(function () {

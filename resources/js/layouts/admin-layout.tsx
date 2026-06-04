@@ -3,6 +3,7 @@ import {
     BarChart3,
     Boxes,
     ChevronRight,
+    CreditCard,
     FileText,
     FolderTree,
     Globe,
@@ -47,6 +48,7 @@ import inventorySources from '@/routes/admin/inventory-sources';
 import invoices from '@/routes/admin/invoices';
 import media from '@/routes/admin/media';
 import adminOrders from '@/routes/admin/orders';
+import payments from '@/routes/admin/payments';
 import permissions from '@/routes/admin/permissions';
 import products from '@/routes/admin/products';
 import promotions from '@/routes/admin/promotions';
@@ -197,6 +199,12 @@ const navGroups: AdminNavGroup[] = [
                 href: shipping.index(),
                 icon: Truck,
                 permission: 'settings.shipping',
+            },
+            {
+                title: 'Pasarelas de pago',
+                href: payments.index(),
+                icon: CreditCard,
+                permission: 'settings.payments',
             },
             {
                 title: 'Menú del header',

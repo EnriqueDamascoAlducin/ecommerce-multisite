@@ -3,6 +3,7 @@
 namespace App\Domain\Payment\Gateways;
 
 use App\Domain\Payment\Contracts\PaymentGateway;
+use App\Domain\Payment\Gateways\Concerns\InteractsWithGatewaySettings;
 use App\Domain\Payment\PaymentException;
 use App\Domain\Payment\PaymentResult;
 use App\Domain\Payment\PaymentStatus;
@@ -19,6 +20,8 @@ use Illuminate\Support\Facades\Log;
  */
 class MercadoPagoGateway implements PaymentGateway
 {
+    use InteractsWithGatewaySettings;
+
     public function code(): string
     {
         return 'mercadopago';
@@ -31,7 +34,21 @@ class MercadoPagoGateway implements PaymentGateway
 
     public function isAvailable(): bool
     {
-        return ! empty($this->config('access_token'));
+        return $this->enabledInSettings() && ! empty($this->config('access_token'));
+    }
+
+    public function configFields(): array
+    {
+        return [
+            ['key' => 'access_token', 'label' => 'Access token', 'secret' => true],
+            ['key' => 'public_key', 'label' => 'Public key', 'secret' => false],
+            ['key' => 'webhook_secret', 'label' => 'Webhook secret (firma)', 'secret' => true],
+        ];
+    }
+
+    public function supportsMode(): bool
+    {
+        return true;
     }
 
     public function start(Order $order): PaymentResult
@@ -53,7 +70,8 @@ class MercadoPagoGateway implements PaymentGateway
                 'failure' => route('checkout.failure', $order),
             ],
             'auto_return' => 'approved',
-            'notification_url' => route('webhooks.payments', ['gateway' => $this->code()]),
+            // El website va en la URL para que el webhook use sus credenciales.
+            'notification_url' => route('webhooks.payments', ['gateway' => $this->code(), 'website' => $order->website_id]),
         ];
 
         $response = Http::withToken($this->config('access_token'))
@@ -72,7 +90,10 @@ class MercadoPagoGateway implements PaymentGateway
         }
 
         $data = $response->json();
-        $redirect = $data['init_point'] ?? $data['sandbox_init_point'] ?? null;
+        // En modo live se usa el init_point real; en sandbox, el de pruebas.
+        $redirect = $this->isLive()
+            ? ($data['init_point'] ?? $data['sandbox_init_point'] ?? null)
+            : ($data['sandbox_init_point'] ?? $data['init_point'] ?? null);
 
         if (! $redirect) {
             throw PaymentException::startFailed($this->code(), 'La preferencia no devolvió una URL de pago.');
@@ -189,10 +210,5 @@ class MercadoPagoGateway implements PaymentGateway
     private function baseUrl(): string
     {
         return rtrim((string) $this->config('base_url', 'https://api.mercadopago.com'), '/');
-    }
-
-    private function config(string $key, mixed $default = null): mixed
-    {
-        return config("payments.mercadopago.{$key}", $default);
     }
 }

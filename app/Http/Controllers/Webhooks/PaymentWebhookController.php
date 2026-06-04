@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Webhooks;
 use App\Domain\Payment\PaymentException;
 use App\Domain\Payment\PaymentGatewayRegistry;
 use App\Domain\Payment\PaymentService;
+use App\Domain\Payment\PaymentSettings;
 use App\Http\Controllers\Controller;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -19,12 +20,19 @@ class PaymentWebhookController extends Controller
     public function __construct(
         private readonly PaymentGatewayRegistry $registry,
         private readonly PaymentService $payments,
+        private readonly PaymentSettings $settings,
     ) {}
 
-    public function handle(Request $request, string $gateway): JsonResponse
+    public function handle(Request $request, string $gateway, ?int $website = null): JsonResponse
     {
         if (! $this->registry->has($gateway)) {
             return response()->json(['message' => 'Unknown gateway.'], 404);
+        }
+
+        // En multisitio, el sitio indica qué credenciales usar para validar y
+        // consultar la notificación.
+        if ($website !== null) {
+            $this->settings->usingWebsite($website);
         }
 
         try {

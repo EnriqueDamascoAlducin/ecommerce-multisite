@@ -11,6 +11,7 @@ use App\Http\Controllers\Admin\InventorySourceController;
 use App\Http\Controllers\Admin\InvoiceController;
 use App\Http\Controllers\Admin\MediaController;
 use App\Http\Controllers\Admin\OrderController;
+use App\Http\Controllers\Admin\PaymentSettingsController;
 use App\Http\Controllers\Admin\PermissionController;
 use App\Http\Controllers\Admin\ProductController;
 use App\Http\Controllers\Admin\PromotionController;
@@ -58,6 +59,12 @@ Route::middleware(['auth', 'verified'])->prefix('admin')->name('admin.')->group(
 
         Route::get('configuration', [StoreConfigurationController::class, 'index'])->name('configuration.index');
         Route::put('configuration', [StoreConfigurationController::class, 'update'])->name('configuration.update');
+    });
+
+    // Configuración de pasarelas de pago (llaves y modo) por sitio.
+    Route::middleware('permission:settings.payments')->group(function () {
+        Route::get('payments', [PaymentSettingsController::class, 'index'])->name('payments.index');
+        Route::put('payments', [PaymentSettingsController::class, 'update'])->name('payments.update');
     });
 
     // Catálogo: productos simples

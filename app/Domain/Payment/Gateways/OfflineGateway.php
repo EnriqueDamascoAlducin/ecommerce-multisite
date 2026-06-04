@@ -3,6 +3,7 @@
 namespace App\Domain\Payment\Gateways;
 
 use App\Domain\Payment\Contracts\PaymentGateway;
+use App\Domain\Payment\Gateways\Concerns\InteractsWithGatewaySettings;
 use App\Domain\Payment\PaymentResult;
 use App\Domain\Payment\PaymentStatus;
 use App\Domain\Payment\WebhookResult;
@@ -16,6 +17,8 @@ use Illuminate\Http\Request;
  */
 class OfflineGateway implements PaymentGateway
 {
+    use InteractsWithGatewaySettings;
+
     public function code(): string
     {
         return 'offline';
@@ -28,7 +31,17 @@ class OfflineGateway implements PaymentGateway
 
     public function isAvailable(): bool
     {
-        return true;
+        return $this->enabledInSettings();
+    }
+
+    public function configFields(): array
+    {
+        return [];
+    }
+
+    public function supportsMode(): bool
+    {
+        return false;
     }
 
     public function start(Order $order): PaymentResult

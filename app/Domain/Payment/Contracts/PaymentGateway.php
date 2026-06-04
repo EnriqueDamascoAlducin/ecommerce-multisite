@@ -29,6 +29,18 @@ interface PaymentGateway
     public function isAvailable(): bool;
 
     /**
+     * Campos de credenciales que se configuran desde el admin (vacío si no usa).
+     *
+     * @return list<array{key: string, label: string, secret: bool}>
+     */
+    public function configFields(): array;
+
+    /**
+     * ¿La pasarela distingue entre modo sandbox y producción (live)?
+     */
+    public function supportsMode(): bool;
+
+    /**
      * Inicia el cobro de una orden recién creada. Devuelve a dónde redirigir al
      * cliente (checkout alojado) o null para flujos sin redirección (offline).
      */

@@ -46,7 +46,7 @@ return [
         'merchant_id' => env('OPENPAY_MERCHANT_ID'),
         'private_key' => env('OPENPAY_PRIVATE_KEY'),
         'public_key' => env('OPENPAY_PUBLIC_KEY'),
-        'base_url' => env('OPENPAY_BASE_URL', 'https://sandbox-api.openpay.mx/v1'),
+        'base_url' => env('OPENPAY_BASE_URL'), // null = se deriva del modo (sandbox/live)
         'webhook_user' => env('OPENPAY_WEBHOOK_USER'),
         'webhook_password' => env('OPENPAY_WEBHOOK_PASSWORD'),
     ],

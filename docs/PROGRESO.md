@@ -1,7 +1,7 @@
 # Progreso del proyecto
 
 > Registro vivo de avance. Roadmap completo en [`ROADMAP.md`](./ROADMAP.md).
-> Última actualización: 2026-06-03 (Fase 28 — QA / performance).
+> Última actualización: 2026-06-04 (Pasarelas de pago configurables desde el admin).
 
 ## Estado global
 
@@ -43,6 +43,17 @@ Leyenda: ⬜ pendiente · 🟡 en curso · 🟢 terminada · 🔴 bloqueada
 ---
 
 ## Bitácora
+
+### 2026-06-04 — Pasarelas de pago configurables desde el admin (por sitio)
+
+- **Llaves y modo desde el admin, por website.** Nueva tabla `payment_gateway_settings` (`website_id`, `gateway`, `is_enabled`, `mode` sandbox/live, `credentials` **encriptadas** con `encrypted:array`, único por sitio+pasarela) y modelo `PaymentGatewaySetting`.
+- **`PaymentSettings`** (servicio singleton): resuelve la configuración de cada pasarela según el **website activo** (el de `StoreContext`, o uno fijado con `usingWebsite()` en webhooks). Si no hay fila guardada o falta una clave, **cae a `config/payments` (env)**, conservando el comportamiento previo y los tests.
+- **Las pasarelas leen de ahí** (trait `InteractsWithGatewaySettings`): `isAvailable()` exige que esté habilitada **y** tenga las llaves; Mercado Pago elige `init_point`/`sandbox_init_point` según el modo; Openpay deriva su URL base (`api`/`sandbox-api`) del modo. Offline puede habilitarse/deshabilitarse por sitio.
+- **Webhooks por sitio:** la ruta pasó a `webhooks/payments/{gateway}/{website?}`; Mercado Pago incluye el `website` en su `notification_url`, y el controlador fija ese sitio en `PaymentSettings` para validar/consultar la notificación con las credenciales correctas. La forma sin `{website}` sigue funcionando (fallback a env).
+- **Admin:** página **Pasarelas de pago** (grupo Tiendas, permiso `settings.payments`) con selector de sitio y, por pasarela, toggle de activación, modo (sandbox/live) y campos de llaves. Las pasarelas se auto-describen (`configFields()`/`supportsMode()`). Los **secretos no se devuelven** al cliente: se muestran como “guardado” y dejarlos en blanco conserva el valor. Auditoría `payment_settings.updated`.
+- **Tests (12):** `Payment/PaymentSettingsTest` (6: prioridad de la llave del sitio sobre env, fallback a env, pasarela deshabilitada no disponible, offline deshabilitable, credenciales cifradas en reposo, webhook usa el token del sitio) y `Admin/PaymentSettingsManagementTest` (6: carga la página, guarda llaves+modo, secreto en blanco se conserva, cifrado en BD, Soporte sin permiso).
+- **Verificación:** `pint` ✓ · `tsc` ✓ · `build` ✓ · suite **381 passed, 4 skipped** (1 rojo ajeno: WIP del mega menú en paralelo).
+- **Pendiente operativo:** registrar la URL del webhook **con el id del sitio** en los paneles de Mercado Pago/Openpay de cada cuenta (`…/webhooks/payments/{gateway}/{websiteId}`).
 
 ### 2026-06-04 — Fase 28 cerrada (QA / performance)
 

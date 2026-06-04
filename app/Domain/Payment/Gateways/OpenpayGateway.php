@@ -3,6 +3,7 @@
 namespace App\Domain\Payment\Gateways;
 
 use App\Domain\Payment\Contracts\PaymentGateway;
+use App\Domain\Payment\Gateways\Concerns\InteractsWithGatewaySettings;
 use App\Domain\Payment\PaymentException;
 use App\Domain\Payment\PaymentResult;
 use App\Domain\Payment\PaymentStatus;
@@ -19,6 +20,8 @@ use Illuminate\Support\Facades\Log;
  */
 class OpenpayGateway implements PaymentGateway
 {
+    use InteractsWithGatewaySettings;
+
     public function code(): string
     {
         return 'openpay';
@@ -31,7 +34,25 @@ class OpenpayGateway implements PaymentGateway
 
     public function isAvailable(): bool
     {
-        return ! empty($this->config('merchant_id')) && ! empty($this->config('private_key'));
+        return $this->enabledInSettings()
+            && ! empty($this->config('merchant_id'))
+            && ! empty($this->config('private_key'));
+    }
+
+    public function configFields(): array
+    {
+        return [
+            ['key' => 'merchant_id', 'label' => 'Merchant ID', 'secret' => false],
+            ['key' => 'private_key', 'label' => 'Private key', 'secret' => true],
+            ['key' => 'public_key', 'label' => 'Public key', 'secret' => false],
+            ['key' => 'webhook_user', 'label' => 'Usuario webhook (Basic Auth)', 'secret' => false],
+            ['key' => 'webhook_password', 'label' => 'Password webhook (Basic Auth)', 'secret' => true],
+        ];
+    }
+
+    public function supportsMode(): bool
+    {
+        return true;
     }
 
     public function start(Order $order): PaymentResult
@@ -156,13 +177,20 @@ class OpenpayGateway implements PaymentGateway
         return "{$this->baseUrl()}/{$this->config('merchant_id')}/charges";
     }
 
+    /**
+     * URL base por modo: producción o sandbox. Un `base_url` explícito en la
+     * configuración (env) tiene prioridad para casos especiales.
+     */
     private function baseUrl(): string
     {
-        return rtrim((string) $this->config('base_url', 'https://sandbox-api.openpay.mx/v1'), '/');
-    }
+        $explicit = $this->config('base_url');
 
-    private function config(string $key, mixed $default = null): mixed
-    {
-        return config("payments.openpay.{$key}", $default);
+        if (! empty($explicit)) {
+            return rtrim((string) $explicit, '/');
+        }
+
+        return $this->isLive()
+            ? 'https://api.openpay.mx/v1'
+            : 'https://sandbox-api.openpay.mx/v1';
     }
 }

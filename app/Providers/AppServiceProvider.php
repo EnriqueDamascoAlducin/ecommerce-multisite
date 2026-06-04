@@ -6,6 +6,7 @@ use App\Domain\Payment\Gateways\MercadoPagoGateway;
 use App\Domain\Payment\Gateways\OfflineGateway;
 use App\Domain\Payment\Gateways\OpenpayGateway;
 use App\Domain\Payment\PaymentGatewayRegistry;
+use App\Domain\Payment\PaymentSettings;
 use App\Domain\Store\StoreContext;
 use Carbon\CarbonImmutable;
 use Illuminate\Database\Eloquent\Model;
@@ -23,6 +24,9 @@ class AppServiceProvider extends ServiceProvider
     {
         // Sitio resuelto, compartido durante toda la petición.
         $this->app->singleton(StoreContext::class);
+
+        // Configuración de pasarelas resuelta por website (admin) con fallback a env.
+        $this->app->singleton(PaymentSettings::class);
 
         // Registro de pasarelas de pago. Cada gateway decide su disponibilidad
         // según la configuración (p. ej. Mercado Pago requiere access token).
