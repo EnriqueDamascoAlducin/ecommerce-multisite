@@ -1,7 +1,7 @@
 # Progreso del proyecto
 
 > Registro vivo de avance. Roadmap completo en [`ROADMAP.md`](./ROADMAP.md).
-> Última actualización: 2026-06-03 (Fase 27 — Logs/auditoría).
+> Última actualización: 2026-06-03 (Fase 24 — APIs básicas).
 
 ## Estado global
 
@@ -29,13 +29,27 @@
 | 21 — Segunda pasarela (Openpay) | 🟢 Terminada |
 | 26 — Reportes básicos | 🟢 Terminada |
 | 27 — Logs/auditoría | 🟢 Terminada |
-| 19, 20, 22–24, 28–29 | ⬜ Pendiente |
+| 24 — APIs básicas | 🟢 Terminada |
+| 19, 20, 22, 23, 28, 29 | ⬜ Pendiente |
 
 Leyenda: ⬜ pendiente · 🟡 en curso · 🟢 terminada · 🔴 bloqueada
 
 ---
 
 ## Bitácora
+
+### 2026-06-03 — Fase 24 cerrada (APIs básicas)
+
+**Hecho:**
+- **Laravel Sanctum** instalado vía `php artisan install:api` (dependencia aprobada por el usuario). Trait `HasApiTokens` + relación `orders()` en `Customer`. Tabla `personal_access_tokens`.
+- **API versionada `/api/v1`** (en `routes/api.php`):
+  - **Catálogo público (solo lectura):** `GET products` (paginado, filtros `search`/`category`/`per_page`), `GET products/{slug}` (detalle con galería, atributos, categorías y, si es configurable, opciones + variantes), `GET categories`. Scope de tienda por `?store=<code>` o tienda por defecto (`ApiController::resolveStore`).
+  - **Auth por token:** `POST login` (valida credenciales del cliente en el website resuelto → token), y bajo `auth:sanctum`: `GET me`, `POST logout`, `GET orders`, `GET orders/{order}` (solo las del propio cliente; 403 si no).
+- **Eloquent API Resources** (`app/Http/Resources/Api/V1`): `ProductResource`, `ProductDetailResource`, `CategoryResource`, `OrderResource`, `OrderItemResource`, `CustomerResource`. Los campos calculados por tienda (precio/stock/galería) los inyecta el controller antes de serializar.
+
+**Verificación (todo verde):** `pint` ✓ · `tsc` ✓ · `build` ✓ · suite **291 passed, 4 skipped** (915 assertions). 10 tests nuevos (`CatalogApiTest` + `CustomerApiTest`).
+
+**Notas:** Sanctum se usa sobre el modelo `Customer` (no el admin `User`). El guard `sanctum` funciona sin tocar `config/auth.php`. Reusa el mismo scoping de catálogo del storefront (activo + visible + storeLink activo).
 
 ### 2026-06-03 — Fase 27 cerrada (Logs/auditoría)
 
