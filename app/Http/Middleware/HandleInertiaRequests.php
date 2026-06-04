@@ -84,7 +84,7 @@ class HandleInertiaRequests extends Middleware
     /**
      * Sitio resuelto para el storefront (null en el admin y rutas sin resolver).
      *
-     * @return array{website: array{id: int, code: string, name: string}, store: array{id: int, code: string, name: string}, locale: string|null, pathPrefix: string, menu: list<array<string, mixed>>}|null
+     * @return array{website: array{id: int, code: string, name: string, logo_url: string|null}, store: array{id: int, code: string, name: string}, locale: string|null, pathPrefix: string, menu: list<array<string, mixed>>}|null
      */
     private function currentStore(): ?array
     {
@@ -98,7 +98,12 @@ class HandleInertiaRequests extends Middleware
         $website = $context->website();
 
         return [
-            'website' => ['id' => $website->id, 'code' => $website->code, 'name' => $website->name],
+            'website' => [
+                'id' => $website->id,
+                'code' => $website->code,
+                'name' => $website->name,
+                'logo_url' => $website->loadMissing('media')->primaryMedia('logo')?->url,
+            ],
             'store' => ['id' => $store->id, 'code' => $store->code, 'name' => $store->name],
             'locale' => $context->storeView()?->locale,
             'pathPrefix' => $context->pathPrefix(),

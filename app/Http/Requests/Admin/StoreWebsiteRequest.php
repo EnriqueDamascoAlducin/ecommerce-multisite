@@ -21,6 +21,9 @@ class StoreWebsiteRequest extends FormRequest
             'name' => ['required', 'string', 'max:255'],
             'is_default' => ['boolean'],
             'sort_order' => ['integer', 'min:0'],
+            'logo_file' => ['nullable', 'image', 'mimes:png,jpg,jpeg,webp,svg', 'max:2048'],
+            'logo_media_id' => ['nullable', 'integer', 'exists:media,id'],
+            'remove_logo' => ['nullable', 'boolean'],
         ];
     }
 }

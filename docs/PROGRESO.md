@@ -1,7 +1,7 @@
 # Progreso del proyecto
 
 > Registro vivo de avance. Roadmap completo en [`ROADMAP.md`](./ROADMAP.md).
-> Última actualización: 2026-06-04 (Etiquetas/badges de productos).
+> Última actualización: 2026-06-04 (Logo por website).
 
 ## Estado global
 
@@ -43,6 +43,24 @@ Leyenda: ⬜ pendiente · 🟡 en curso · 🟢 terminada · 🔴 bloqueada
 ---
 
 ## Bitácora
+
+### 2026-06-04 — Logo por website
+
+- **Cada website puede tener su propio logo**, configurable desde el admin y mostrado en el header de su storefront. Reutiliza la biblioteca de medios existente (el modelo `Website` ya usa el trait `HasMedia`): el logo es la imagen principal de una nueva colección `'logo'`. **Sin migraciones.**
+- **Admin (form del website):** dos vías que conviven, a elección del usuario — **subir un archivo** directamente (`logo_file`, validado `image|mimes:png,jpg,jpeg,webp,svg|max:2048`) **o elegir una imagen de la biblioteca** (`logo_media_id`), más un checkbox **«Quitar logo»** (`remove_logo`). Vista previa en vivo. El `<Form>` de Inertia envía `multipart/form-data` automáticamente al adjuntar archivo.
+- **`WebsiteController`:** `edit()` devuelve el logo actual (`{id,url}`) y `availableImages` (imágenes públicas de la biblioteca); helper privado `persistLogo()` resuelve subida/selección/eliminación tras crear o actualizar (sube vía `MediaService::store` + `syncMediaCollection([...], 'logo')`, audita `media.uploaded`). Las columnas reales del website (`code,name,is_default,sort_order`) se separan del payload del logo con `$request->safe()->only([...])`.
+- **Props compartidos:** `HandleInertiaRequests::currentStore()` añade `website.logo_url`. **Cuidado con `preventLazyLoading`:** se hace `$website->loadMissing('media')` antes de `primaryMedia('logo')` para no disparar `LazyLoadingViolationException`.
+- **Storefront `storefront-layout.tsx`:** el header renderiza `<img>` del logo si existe; si no, cae al nombre del store como fallback. Tipo `store.website.logo_url` añadido en `types/global.d.ts`.
+- **6 tests** (`WebsiteManagementTest`): subida directa (+ auditoría), selección de biblioteca, quitado, rechazo de archivo inválido, permiso requerido, y que el storefront expone `store.website.logo_url`.
+
+**Verificación (todo verde):**
+- `pint --dirty --format agent` ✓ · `types:check` ✓ · `npm run build` ✓ · suite completa **423 passed, 4 skipped** (1356 assertions). 6 tests nuevos. Único rojo: `HeaderMenuTest > an item can be updated`, **ajeno** (WIP en paralelo del mega menú).
+
+**Notas / decisiones:**
+- Logo **por website** (no por store), consistente con la decisión del usuario. Posible futuro: favicon/apple-touch-icon (otra colección), logo por store, variante para modo oscuro.
+- No requiere permiso nuevo: la edición de websites ya está bajo `settings.stores`. No hizo falta re-seed.
+
+---
 
 ### 2026-06-04 — Etiquetas (badges) de productos
 

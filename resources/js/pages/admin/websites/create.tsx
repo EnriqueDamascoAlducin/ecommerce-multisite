@@ -2,9 +2,9 @@ import { Form, Head, Link } from '@inertiajs/react';
 import WebsiteController from '@/actions/App/Http/Controllers/Admin/WebsiteController';
 import { Button } from '@/components/ui/button';
 import websites from '@/routes/admin/websites';
-import { WebsiteFields } from './website-fields';
+import { type MediaImage, WebsiteFields } from './website-fields';
 
-export default function WebsitesCreate() {
+export default function WebsitesCreate({ availableImages }: { availableImages: MediaImage[] }) {
     return (
         <>
             <Head title="Nuevo website" />
@@ -19,7 +19,7 @@ export default function WebsitesCreate() {
             <Form {...WebsiteController.store.form()} className="max-w-xl">
                 {({ processing, errors }) => (
                     <div className="space-y-6">
-                        <WebsiteFields errors={errors} />
+                        <WebsiteFields errors={errors} availableImages={availableImages} />
                         <Button disabled={processing}>Crear website</Button>
                     </div>
                 )}

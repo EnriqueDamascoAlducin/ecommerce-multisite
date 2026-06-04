@@ -26,8 +26,16 @@ export default function StorefrontLayout({
         <div className="flex min-h-screen flex-col bg-white text-neutral-900 dark:bg-neutral-950 dark:text-neutral-100">
             <header className="border-b border-neutral-200 dark:border-neutral-800">
                 <div className="mx-auto flex w-full max-w-6xl items-center justify-between px-4 py-4">
-                    <Link href={urls.home()} className="text-lg font-semibold">
-                        {store?.store.name ?? 'Tienda'}
+                    <Link href={urls.home()} className="flex items-center gap-2 text-lg font-semibold">
+                        {store?.website.logo_url ? (
+                            <img
+                                src={store.website.logo_url}
+                                alt={store?.store.name ?? 'Tienda'}
+                                className="h-8 w-auto"
+                            />
+                        ) : (
+                            (store?.store.name ?? 'Tienda')
+                        )}
                     </Link>
 
                     <div className="flex items-center gap-4 text-sm text-neutral-600 dark:text-neutral-400">
