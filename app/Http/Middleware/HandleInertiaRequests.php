@@ -4,8 +4,9 @@ namespace App\Http\Middleware;
 
 use App\Domain\Cart\CartService;
 use App\Domain\Store\AdminScopeManager;
+use App\Domain\Store\HeaderMenuService;
 use App\Domain\Store\StoreContext;
-use App\Models\Category;
+use App\Models\Store;
 use Illuminate\Http\Request;
 use Inertia\Middleware;
 
@@ -83,7 +84,7 @@ class HandleInertiaRequests extends Middleware
     /**
      * Sitio resuelto para el storefront (null en el admin y rutas sin resolver).
      *
-     * @return array{website: array{id: int, code: string, name: string}, store: array{id: int, code: string, name: string}, locale: string|null, pathPrefix: string, menu: list<array{name: string, slug: string}>}|null
+     * @return array{website: array{id: int, code: string, name: string}, store: array{id: int, code: string, name: string}, locale: string|null, pathPrefix: string, menu: list<array<string, mixed>>}|null
      */
     private function currentStore(): ?array
     {
@@ -101,7 +102,7 @@ class HandleInertiaRequests extends Middleware
             'store' => ['id' => $store->id, 'code' => $store->code, 'name' => $store->name],
             'locale' => $context->storeView()?->locale,
             'pathPrefix' => $context->pathPrefix(),
-            'menu' => $this->categoryMenu($website->id),
+            'menu' => $this->buildMenu($store),
         ];
     }
 
@@ -120,20 +121,12 @@ class HandleInertiaRequests extends Middleware
     }
 
     /**
-     * Categorías raíz activas del website, para el menú del storefront.
+     * Árbol del menú del header vía HeaderMenuService.
      *
-     * @return list<array{name: string, slug: string}>
+     * @return list<array<string, mixed>>
      */
-    private function categoryMenu(int $websiteId): array
+    private function buildMenu(Store $store): array
     {
-        return Category::query()
-            ->where('website_id', $websiteId)
-            ->whereNull('parent_id')
-            ->where('is_active', true)
-            ->orderBy('sort_order')
-            ->orderBy('name')
-            ->get(['name', 'slug'])
-            ->map(fn (Category $category) => ['name' => $category->name, 'slug' => $category->slug])
-            ->all();
+        return app(HeaderMenuService::class)->buildTree($store);
     }
 }

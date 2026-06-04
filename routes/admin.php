@@ -3,6 +3,7 @@
 use App\Http\Controllers\Admin\AttributeController;
 use App\Http\Controllers\Admin\AuditLogController;
 use App\Http\Controllers\Admin\CategoryController;
+use App\Http\Controllers\Admin\HeaderMenuController;
 use App\Http\Controllers\Admin\InventoryController;
 use App\Http\Controllers\Admin\InventorySourceController;
 use App\Http\Controllers\Admin\InvoiceController;
@@ -162,6 +163,15 @@ Route::middleware(['auth', 'verified'])->prefix('admin')->name('admin.')->group(
 
         Route::get('shipping-stores', [StoreShippingController::class, 'edit'])->name('shipping-stores.edit');
         Route::put('shipping-stores', [StoreShippingController::class, 'update'])->name('shipping-stores.update');
+    });
+
+    // Storefront: menú del header por tienda
+    Route::middleware('permission:settings.storefront')->group(function () {
+        Route::get('header-menu', [HeaderMenuController::class, 'index'])->name('header-menu.index');
+        Route::post('header-menu', [HeaderMenuController::class, 'store'])->name('header-menu.store');
+        Route::put('header-menu/{headerMenuItem}', [HeaderMenuController::class, 'update'])->name('header-menu.update');
+        Route::delete('header-menu/{headerMenuItem}', [HeaderMenuController::class, 'destroy'])->name('header-menu.destroy');
+        Route::post('header-menu/reorder', [HeaderMenuController::class, 'reorder'])->name('header-menu.reorder');
     });
 
     // Biblioteca de medios

@@ -2,13 +2,9 @@ import { Link, usePage } from '@inertiajs/react';
 import { ShoppingCart } from 'lucide-react';
 import { useEffect } from 'react';
 import { toast } from 'sonner';
+import { MegaMenu } from '@/components/storefront/mega-menu';
 import { useStoreUrls } from '@/lib/storefront';
 
-/**
- * Shell público del storefront (header + footer). El nombre del sitio y el menú
- * de categorías vienen del StoreContext resuelto. Los enlaces respetan el
- * prefijo de tienda (multisitio por path).
- */
 export default function StorefrontLayout({
     children,
 }: {
@@ -67,19 +63,7 @@ export default function StorefrontLayout({
                 </div>
 
                 {store && store.menu.length > 0 && (
-                    <nav className="border-t border-neutral-100 dark:border-neutral-900">
-                        <div className="mx-auto flex w-full max-w-6xl flex-wrap gap-4 px-4 py-2 text-sm">
-                            {store.menu.map((category) => (
-                                <Link
-                                    key={category.slug}
-                                    href={urls.category(category.slug)}
-                                    className="text-neutral-600 hover:text-neutral-900 dark:text-neutral-400 dark:hover:text-neutral-100"
-                                >
-                                    {category.name}
-                                </Link>
-                            ))}
-                        </div>
-                    </nav>
+                    <MegaMenu items={store.menu} />
                 )}
             </header>
 

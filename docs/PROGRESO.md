@@ -1,7 +1,7 @@
 # Progreso del proyecto
 
 > Registro vivo de avance. Roadmap completo en [`ROADMAP.md`](./ROADMAP.md).
-> Última actualización: 2026-06-03 (Fase 22 — Cupones y reglas de carrito).
+> Última actualización: 2026-06-03 (Mega menú del header).
 
 ## Estado global
 
@@ -31,7 +31,8 @@
 | 27 — Logs/auditoría | 🟢 Terminada |
 | 24 — APIs básicas | 🟢 Terminada |
 | 22 — Cupones y reglas de carrito | 🟢 Terminada |
-| 19, 20, 23, 28, 29 | ⬜ Pendiente |
+| 29 — Mega menú del header | 🟢 Terminada |
+| 19, 20, 23, 28 | ⬜ Pendiente |
 
 Leyenda: ⬜ pendiente · 🟡 en curso · 🟢 terminada · 🔴 bloqueada
 
@@ -443,6 +444,33 @@ Leyenda: ⬜ pendiente · 🟡 en curso · 🟢 terminada · 🔴 bloqueada
 - `pint --format agent` ✓ · `types:check` (solo errores preexistentes) ✓ · `npm run build` ✓ · suite completa **265 passed, 4 skipped** (776 assertions).
 
 **Siguiente:** Siguiente fase del roadmap (MVP2).
+
+---
+
+### 2026-06-03 — Mega menú del header (configurable desde el admin)
+
+**Hecho:**
+- **Migración `store_header_menu_items`:** tabla jerárquica por tienda con `parent_id` autorreferencial, tipos `link`/`category`/`custom`, flag `expand_products` para mega menú dinámico, `sort_order`, `is_active`.
+- **Modelo `HeaderMenuItem`:** con relaciones `store()`, `parent()`, `children()`, `category()`, scopes `active`/`roots`/`ordered`.
+- **Servicio `HeaderMenuService`:**
+  - `buildTree()` — construye el árbol completo para una tienda, cargando solo ítems activos, ordenados por `sort_order`, con resolución de URL según tipo.
+  - `categoryProducts()` — hasta 6 productos activos/visibles en tienda por categoría, con precio efectivo, imagen principal y disponibilidad.
+- **Permiso `settings.storefront`** agregado al seeder (bajo grupo `settings`).
+- **Admin CRUD:** `HeaderMenuController` con index (árbol por tienda), store, update, destroy, reorder. Ruta `admin/header-menu` bajo `permission:settings.storefront`. Ítem "Menú del header" en el menú lateral de Tiendas.
+- **Admin UI:** `admin/header-menu/index.tsx` con selector de tienda, árbol visual con indentación, botones de agregar hijo/editar/eliminar, e inline forms (tipo, etiqueta, URL, expand_products, activo). Reordenable vía drag-drop futuro.
+- **HandleInertiaRequests:** reemplaza el antiguo `categoryMenu()` (categorías raíz planas) por `HeaderMenuService::buildTree()` → `store.menu`.
+- **Storefront `MegaMenu` component:** menú desplegable con hover (dropdown para hijos, grid de 3 columnas con mini product cards para `expand_products`, incluyendo precio, thumbnail y badge de agotado).
+- **Tipos TypeScript:** `StoreMenuItem` y `StoreMenuProduct` globales en `types/global.d.ts`.
+- **14 tests** (8 admin CRUD + 6 service/árbol): creación de ítems link/category, anidamiento, actualización, borrado, scoping por tienda, permisos, ordenamiento, exclusión de inactivos, carga de productos con expand_products.
+
+**Verificación (todo verde):**
+- `pint --format agent` ✓ · `types:check` ✓ · `npm run build` ✓ · suite completa **319 passed, 4 skipped** (999 assertions). 14 tests nuevos.
+
+**Notas / decisiones:**
+- Los ítems inactivos se excluyen del árbol en tiempo de render (no se borran del admin).
+- El mega menú usa `expand_products` a nivel de ítem (no de categoría). Cuando es true, carga productos de la categoría vinculada (hasta 6, ordenados por nombre).
+- Las URLs de categoría y producto se resuelven con las rutas `storefront.category`/`storefront.product` (rutas raíz, sin prefijo de tienda); el frontend las usa directamente o las reemplaza con `useStoreUrls` según el contexto.
+- Futuro: drag & drop vía `reorder` endpoint, y el árbol plano con `sort_order` permite implementarlo fácilmente.
 
 ---
 

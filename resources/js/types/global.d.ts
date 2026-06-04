@@ -1,10 +1,35 @@
 import type { Auth } from '@/types/auth';
 
 declare module 'react' {
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     interface InputHTMLAttributes<T> {
         passwordrules?: string;
     }
+}
+
+interface StoreMenuProduct {
+    id: number;
+    slug: string;
+    name: string;
+    sku: string;
+    url: string;
+    thumbnail: string | null;
+    in_stock: boolean;
+    price: {
+        price: string | null;
+        special_price: string | null;
+        effective_price: string | null;
+        is_special: boolean;
+    };
+}
+
+interface StoreMenuItem {
+    id: number;
+    type: string;
+    label: string;
+    url: string | null;
+    expand_products: boolean;
+    children: StoreMenuItem[];
+    products: StoreMenuProduct[];
 }
 
 declare module '@inertiajs/core' {
@@ -21,7 +46,7 @@ declare module '@inertiajs/core' {
                 store: { id: number; code: string; name: string };
                 locale: string | null;
                 pathPrefix: string;
-                menu: { name: string; slug: string }[];
+                menu: StoreMenuItem[];
             } | null;
             customer: { id: number; name: string; email: string } | null;
             cart: { count: number; total: string } | null;

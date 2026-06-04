@@ -30,7 +30,7 @@ class RolesAndPermissionsSeeder extends Seeder
         'reports' => ['view'],
         'audit' => ['view'],
         'promotions' => ['view', 'create', 'edit', 'delete'],
-        'settings' => ['payments', 'shipping', 'stores'],
+        'settings' => ['payments', 'shipping', 'stores', 'storefront'],
     ];
 
     public function run(): void
