@@ -107,6 +107,10 @@ class ProductController extends Controller
                 $this->persistBundleItems($product, $data['bundle_items'] ?? []);
             }
 
+            if ($type === Product::TYPE_DOWNLOADABLE) {
+                $this->persistDownloadableLinks($product, $data['downloadable_links'] ?? []);
+            }
+
             return $product;
         });
 
@@ -117,7 +121,7 @@ class ProductController extends Controller
 
     public function edit(Product $product): Response
     {
-        $product->load(['prices', 'storeLinks', 'media', 'categories', 'attributeValues', 'parent', 'configurableAttributes', 'bundleItems.product']);
+        $product->load(['prices', 'storeLinks', 'media', 'categories', 'attributeValues', 'parent', 'configurableAttributes', 'bundleItems.product', 'downloadableLinks']);
 
         $base = $product->basePrice();
 
@@ -182,6 +186,14 @@ class ProductController extends Controller
                 'sku' => $item->product?->sku,
                 'quantity' => $item->quantity,
             ])->values();
+        } elseif ($product->isDownloadable()) {
+            $data['downloadable_links'] = $product->downloadableLinks->map(fn ($link) => [
+                'id' => $link->id,
+                'title' => $link->title,
+                'file_path' => $link->file_path,
+                'original_name' => $link->original_name,
+                'max_downloads' => $link->max_downloads,
+            ])->values();
         } elseif ($product->parent) {
             $data['parent_name'] = $product->parent->name;
             $data['parent_id'] = $product->parent->id;
@@ -216,6 +228,10 @@ class ProductController extends Controller
 
             if ($product->isBundle()) {
                 $this->persistBundleItems($product, $data['bundle_items'] ?? []);
+            }
+
+            if ($product->isDownloadable()) {
+                $this->persistDownloadableLinks($product, $data['downloadable_links'] ?? []);
             }
 
             if ($product->isConfigurable()) {
@@ -305,6 +321,45 @@ class ProductController extends Controller
         }
 
         $product->bundleItems()->whereNotIn('product_id', $keep ?: [0])->delete();
+    }
+
+    /**
+     * Reemplaza los enlaces descargables con los enviados (subidos previamente).
+     *
+     * @param  list<array{id?: int|string, title?: string, file_path?: string, original_name?: ?string, max_downloads?: int|string|null}>  $links
+     */
+    private function persistDownloadableLinks(Product $product, array $links): void
+    {
+        $keep = [];
+        $sort = 0;
+
+        foreach ($links as $row) {
+            if (empty($row['file_path']) || empty($row['title'])) {
+                continue;
+            }
+
+            $max = $row['max_downloads'] ?? null;
+
+            $attributes = [
+                'title' => $row['title'],
+                'file_path' => $row['file_path'],
+                'original_name' => $row['original_name'] ?? null,
+                'max_downloads' => ($max === '' || $max === null) ? null : (int) $max,
+                'sort_order' => $sort++,
+            ];
+
+            $existing = ! empty($row['id'])
+                ? $product->downloadableLinks()->whereKey($row['id'])->first()
+                : null;
+
+            $link = $existing
+                ? tap($existing)->update($attributes)
+                : $product->downloadableLinks()->create($attributes);
+
+            $keep[] = $link->id;
+        }
+
+        $product->downloadableLinks()->whereNotIn('id', $keep ?: [0])->delete();
     }
 
     /**

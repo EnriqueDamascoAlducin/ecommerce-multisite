@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import DownloadableController from '@/actions/App/Http/Controllers/Admin/DownloadableController';
 import InputError from '@/components/input-error';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
@@ -29,6 +30,14 @@ type ConfigurableAttrDef = {
 type ComponentProduct = { id: number; sku: string; name: string };
 
 type BundleItemDefault = { product_id: number; sku?: string; name?: string; quantity: number };
+
+type DownloadableLinkDefault = {
+    id?: number;
+    title: string;
+    file_path: string;
+    original_name?: string | null;
+    max_downloads?: number | null;
+};
 
 type StoreDefault = {
     store_id: number;
@@ -61,6 +70,7 @@ export type ProductDefaults = {
     configurable_attributes?: number[];
     price_type?: string | null;
     bundle_items?: BundleItemDefault[];
+    downloadable_links?: DownloadableLinkDefault[];
     variants?: {
         id: number;
         sku: string;
@@ -118,6 +128,60 @@ export function ProductFields({
         setBundleItems((current) => current.filter((i) => i.product_id !== productId));
     };
 
+    const [downloadableLinks, setDownloadableLinks] = useState<DownloadableLinkDefault[]>(defaults?.downloadable_links ?? []);
+    const [uploading, setUploading] = useState(false);
+    const [uploadError, setUploadError] = useState<string | null>(null);
+
+    const uploadDownloadable = async (file: File) => {
+        setUploading(true);
+        setUploadError(null);
+
+        try {
+            const form = new FormData();
+            form.append('file', file);
+
+            const xsrf = decodeURIComponent(
+                document.cookie.split('; ').find((row) => row.startsWith('XSRF-TOKEN='))?.split('=')[1] ?? '',
+            );
+
+            const response = await fetch(DownloadableController.upload.url(), {
+                method: 'POST',
+                body: form,
+                credentials: 'same-origin',
+                headers: { Accept: 'application/json', 'X-XSRF-TOKEN': xsrf },
+            });
+
+            if (!response.ok) {
+                throw new Error('No se pudo subir el archivo.');
+            }
+
+            const data = (await response.json()) as { file_path: string; original_name: string };
+
+            setDownloadableLinks((current) => [
+                ...current,
+                { title: data.original_name, file_path: data.file_path, original_name: data.original_name, max_downloads: null },
+            ]);
+        } catch {
+            setUploadError('No se pudo subir el archivo. Inténtalo de nuevo.');
+        } finally {
+            setUploading(false);
+        }
+    };
+
+    const setLinkField = (index: number, field: 'title' | 'max_downloads', value: string) => {
+        setDownloadableLinks((current) =>
+            current.map((link, i) =>
+                i === index
+                    ? { ...link, [field]: field === 'max_downloads' ? (value === '' ? null : Number(value)) : value }
+                    : link,
+            ),
+        );
+    };
+
+    const removeDownloadable = (index: number) => {
+        setDownloadableLinks((current) => current.filter((_, i) => i !== index));
+    };
+
     const toggleImage = (id: number) => {
         setSelected((current) =>
             current.includes(id) ? current.filter((x) => x !== id) : [...current, id],
@@ -157,6 +221,7 @@ export function ProductFields({
                         <option value="simple">Producto simple</option>
                         <option value="configurable">Producto configurable</option>
                         <option value="bundle">Paquete (bundle)</option>
+                        <option value="downloadable">Descargable (digital)</option>
                     </select>
                 </div>
 
@@ -366,6 +431,96 @@ export function ProductFields({
                         </div>
                     ) : (
                         <p className="text-sm text-neutral-500">Aún no hay componentes. Agrega al menos uno.</p>
+                    )}
+                </section>
+            )}
+
+            {/* Archivos descargables */}
+            {productType === 'downloadable' && (
+                <section>
+                    <h2 className="mb-1 text-sm font-semibold">Archivos descargables</h2>
+                    <p className="mb-3 text-xs text-neutral-500">
+                        Sube los archivos que el cliente podrá descargar tras pagar. Deja el límite vacío para descargas ilimitadas.
+                    </p>
+                    {downloadableLinks.map((link, index) => (
+                        <div key={index}>
+                            {link.id !== undefined && (
+                                <input type="hidden" name={`downloadable_links[${index}][id]`} value={link.id} />
+                            )}
+                            <input type="hidden" name={`downloadable_links[${index}][file_path]`} value={link.file_path} />
+                            <input type="hidden" name={`downloadable_links[${index}][original_name]`} value={link.original_name ?? ''} />
+                            <input type="hidden" name={`downloadable_links[${index}][title]`} value={link.title} />
+                            {link.max_downloads != null && (
+                                <input type="hidden" name={`downloadable_links[${index}][max_downloads]`} value={link.max_downloads} />
+                            )}
+                        </div>
+                    ))}
+
+                    <div className="mb-3">
+                        <input
+                            type="file"
+                            disabled={uploading}
+                            onChange={(e) => {
+                                const file = e.target.files?.[0];
+                                if (file) {
+                                    void uploadDownloadable(file);
+                                }
+                                e.target.value = '';
+                            }}
+                            className="text-sm"
+                        />
+                        {uploading && <span className="ml-2 text-xs text-neutral-500">Subiendo…</span>}
+                        {uploadError && <p className="mt-1 text-xs text-red-500">{uploadError}</p>}
+                    </div>
+                    <InputError message={errors.downloadable_links} />
+
+                    {downloadableLinks.length > 0 ? (
+                        <div className="overflow-x-auto rounded-lg border border-neutral-200 dark:border-neutral-800">
+                            <table className="w-full text-sm">
+                                <thead className="bg-neutral-50 dark:bg-neutral-900">
+                                    <tr>
+                                        <th className="px-3 py-2 text-left font-medium">Título</th>
+                                        <th className="px-3 py-2 text-left font-medium">Archivo</th>
+                                        <th className="px-3 py-2 text-left font-medium">Límite</th>
+                                        <th className="px-3 py-2"></th>
+                                    </tr>
+                                </thead>
+                                <tbody className="divide-y divide-neutral-200 dark:divide-neutral-800">
+                                    {downloadableLinks.map((link, index) => (
+                                        <tr key={index}>
+                                            <td className="px-3 py-2">
+                                                <Input
+                                                    value={link.title}
+                                                    onChange={(e) => setLinkField(index, 'title', e.target.value)}
+                                                />
+                                            </td>
+                                            <td className="px-3 py-2 font-mono text-xs text-neutral-500">{link.original_name ?? link.file_path}</td>
+                                            <td className="px-3 py-2">
+                                                <Input
+                                                    type="number"
+                                                    min={1}
+                                                    placeholder="∞"
+                                                    value={link.max_downloads ?? ''}
+                                                    onChange={(e) => setLinkField(index, 'max_downloads', e.target.value)}
+                                                    className="w-24"
+                                                />
+                                            </td>
+                                            <td className="px-3 py-2 text-right">
+                                                <button
+                                                    type="button"
+                                                    onClick={() => removeDownloadable(index)}
+                                                    className="text-sm text-red-500 hover:underline"
+                                                >
+                                                    Quitar
+                                                </button>
+                                            </td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        </div>
+                    ) : (
+                        <p className="text-sm text-neutral-500">Aún no hay archivos. Sube al menos uno.</p>
                     )}
                 </section>
             )}

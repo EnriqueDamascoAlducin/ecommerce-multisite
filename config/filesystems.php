@@ -47,6 +47,15 @@ return [
             'report' => false,
         ],
 
+        // Archivos de productos descargables: privados, se sirven sólo a clientes
+        // con un grant válido vía DownloadController (nunca por URL pública).
+        'downloads' => [
+            'driver' => 'local',
+            'root' => storage_path('app/private/downloads'),
+            'throw' => false,
+            'report' => false,
+        ],
+
         's3' => [
             'driver' => 's3',
             'key' => env('AWS_ACCESS_KEY_ID'),

@@ -5,11 +5,13 @@ namespace Database\Seeders;
 use App\Domain\Catalog\ConfigurableProductService;
 use App\Models\Attribute;
 use App\Models\Category;
+use App\Models\DownloadableLink;
 use App\Models\InventorySource;
 use App\Models\Product;
 use App\Models\Store;
 use App\Models\Website;
 use Illuminate\Database\Seeder;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 
 /**
@@ -49,6 +51,9 @@ class ProductSeeder extends Seeder
         // --- Bundle (Interferenciales) ---
         // Paquete dinámico: su precio es la suma de los componentes.
         $this->bundle('KIT-DEPORTIVO', 'Kit Deportivo', [[$balon, 2], [$sony, 1]], $interStores, $this->cats($interferenciales, ['futbol']));
+
+        // --- Descargable (Interferenciales) ---
+        $this->downloadable('EBOOK-RUNNING', 'Ebook: Guía de Running', 149, $interStores, $this->cats($interferenciales, ['running']));
 
         // --- Simples (Veterinaria) ---
         $veterinaria = Website::where('code', 'veterinaria')->first();
@@ -187,6 +192,49 @@ class ProductSeeder extends Seeder
         }
 
         return $bundle;
+    }
+
+    /**
+     * Crea un producto descargable con un archivo demo en el disco privado.
+     *
+     * @param  list<Store>  $stores
+     * @param  list<int>  $categoryIds
+     */
+    private function downloadable(string $sku, string $name, float $price, array $stores, array $categoryIds): Product
+    {
+        $product = Product::firstOrCreate(
+            ['sku' => $sku],
+            [
+                'type' => Product::TYPE_DOWNLOADABLE,
+                'name' => $name,
+                'slug' => Str::slug($name),
+                'status' => Product::STATUS_ACTIVE,
+                'visibility' => 'both',
+            ],
+        );
+
+        $product->prices()->firstOrCreate(['store_id' => null], ['price' => $price]);
+
+        foreach ($stores as $store) {
+            $product->storeLinks()->firstOrCreate(['store_id' => $store->id], ['is_active' => true]);
+        }
+
+        if ($categoryIds !== []) {
+            $product->categories()->syncWithoutDetaching($categoryIds);
+        }
+
+        $filePath = "files/{$sku}.txt";
+
+        if (! Storage::disk(DownloadableLink::DISK)->exists($filePath)) {
+            Storage::disk(DownloadableLink::DISK)->put($filePath, "Contenido demo de {$name}.");
+        }
+
+        $product->downloadableLinks()->firstOrCreate(
+            ['file_path' => $filePath],
+            ['title' => $name, 'original_name' => "{$sku}.txt", 'max_downloads' => null, 'sort_order' => 0],
+        );
+
+        return $product;
     }
 
     /**

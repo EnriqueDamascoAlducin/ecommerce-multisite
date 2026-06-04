@@ -141,8 +141,10 @@ export default function StorefrontProduct({ product }: { product: ProductDetail 
                         )}
                     </div>
 
-                    <div className="mt-3">
-                        {inStock ? (
+                    <div className="mt-3 flex items-center gap-2">
+                        {product.type === 'downloadable' ? (
+                            <Badge>Descarga digital</Badge>
+                        ) : inStock ? (
                             <Badge>En stock</Badge>
                         ) : (
                             <Badge variant="outline">Agotado</Badge>

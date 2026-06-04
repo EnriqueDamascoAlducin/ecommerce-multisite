@@ -20,6 +20,7 @@ class UpdateProductRequest extends FormRequest
     {
         $product = $this->route('product');
         $isBundle = $product instanceof Product && $product->isBundle();
+        $isDownloadable = $product instanceof Product && $product->isDownloadable();
 
         return [
             'price_type' => ['nullable', 'in:dynamic,fixed'],
@@ -60,6 +61,13 @@ class UpdateProductRequest extends FormRequest
             'bundle_items' => [$isBundle ? 'required' : 'nullable', 'array'],
             'bundle_items.*.product_id' => ['required', 'integer', 'exists:products,id'],
             'bundle_items.*.quantity' => ['required', 'integer', 'min:1', 'max:999'],
+
+            'downloadable_links' => [$isDownloadable ? 'required' : 'nullable', 'array'],
+            'downloadable_links.*.id' => ['nullable', 'integer'],
+            'downloadable_links.*.title' => ['required', 'string', 'max:255'],
+            'downloadable_links.*.file_path' => ['required', 'string', 'max:2048'],
+            'downloadable_links.*.original_name' => ['nullable', 'string', 'max:255'],
+            'downloadable_links.*.max_downloads' => ['nullable', 'integer', 'min:1'],
         ];
     }
 }

@@ -337,6 +337,11 @@ class CartService
             return false;
         }
 
+        // Un descargable sin archivos no se puede vender.
+        if ($product->isDownloadable() && ! $product->downloadableLinks()->exists()) {
+            return false;
+        }
+
         return $product->storeLinks()
             ->where('store_id', $storeId)
             ->where('is_active', true)

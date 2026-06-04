@@ -12,6 +12,7 @@ use App\Http\Controllers\Storefront\Auth\PasswordResetLinkController;
 use App\Http\Controllers\Storefront\Auth\RegisterController;
 use App\Http\Controllers\Storefront\CartController;
 use App\Http\Controllers\Storefront\CheckoutController;
+use App\Http\Controllers\Storefront\DownloadController;
 use Illuminate\Support\Facades\Route;
 
 // Carrito (invitado o cliente). El carrito de invitado se identifica por la sesión.
@@ -62,5 +63,9 @@ Route::prefix('cuenta')->name('customer.')->group(function () {
         Route::post('direcciones', [AddressController::class, 'store'])->name('addresses.store');
         Route::put('direcciones/{address}', [AddressController::class, 'update'])->name('addresses.update');
         Route::delete('direcciones/{address}', [AddressController::class, 'destroy'])->name('addresses.destroy');
+
+        // Descargas digitales (productos descargables comprados).
+        Route::get('descargas', [DownloadController::class, 'index'])->name('downloads.index');
+        Route::get('descargas/{grant}/archivo', [DownloadController::class, 'download'])->name('downloads.file');
     });
 });

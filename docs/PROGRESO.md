@@ -1,7 +1,7 @@
 # Progreso del proyecto
 
 > Registro vivo de avance. Roadmap completo en [`ROADMAP.md`](./ROADMAP.md).
-> Última actualización: 2026-06-03 (Fase 19 — Bundles).
+> Última actualización: 2026-06-03 (Fase 20 — Descargables).
 
 ## Estado global
 
@@ -34,13 +34,28 @@
 | 29 — Mega menú del header | 🟢 Terminada |
 | 23 — Reglas de catálogo | 🟢 Terminada |
 | 19 — Productos bundle (paquetes) | 🟢 Terminada |
-| 20, 28 | ⬜ Pendiente |
+| 20 — Productos descargables | 🟢 Terminada |
+| 28 | ⬜ Pendiente |
 
 Leyenda: ⬜ pendiente · 🟡 en curso · 🟢 terminada · 🔴 bloqueada
 
 ---
 
 ## Bitácora
+
+### 2026-06-03 — Fase 20 cerrada (Productos descargables)
+
+- **Nuevo tipo de producto `downloadable`:** producto digital sin envío ni inventario. Tabla `downloadable_links` (archivos: `title`, `file_path`, `original_name`, `max_downloads` nullable = ilimitado, `sort_order`) y `customer_download_grants` (permiso por cliente/orden con `downloads_used`/`max_downloads`, único por `order_id`+`downloadable_link_id`).
+- **Disco privado `downloads`** (`config/filesystems.php`, raíz `storage/app/private/downloads`): los archivos **nunca** se sirven por URL pública, solo vía `DownloadController` con un grant válido.
+- **Otorgamiento al pagar:** `DownloadGrantService::grantForOrder` crea un grant por cada enlace de los ítems descargables de la orden; se invoca desde `PaymentService` cuando la orden pasa a **`paid`** (cualquier pasarela). Idempotente (índice único + `firstOrCreate`), seguro ante reenvío de webhooks.
+- **Descarga segura:** `cuenta/descargas` lista los grants del cliente; `cuenta/descargas/{grant}/archivo` valida propiedad del cliente y usos restantes, **descuenta un uso** y entrega el archivo por streaming. 403 si no es del cliente o se agotó el límite.
+- **Carrito:** un descargable es comprable como un simple (precio base) pero **sin límite de stock** (no tiene inventario → `canFulfill` true); se bloquea si no tiene archivos. *(El checkout sigue pidiendo envío aunque el carrito sea solo digital — ver limitación.)*
+- **Admin:** tipo "Descargable (digital)" en el formulario de producto; subida de archivos vía endpoint `admin/downloadable/upload` (disco privado, devuelve la ruta) y editor de enlaces (título + límite de descargas por archivo). `ProductController` persiste/reemplaza los enlaces; validación en `Store/UpdateProductRequest` (al menos un archivo).
+- **Storefront:** la PDP muestra la insignia "Descarga digital"; nueva pestaña "Mis descargas" en el menú de la cuenta.
+- **Seeder:** producto descargable demo «Ebook: Guía de Running» (con archivo demo escrito en el disco privado).
+- **Tests (14):** `Catalog/DownloadableTest` (10: grant por enlace, idempotencia, grant vía webhook de pago, descarga + decremento, bloqueo por límite, propiedad ajena 403, listado de descargas, descargable sin archivos no entra al carrito, descargable sin tope de stock) y `Admin/DownloadableManagementTest` (5: crear con enlaces, requiere archivo, update reemplaza enlaces, endpoint de subida, Soporte sin permiso).
+- **Verificación:** `pint` ✓ · `tsc` ✓ · `build` ✓ · suite **360 passed, 4 skipped**. *(1 test en rojo `HeaderMenuTest > an item can be updated` por el WIP del mega menú en paralelo — otro agente —, **ajeno a esta fase**.)*
+- **Limitación conocida:** un carrito **solo digital** todavía requiere método/dirección de envío en el checkout (no se omite el envío para productos virtuales); pendiente de pulir.
 
 ### 2026-06-03 — Fase 19 cerrada (Productos bundle / paquetes)
 

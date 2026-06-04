@@ -57,6 +57,14 @@ class Customer extends Authenticatable
         return $this->hasMany(Order::class);
     }
 
+    /**
+     * @return HasMany<CustomerDownloadGrant, $this>
+     */
+    public function downloadGrants(): HasMany
+    {
+        return $this->hasMany(CustomerDownloadGrant::class);
+    }
+
     public function defaultShippingAddress(): ?CustomerAddress
     {
         return $this->addresses->firstWhere('is_default_shipping', true);

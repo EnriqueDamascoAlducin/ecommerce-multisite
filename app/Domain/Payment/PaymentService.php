@@ -2,6 +2,7 @@
 
 namespace App\Domain\Payment;
 
+use App\Domain\Catalog\DownloadGrantService;
 use App\Domain\Inventory\StockReservationService;
 use App\Models\Order;
 use App\Models\PaymentTransaction;
@@ -22,6 +23,7 @@ class PaymentService
     public function __construct(
         private readonly PaymentGatewayRegistry $registry,
         private readonly StockReservationService $reservations,
+        private readonly DownloadGrantService $downloadGrants,
     ) {}
 
     /**
@@ -145,6 +147,7 @@ class PaymentService
         $order->transitionTo($target, "Pago: {$status->value} ({$gateway}).");
 
         if ($target === Order::STATUS_PAID) {
+            $this->downloadGrants->grantForOrder($order);
             Notification::route('mail', $order->email)->notify(new PaymentApproved($order));
         } elseif ($target === Order::STATUS_FAILED) {
             Notification::route('mail', $order->email)->notify(new PaymentFailed($order));

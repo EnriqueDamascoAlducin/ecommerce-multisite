@@ -4,6 +4,7 @@ use App\Http\Controllers\Admin\AttributeController;
 use App\Http\Controllers\Admin\AuditLogController;
 use App\Http\Controllers\Admin\CatalogRuleController;
 use App\Http\Controllers\Admin\CategoryController;
+use App\Http\Controllers\Admin\DownloadableController;
 use App\Http\Controllers\Admin\HeaderMenuController;
 use App\Http\Controllers\Admin\InventoryController;
 use App\Http\Controllers\Admin\InventorySourceController;
@@ -67,6 +68,11 @@ Route::middleware(['auth', 'verified'])->prefix('admin')->name('admin.')->group(
         Route::get('products/{product}/edit', [ProductController::class, 'edit'])->middleware('permission:catalog.products.edit')->name('products.edit');
         Route::put('products/{product}', [ProductController::class, 'update'])->middleware('permission:catalog.products.edit')->name('products.update');
         Route::delete('products/{product}', [ProductController::class, 'destroy'])->middleware('permission:catalog.products.delete')->name('products.destroy');
+
+        // Subida de archivos descargables (devuelve la ruta para el formulario de producto).
+        Route::post('downloadable/upload', [DownloadableController::class, 'upload'])
+            ->middleware('permission:catalog.products.create')
+            ->name('downloadable.upload');
     });
 
     // Catálogo: categorías

@@ -26,6 +26,8 @@ class Product extends Model
 
     public const TYPE_BUNDLE = 'bundle';
 
+    public const TYPE_DOWNLOADABLE = 'downloadable';
+
     public const PRICE_TYPE_DYNAMIC = 'dynamic';
 
     public const PRICE_TYPE_FIXED = 'fixed';
@@ -124,6 +126,16 @@ class Product extends Model
     }
 
     /**
+     * Archivos descargables cuando el producto es de tipo downloadable.
+     *
+     * @return HasMany<DownloadableLink, $this>
+     */
+    public function downloadableLinks(): HasMany
+    {
+        return $this->hasMany(DownloadableLink::class)->orderBy('sort_order');
+    }
+
+    /**
      * Variantes hijas activas (productos simples con parent_id).
      *
      * @return HasMany<Product, $this>
@@ -196,5 +208,21 @@ class Product extends Model
     public function hasDynamicBundlePrice(): bool
     {
         return $this->price_type !== self::PRICE_TYPE_FIXED;
+    }
+
+    /**
+     * ¿Es un producto descargable (archivo digital, sin envío ni inventario)?
+     */
+    public function isDownloadable(): bool
+    {
+        return $this->type === self::TYPE_DOWNLOADABLE;
+    }
+
+    /**
+     * ¿Es un producto virtual (sin envío físico)? Por ahora, los descargables.
+     */
+    public function isVirtual(): bool
+    {
+        return $this->isDownloadable();
     }
 }

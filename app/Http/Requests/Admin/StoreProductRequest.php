@@ -17,7 +17,7 @@ class StoreProductRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'type' => ['required', 'in:simple,configurable,bundle'],
+            'type' => ['required', 'in:simple,configurable,bundle,downloadable'],
             'price_type' => ['nullable', 'in:dynamic,fixed'],
             'sku' => ['required', 'string', 'max:255', 'unique:products,sku'],
             'name' => ['required', 'string', 'max:255'],
@@ -56,6 +56,12 @@ class StoreProductRequest extends FormRequest
             'bundle_items' => ['required_if:type,bundle', 'array'],
             'bundle_items.*.product_id' => ['required', 'integer', 'exists:products,id'],
             'bundle_items.*.quantity' => ['required', 'integer', 'min:1', 'max:999'],
+
+            'downloadable_links' => ['required_if:type,downloadable', 'array'],
+            'downloadable_links.*.title' => ['required', 'string', 'max:255'],
+            'downloadable_links.*.file_path' => ['required', 'string', 'max:2048'],
+            'downloadable_links.*.original_name' => ['nullable', 'string', 'max:255'],
+            'downloadable_links.*.max_downloads' => ['nullable', 'integer', 'min:1'],
         ];
     }
 }

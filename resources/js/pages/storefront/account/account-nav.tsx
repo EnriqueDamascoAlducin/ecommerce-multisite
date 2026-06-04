@@ -4,6 +4,7 @@ import { cn } from '@/lib/utils';
 const links = [
     { href: '/cuenta', label: 'Perfil' },
     { href: '/cuenta/direcciones', label: 'Direcciones' },
+    { href: '/cuenta/descargas', label: 'Mis descargas' },
 ];
 
 export function AccountNav() {
