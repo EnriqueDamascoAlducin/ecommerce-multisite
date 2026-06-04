@@ -1,7 +1,7 @@
 # Progreso del proyecto
 
 > Registro vivo de avance. Roadmap completo en [`ROADMAP.md`](./ROADMAP.md).
-> Última actualización: 2026-06-03 (Checkout multi-paso).
+> Última actualización: 2026-06-03 (Fase 21 — Openpay).
 
 ## Estado global
 
@@ -26,13 +26,26 @@
 | 16 — Invoices/facturas internas | 🟢 Terminada |
 | 17 — Shipments/envíos | 🟢 Terminada |
 | 18 — Productos configurables | 🟢 Terminada |
-| 19–29 | ⬜ Pendiente |
+| 21 — Segunda pasarela (Openpay) | 🟢 Terminada |
+| 19, 20, 22–24, 26–29 | ⬜ Pendiente |
 
 Leyenda: ⬜ pendiente · 🟡 en curso · 🟢 terminada · 🔴 bloqueada
 
 ---
 
 ## Bitácora
+
+### 2026-06-03 — Fase 21 cerrada (Openpay — segunda pasarela)
+
+**Hecho:**
+- **`OpenpayGateway`** (`app/Domain/Payment/Gateways`) implementa el contrato `PaymentGateway`: cobro en **efectivo (Paynet/tiendas)** vía cargo `method=store`. `start()` crea el cargo (Basic Auth con `private_key`), devuelve la URL del recibo (referencia/código de barras) como `redirectUrl` y deja la orden `pending_payment`. El pago se confirma por webhook.
+- **Webhook:** mapea estados de Openpay (`completed→Paid`, `in_progress→Pending`, `failed→Failed`, `cancelled→Cancelled`, `refunded→Refunded`); el evento `verification` (alta del webhook) se reconoce y se ignora. Autenticación por **Basic Auth** (`webhook_user`/`password`) cuando está configurada. `eventId = "{txId}:{status}"` para idempotencia.
+- **Registro:** añadido al `PaymentGatewayRegistry` en `AppServiceProvider`. Aparece en el checkout sólo con `merchant_id` + `private_key` (config `payments.openpay` + claves `OPENPAY_*` en `.env.example`).
+- **Sin cambios** en checkout, órdenes ni webhook controller: todo pasó por la abstracción de la Fase 14. Se aprovecharon gratis las transiciones de orden y los **emails** de pago aprobado/fallido (Fase 25).
+
+**Validación de la abstracción:** segundo gateway agregado sin tocar el core. Confirma que `PaymentGateway` + registry + `PaymentService` son reutilizables.
+
+**Verificación (todo verde):** `pint` ✓ · `tsc` ✓ · `build` ✓ · suite **272 passed, 4 skipped** (798 assertions). 7 tests nuevos (`OpenpayTest` con `Http::fake`).
 
 ### 2026-06-03 — Revisión post-OpenCode: fixes + seeder de productos
 

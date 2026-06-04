@@ -31,4 +31,24 @@ return [
         'base_url' => env('MERCADOPAGO_BASE_URL', 'https://api.mercadopago.com'),
     ],
 
+    /*
+    |--------------------------------------------------------------------------
+    | Openpay (México)
+    |--------------------------------------------------------------------------
+    |
+    | Cobro en efectivo (Paynet/tiendas) vía cargo. Sólo se ofrece cuando hay
+    | merchant_id + private_key. Las notificaciones se autentican por Basic Auth
+    | (webhook_user/password) si están configurados. Sandbox por defecto.
+    |
+    */
+
+    'openpay' => [
+        'merchant_id' => env('OPENPAY_MERCHANT_ID'),
+        'private_key' => env('OPENPAY_PRIVATE_KEY'),
+        'public_key' => env('OPENPAY_PUBLIC_KEY'),
+        'base_url' => env('OPENPAY_BASE_URL', 'https://sandbox-api.openpay.mx/v1'),
+        'webhook_user' => env('OPENPAY_WEBHOOK_USER'),
+        'webhook_password' => env('OPENPAY_WEBHOOK_PASSWORD'),
+    ],
+
 ];

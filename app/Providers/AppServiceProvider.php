@@ -4,6 +4,7 @@ namespace App\Providers;
 
 use App\Domain\Payment\Gateways\MercadoPagoGateway;
 use App\Domain\Payment\Gateways\OfflineGateway;
+use App\Domain\Payment\Gateways\OpenpayGateway;
 use App\Domain\Payment\PaymentGatewayRegistry;
 use App\Domain\Store\StoreContext;
 use Carbon\CarbonImmutable;
@@ -28,6 +29,7 @@ class AppServiceProvider extends ServiceProvider
             $registry = new PaymentGatewayRegistry;
             $registry->register(new OfflineGateway);
             $registry->register(new MercadoPagoGateway);
+            $registry->register(new OpenpayGateway);
 
             return $registry;
         });
