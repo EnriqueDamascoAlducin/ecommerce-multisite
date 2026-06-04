@@ -3,12 +3,13 @@
 namespace Database\Seeders;
 
 use App\Models\CartPriceRule;
+use App\Models\CatalogPriceRule;
 use Illuminate\Database\Seeder;
 
 class PromotionSeeder extends Seeder
 {
     /**
-     * Reglas de carrito de demostración. Idempotente por nombre/cupón.
+     * Reglas de carrito y catálogo de demostración. Idempotente por nombre/cupón.
      */
     public function run(): void
     {
@@ -33,6 +34,17 @@ class PromotionSeeder extends Seeder
                 'action' => CartPriceRule::ACTION_FREE_SHIPPING,
                 'value' => 0,
                 'min_subtotal' => 1500,
+                'is_active' => true,
+            ],
+        );
+
+        // Regla de catálogo automática: 15% en todo el catálogo (descuento de temporada).
+        CatalogPriceRule::firstOrCreate(
+            ['name' => 'Temporada -15%'],
+            [
+                'description' => '15% de descuento automático en todo el catálogo.',
+                'action' => CatalogPriceRule::ACTION_PERCENT,
+                'value' => 15,
                 'is_active' => true,
             ],
         );

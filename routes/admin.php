@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\Admin\AttributeController;
 use App\Http\Controllers\Admin\AuditLogController;
+use App\Http\Controllers\Admin\CatalogRuleController;
 use App\Http\Controllers\Admin\CategoryController;
 use App\Http\Controllers\Admin\HeaderMenuController;
 use App\Http\Controllers\Admin\InventoryController;
@@ -118,6 +119,14 @@ Route::middleware(['auth', 'verified'])->prefix('admin')->name('admin.')->group(
         Route::get('promotions/{cartPriceRule}/edit', [PromotionController::class, 'edit'])->middleware('permission:promotions.edit')->name('promotions.edit');
         Route::put('promotions/{cartPriceRule}', [PromotionController::class, 'update'])->middleware('permission:promotions.edit')->name('promotions.update');
         Route::delete('promotions/{cartPriceRule}', [PromotionController::class, 'destroy'])->middleware('permission:promotions.delete')->name('promotions.destroy');
+
+        // Reglas de catálogo (descuentos automáticos de precio)
+        Route::get('catalog-rules', [CatalogRuleController::class, 'index'])->name('catalog-rules.index');
+        Route::get('catalog-rules/create', [CatalogRuleController::class, 'create'])->middleware('permission:promotions.create')->name('catalog-rules.create');
+        Route::post('catalog-rules', [CatalogRuleController::class, 'store'])->middleware('permission:promotions.create')->name('catalog-rules.store');
+        Route::get('catalog-rules/{catalogRule}/edit', [CatalogRuleController::class, 'edit'])->middleware('permission:promotions.edit')->name('catalog-rules.edit');
+        Route::put('catalog-rules/{catalogRule}', [CatalogRuleController::class, 'update'])->middleware('permission:promotions.edit')->name('catalog-rules.update');
+        Route::delete('catalog-rules/{catalogRule}', [CatalogRuleController::class, 'destroy'])->middleware('permission:promotions.delete')->name('catalog-rules.destroy');
     });
 
     // Auditoría (registro de acciones administrativas)

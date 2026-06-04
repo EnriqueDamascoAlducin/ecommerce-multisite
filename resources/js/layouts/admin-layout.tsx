@@ -12,6 +12,7 @@ import {
     Menu,
     Package,
     PackageCheck,
+    Percent,
     Receipt,
     ScrollText,
     Settings,
@@ -37,6 +38,7 @@ import { cn } from '@/lib/utils';
 import { dashboard } from '@/routes/admin';
 import attributes from '@/routes/admin/attributes';
 import audit from '@/routes/admin/audit';
+import catalogRules from '@/routes/admin/catalog-rules';
 import categories from '@/routes/admin/categories';
 import configuration from '@/routes/admin/configuration';
 import headerMenu from '@/routes/admin/header-menu';
@@ -146,6 +148,12 @@ const navGroups: AdminNavGroup[] = [
                 title: 'Promociones',
                 href: promotions.index(),
                 icon: Ticket,
+                permission: 'promotions.view',
+            },
+            {
+                title: 'Reglas de catálogo',
+                href: catalogRules.index(),
+                icon: Percent,
                 permission: 'promotions.view',
             },
         ],

@@ -1,7 +1,7 @@
 # Progreso del proyecto
 
 > Registro vivo de avance. Roadmap completo en [`ROADMAP.md`](./ROADMAP.md).
-> Última actualización: 2026-06-03 (Mega menú del header).
+> Última actualización: 2026-06-03 (Fase 23 — Reglas de catálogo).
 
 ## Estado global
 
@@ -32,13 +32,27 @@
 | 24 — APIs básicas | 🟢 Terminada |
 | 22 — Cupones y reglas de carrito | 🟢 Terminada |
 | 29 — Mega menú del header | 🟢 Terminada |
-| 19, 20, 23, 28 | ⬜ Pendiente |
+| 23 — Reglas de catálogo | 🟢 Terminada |
+| 19, 20, 28 | ⬜ Pendiente |
 
 Leyenda: ⬜ pendiente · 🟡 en curso · 🟢 terminada · 🔴 bloqueada
 
 ---
 
 ## Bitácora
+
+### 2026-06-03 — Fase 23 cerrada (Reglas de catálogo)
+
+**Hecho:**
+- **Modelo `CatalogPriceRule`** + migración `catalog_price_rules` (website nullable = todos, category nullable = todo el catálogo, `action` percent/fixed_amount/fixed_price, `value`, `priority`, ventana `starts_at`/`ends_at`, `is_active`).
+- **`app/Domain/Promotion/CatalogRuleEvaluator`**: dado un producto + precio base + tienda, evalúa las reglas vigentes (por sitio/categoría) y devuelve el **mejor precio** (más bajo) o null si ninguna mejora. Cachea reglas y websites por instancia para evitar N+1 en listados.
+- **Integración en `ProductPricingService::priceFor`**: el precio efectivo ahora es el menor entre el precio especial vigente y el de las reglas de catálogo; `is_special`/`special_price` reflejan el descuento, así que aparece automáticamente en catálogo, PDP, carrito y API.
+- **Admin:** CRUD en `admin/catalog-rules` reutilizando el permiso **`promotions.*`**; ítem "Reglas de catálogo" en el grupo Marketing del menú. Auditoría de create/update/delete.
+- **Seeder:** regla de catálogo demo «Temporada -15%» (automática, todo el catálogo).
+
+**Verificación:** `pint` ✓ · `tsc` ✓ · `build` ✓ · suite **332 passed, 4 skipped** (1024 assertions). 12 tests nuevos (`CatalogRuleTest` + `CatalogRuleManagementTest`). *Nota:* 1 test en rojo (`HeaderMenuTest > an item can be updated`) por un WIP del mega menú en paralelo (otro agente, archivos sin commitear), **ajeno a esta fase**.
+
+**Nota / límite conocido:** el precio "desde" del producto **configurable** (padre) usa `priceForConfigurable`, que aún no pasa por las reglas de catálogo; los productos simples y sus variantes (vía `priceFor`) sí. Mejora futura.
 
 ### 2026-06-03 — Fase 22 cerrada (Cupones y reglas de carrito)
 
