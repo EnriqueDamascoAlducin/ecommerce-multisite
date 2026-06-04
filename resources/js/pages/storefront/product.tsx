@@ -37,6 +37,7 @@ type ProductDetail = {
     categories: { name: string; slug: string }[];
     configurable_options?: ConfigurableOption[];
     variants?: VariantInfo[];
+    bundle_items?: { name: string; sku: string; quantity: number }[];
 };
 
 export default function StorefrontProduct({ product }: { product: ProductDetail }) {
@@ -150,6 +151,21 @@ export default function StorefrontProduct({ product }: { product: ProductDetail 
 
                     {product.short_description && (
                         <p className="mt-4 text-neutral-600 dark:text-neutral-400">{product.short_description}</p>
+                    )}
+
+                    {/* Contenido del paquete (bundle) */}
+                    {product.bundle_items && product.bundle_items.length > 0 && (
+                        <div className="mt-6">
+                            <h2 className="mb-2 text-sm font-semibold">Este paquete incluye</h2>
+                            <ul className="divide-y divide-neutral-100 rounded-lg border border-neutral-100 text-sm dark:divide-neutral-800 dark:border-neutral-800">
+                                {product.bundle_items.map((item) => (
+                                    <li key={item.sku} className="flex justify-between px-3 py-2">
+                                        <span>{item.name}</span>
+                                        <span className="text-neutral-500">× {item.quantity}</span>
+                                    </li>
+                                ))}
+                            </ul>
+                        </div>
                     )}
 
                     {/* Selectores de variante */}

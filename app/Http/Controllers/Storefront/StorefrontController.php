@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Storefront;
 
+use App\Domain\Catalog\BundleService;
 use App\Domain\Catalog\ConfigurableProductService;
 use App\Domain\Catalog\ProductPricingService;
 use App\Domain\Inventory\StockAvailabilityChecker;
@@ -20,6 +21,7 @@ class StorefrontController extends Controller
         private readonly StoreContext $context,
         private readonly ProductPricingService $pricing,
         private readonly ConfigurableProductService $configurable,
+        private readonly BundleService $bundles,
         private readonly StockAvailabilityChecker $availability,
     ) {}
 
@@ -84,7 +86,11 @@ class StorefrontController extends Controller
         $store = $this->context->store();
 
         $product = Product::query()
-            ->with(['prices', 'media', 'categories', 'attributeValues.attribute.options', 'inventoryStocks', 'configurableAttributes.options'])
+            ->with([
+                'prices', 'media', 'categories', 'attributeValues.attribute.options', 'inventoryStocks',
+                'configurableAttributes.options',
+                'bundleItems.product.prices', 'bundleItems.product.inventoryStocks',
+            ])
             ->where('slug', $slug)
             ->where('status', Product::STATUS_ACTIVE)
             ->where('visibility', '!=', 'hidden')
@@ -105,15 +111,19 @@ class StorefrontController extends Controller
             'short_description' => $product->short_description,
             'description' => $product->description,
             'type' => $product->type,
-            'price' => $product->isConfigurable()
-                ? $this->configurable->priceForConfigurable($product, $store->id)
-                : $this->pricing->priceFor($product, $store->id),
-            'in_stock' => $product->isConfigurable()
-                ? $product->variants()->where('status', Product::STATUS_ACTIVE)
+            'price' => match (true) {
+                $product->isConfigurable() => $this->configurable->priceForConfigurable($product, $store->id),
+                $product->isBundle() => $this->bundles->priceFor($product, $store->id),
+                default => $this->pricing->priceFor($product, $store->id),
+            },
+            'in_stock' => match (true) {
+                $product->isConfigurable() => $product->variants()->where('status', Product::STATUS_ACTIVE)
                     ->whereHas('storeLinks', fn (Builder $q) => $q->where('store_id', $store->id)->where('is_active', true))
                     ->whereHas('inventoryStocks', fn ($q) => $q->where('available_qty', '>', 0))
-                    ->exists()
-                : $this->availability->canFulfill($product, 1),
+                    ->exists(),
+                $product->isBundle() => $this->bundles->canFulfill($product, 1),
+                default => $this->availability->canFulfill($product, 1),
+            },
             'gallery' => $product->mediaInCollection('gallery')
                 ->map(fn ($media) => ['url' => $media->url, 'alt' => $media->alt ?? $product->name])
                 ->values(),
@@ -123,6 +133,17 @@ class StorefrontController extends Controller
                 ->map(fn (Category $category) => ['name' => $category->name, 'slug' => $category->slug])
                 ->values(),
         ];
+
+        if ($product->isBundle()) {
+            $result['bundle_items'] = $product->bundleItems
+                ->filter(fn ($item) => $item->product)
+                ->map(fn ($item) => [
+                    'name' => $item->product->name,
+                    'sku' => $item->product->sku,
+                    'quantity' => $item->quantity,
+                ])
+                ->values();
+        }
 
         if ($product->isConfigurable()) {
             $result['configurable_options'] = $this->configurable->getConfigurableOptions($product);

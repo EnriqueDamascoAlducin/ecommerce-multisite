@@ -2,7 +2,9 @@
 
 namespace App\Domain\Checkout;
 
+use App\Domain\Catalog\BundleService;
 use App\Models\Cart;
+use App\Models\CartItem;
 use App\Models\Order;
 use App\Models\OrderAddress;
 
@@ -12,6 +14,8 @@ use App\Models\OrderAddress;
  */
 class OrderDraftBuilder
 {
+    public function __construct(private readonly BundleService $bundles) {}
+
     /**
      * @param  array<string, mixed>  $data
      * @param  array{items_count: int, subtotal: string, discount: string, shipping: string, total: string}  $totals
@@ -41,14 +45,14 @@ class OrderDraftBuilder
             'placed_at' => now(),
         ];
 
-        $items = $cart->items->map(fn ($item) => [
+        $items = $cart->items->map(fn (CartItem $item) => [
             'product_id' => $item->product_id,
             'sku' => $item->sku,
             'name' => $item->name,
             'quantity' => $item->quantity,
             'unit_price' => $item->unit_price,
             'line_total' => number_format((float) $item->unit_price * $item->quantity, 2, '.', ''),
-            'options' => null,
+            'options' => $this->itemOptions($item),
         ])->all();
 
         $addresses = [
@@ -57,6 +61,22 @@ class OrderDraftBuilder
         ];
 
         return ['order' => $order, 'items' => $items, 'addresses' => $addresses];
+    }
+
+    /**
+     * Snapshot de opciones del ítem. Para bundles, guarda el contenido del paquete.
+     *
+     * @return array<string, mixed>|null
+     */
+    private function itemOptions(CartItem $item): ?array
+    {
+        $product = $item->product;
+
+        if ($product && $product->isBundle()) {
+            return ['bundle' => $this->bundles->componentsFor($product)];
+        }
+
+        return null;
     }
 
     /**

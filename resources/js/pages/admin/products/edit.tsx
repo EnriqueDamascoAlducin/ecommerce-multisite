@@ -31,6 +31,7 @@ export default function ProductsEdit({
     categories,
     attributes,
     configurableAttributes,
+    componentProducts,
 }: {
     product: EditableProduct;
     stores: { id: number; label: string }[];
@@ -38,6 +39,7 @@ export default function ProductsEdit({
     categories: { id: number; label: string }[];
     attributes: AttributeDef[];
     configurableAttributes?: ConfigurableAttrDef[];
+    componentProducts?: { id: number; sku: string; name: string }[];
 }) {
     return (
         <>
@@ -60,6 +62,7 @@ export default function ProductsEdit({
                             categories={categories}
                             attributes={attributes}
                             configurableAttributes={configurableAttributes}
+                            componentProducts={componentProducts}
                             defaults={product}
                         />
                         <Button disabled={processing}>Guardar cambios</Button>

@@ -2,6 +2,7 @@
 
 namespace App\Domain\Cart;
 
+use App\Domain\Catalog\BundleService;
 use App\Domain\Catalog\ProductPricingService;
 use App\Domain\Inventory\InsufficientStockException;
 use App\Domain\Inventory\StockAvailabilityChecker;
@@ -33,6 +34,7 @@ class CartService
         private readonly CartMerger $merger,
         private readonly CartTotalsCalculator $totals,
         private readonly ShippingService $shipping,
+        private readonly BundleService $bundles,
     ) {}
 
     /**
@@ -141,7 +143,7 @@ class CartService
             throw CartException::notPurchasable($product->name);
         }
 
-        $unitPrice = $this->pricing->priceFor($product, $store->id)['effective_price'];
+        $unitPrice = $this->effectiveUnitPrice($product, $store->id);
 
         if ($unitPrice === null) {
             throw CartException::notPurchasable($product->name);
@@ -309,12 +311,24 @@ class CartService
                 continue;
             }
 
-            $current = $this->pricing->priceFor($product, $cart->store_id)['effective_price'];
+            $current = $this->effectiveUnitPrice($product, $cart->store_id);
 
-            if ($current !== null && (float) $item->unit_price !== (float) $current) {
+            if ($current !== null && (float) $item->unit_price !== $current) {
                 $item->update(['unit_price' => $current]);
             }
         }
+    }
+
+    /**
+     * Precio unitario efectivo según el tipo de producto (bundle suma componentes).
+     */
+    private function effectiveUnitPrice(Product $product, int $storeId): ?float
+    {
+        $effective = $product->isBundle()
+            ? $this->bundles->priceFor($product, $storeId)['effective_price']
+            : $this->pricing->priceFor($product, $storeId)['effective_price'];
+
+        return $effective !== null ? (float) $effective : null;
     }
 
     private function isPurchasable(Product $product, int $storeId): bool
@@ -331,7 +345,11 @@ class CartService
 
     private function assertStock(Product $product, int $quantity): void
     {
-        if (! $this->availability->canFulfill($product, $quantity)) {
+        $canFulfill = $product->isBundle()
+            ? $this->bundles->canFulfill($product, $quantity)
+            : $this->availability->canFulfill($product, $quantity);
+
+        if (! $canFulfill) {
             throw InsufficientStockException::for($product->sku, $quantity, $this->availability->totalAvailable($product));
         }
     }

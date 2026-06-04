@@ -74,3 +74,36 @@ function sellableProduct(Store $store, InventorySource $source, float $price = 1
 
     return $product;
 }
+
+/**
+ * Producto tipo bundle habilitado en la tienda, compuesto por los componentes
+ * dados (cada uno como [Product $component, int $quantity]).
+ *
+ * @param  list<array{0: Product, 1: int}>  $components
+ */
+function bundleProduct(Store $store, array $components, string $priceType = 'dynamic', ?float $fixedPrice = null): Product
+{
+    $bundle = Product::factory()->create([
+        'type' => Product::TYPE_BUNDLE,
+        'price_type' => $priceType,
+        'status' => Product::STATUS_ACTIVE,
+        'visibility' => 'both',
+    ]);
+
+    $bundle->storeLinks()->create(['store_id' => $store->id, 'is_active' => true]);
+
+    if ($fixedPrice !== null) {
+        $bundle->prices()->create(['store_id' => null, 'price' => $fixedPrice]);
+    }
+
+    $sort = 0;
+    foreach ($components as [$component, $quantity]) {
+        $bundle->bundleItems()->create([
+            'product_id' => $component->id,
+            'quantity' => $quantity,
+            'sort_order' => $sort++,
+        ]);
+    }
+
+    return $bundle;
+}

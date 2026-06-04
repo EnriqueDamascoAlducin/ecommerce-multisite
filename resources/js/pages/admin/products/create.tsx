@@ -28,12 +28,14 @@ export default function ProductsCreate({
     categories,
     attributes,
     configurableAttributes,
+    componentProducts,
 }: {
     stores: { id: number; label: string }[];
     availableImages: { id: number; url: string; name: string }[];
     categories: { id: number; label: string }[];
     attributes: AttributeDef[];
     configurableAttributes?: ConfigurableAttrDef[];
+    componentProducts?: { id: number; sku: string; name: string }[];
 }) {
     return (
         <>
@@ -56,6 +58,7 @@ export default function ProductsCreate({
                             categories={categories}
                             attributes={attributes}
                             configurableAttributes={configurableAttributes}
+                            componentProducts={componentProducts}
                         />
                         <Button disabled={processing}>Crear producto</Button>
                     </div>

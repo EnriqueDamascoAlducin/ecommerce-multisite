@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Admin;
 
+use App\Domain\Catalog\BundleService;
 use App\Domain\Catalog\ConfigurableProductService;
 use App\Domain\Catalog\ProductPricingService;
 use App\Http\Controllers\Controller;
@@ -25,6 +26,7 @@ class ProductController extends Controller
     public function __construct(
         private readonly ProductPricingService $pricing,
         private readonly ConfigurableProductService $configurable,
+        private readonly BundleService $bundles,
         private readonly AuditLogger $auditLogger,
     ) {}
 
@@ -53,9 +55,11 @@ class ProductController extends Controller
                 'sku' => $product->sku,
                 'name' => $product->name,
                 'status' => $product->status,
-                'price' => $product->isConfigurable()
-                    ? $this->configurable->lowestVariantBasePrice($product)
-                    : $this->pricing->priceFor($product)['effective_price'],
+                'price' => match (true) {
+                    $product->isConfigurable() => $this->configurable->lowestVariantBasePrice($product),
+                    $product->isBundle() => $this->bundles->priceFor($product)['effective_price'],
+                    default => $this->pricing->priceFor($product)['effective_price'],
+                },
                 'thumbnail' => $product->primaryMedia('gallery')?->url,
             ]);
 
@@ -78,6 +82,9 @@ class ProductController extends Controller
 
             $product = Product::create([
                 'type' => $type,
+                'price_type' => $type === Product::TYPE_BUNDLE
+                    ? ($data['price_type'] ?? Product::PRICE_TYPE_DYNAMIC)
+                    : null,
                 'sku' => $data['sku'],
                 'name' => $data['name'],
                 'slug' => $this->uniqueSlug($data['slug'] ?? null, $data['name']),
@@ -96,6 +103,10 @@ class ProductController extends Controller
                 $this->configurable->generateVariants($product, $attributeIds);
             }
 
+            if ($type === Product::TYPE_BUNDLE) {
+                $this->persistBundleItems($product, $data['bundle_items'] ?? []);
+            }
+
             return $product;
         });
 
@@ -106,13 +117,14 @@ class ProductController extends Controller
 
     public function edit(Product $product): Response
     {
-        $product->load(['prices', 'storeLinks', 'media', 'categories', 'attributeValues', 'parent', 'configurableAttributes']);
+        $product->load(['prices', 'storeLinks', 'media', 'categories', 'attributeValues', 'parent', 'configurableAttributes', 'bundleItems.product']);
 
         $base = $product->basePrice();
 
         $data = [
             'id' => $product->id,
             'type' => $product->type,
+            'price_type' => $product->price_type,
             'parent_id' => $product->parent_id,
             'sku' => $product->sku,
             'name' => $product->name,
@@ -163,6 +175,13 @@ class ProductController extends Controller
                         $av->attribute?->code => $av->value,
                     ]),
                 ]);
+        } elseif ($product->isBundle()) {
+            $data['bundle_items'] = $product->bundleItems->map(fn ($item) => [
+                'product_id' => $item->product_id,
+                'name' => $item->product?->name,
+                'sku' => $item->product?->sku,
+                'quantity' => $item->quantity,
+            ])->values();
         } elseif ($product->parent) {
             $data['parent_name'] = $product->parent->name;
             $data['parent_id'] = $product->parent->id;
@@ -180,6 +199,9 @@ class ProductController extends Controller
             $data = $request->validated();
 
             $product->update([
+                'price_type' => $product->isBundle()
+                    ? ($data['price_type'] ?? Product::PRICE_TYPE_DYNAMIC)
+                    : $product->price_type,
                 'sku' => $data['sku'],
                 'name' => $data['name'],
                 'slug' => $this->uniqueSlug($data['slug'] ?? null, $data['name'], $product->id),
@@ -191,6 +213,10 @@ class ProductController extends Controller
             ]);
 
             $this->persistRelations($product, $data);
+
+            if ($product->isBundle()) {
+                $this->persistBundleItems($product, $data['bundle_items'] ?? []);
+            }
 
             if ($product->isConfigurable()) {
                 $attributeIds = array_map('intval', $data['configurable_attributes'] ?? []);
@@ -250,6 +276,35 @@ class ProductController extends Controller
         $product->categories()->sync(array_map('intval', $data['categories'] ?? []));
 
         $this->persistAttributeValues($product, $data['attribute_values'] ?? []);
+    }
+
+    /**
+     * Reemplaza los componentes del bundle con los enviados (product_id + cantidad).
+     *
+     * @param  list<array{product_id: int|string, quantity: int|string}>  $items
+     */
+    private function persistBundleItems(Product $product, array $items): void
+    {
+        $keep = [];
+        $sort = 0;
+
+        foreach ($items as $row) {
+            $componentId = (int) ($row['product_id'] ?? 0);
+
+            // Un bundle no puede contenerse a sí mismo.
+            if ($componentId === 0 || $componentId === $product->id) {
+                continue;
+            }
+
+            $product->bundleItems()->updateOrCreate(
+                ['product_id' => $componentId],
+                ['quantity' => max(1, (int) ($row['quantity'] ?? 1)), 'sort_order' => $sort++],
+            );
+
+            $keep[] = $componentId;
+        }
+
+        $product->bundleItems()->whereNotIn('product_id', $keep ?: [0])->delete();
     }
 
     /**
@@ -358,6 +413,18 @@ class ProductController extends Controller
                         'label' => $option->label,
                         'value' => $option->value,
                     ])->values(),
+                ]),
+            // Productos que pueden ser componentes de un bundle (simples).
+            'componentProducts' => Product::query()
+                ->whereNull('parent_id')
+                ->where('type', Product::TYPE_SIMPLE)
+                ->orderBy('name')
+                ->limit(300)
+                ->get(['id', 'sku', 'name'])
+                ->map(fn (Product $product) => [
+                    'id' => $product->id,
+                    'sku' => $product->sku,
+                    'name' => $product->name,
                 ]),
         ];
     }

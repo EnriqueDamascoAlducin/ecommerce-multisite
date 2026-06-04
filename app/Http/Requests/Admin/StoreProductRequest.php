@@ -17,7 +17,8 @@ class StoreProductRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'type' => ['required', 'in:simple,configurable'],
+            'type' => ['required', 'in:simple,configurable,bundle'],
+            'price_type' => ['nullable', 'in:dynamic,fixed'],
             'sku' => ['required', 'string', 'max:255', 'unique:products,sku'],
             'name' => ['required', 'string', 'max:255'],
             'slug' => ['nullable', 'string', 'max:255'],
@@ -27,7 +28,8 @@ class StoreProductRequest extends FormRequest
             'visibility' => ['required', 'in:both,catalog,search,hidden'],
             'weight' => ['nullable', 'numeric', 'min:0'],
 
-            'price' => ['required', 'numeric', 'min:0'],
+            // El precio base no aplica a un bundle dinámico (suma de componentes).
+            'price' => ['required_unless:type,bundle', 'nullable', 'numeric', 'min:0'],
             'special_price' => ['nullable', 'numeric', 'min:0'],
             'special_price_from' => ['nullable', 'date'],
             'special_price_to' => ['nullable', 'date', 'after_or_equal:special_price_from'],
@@ -50,6 +52,10 @@ class StoreProductRequest extends FormRequest
 
             'configurable_attributes' => ['nullable', 'array'],
             'configurable_attributes.*' => ['integer', 'exists:attributes,id'],
+
+            'bundle_items' => ['required_if:type,bundle', 'array'],
+            'bundle_items.*.product_id' => ['required', 'integer', 'exists:products,id'],
+            'bundle_items.*.quantity' => ['required', 'integer', 'min:1', 'max:999'],
         ];
     }
 }

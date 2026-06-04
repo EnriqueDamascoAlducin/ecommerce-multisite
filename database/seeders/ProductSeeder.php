@@ -37,14 +37,18 @@ class ProductSeeder extends Seeder
 
         // --- Simples (Interferenciales) ---
         $this->simple('IPHONE-15', 'iPhone 15', 19999, $source, 25, $interStores, $this->cats($interferenciales, ['celulares']));
-        $this->simple('SONY-XM5', 'Audífonos Sony WH-1000XM5', 7499, $source, 40, $interStores, $this->cats($interferenciales, ['audio']));
-        $this->simple('BALON-FUT-PRO', 'Balón de Fútbol Pro', 599, $source, 100, $interStores, $this->cats($interferenciales, ['futbol']));
+        $sony = $this->simple('SONY-XM5', 'Audífonos Sony WH-1000XM5', 7499, $source, 40, $interStores, $this->cats($interferenciales, ['audio']));
+        $balon = $this->simple('BALON-FUT-PRO', 'Balón de Fútbol Pro', 599, $source, 100, $interStores, $this->cats($interferenciales, ['futbol']));
 
         // --- Configurables (Interferenciales) ---
         // Playera con color + talla (5 × 4 = 20 variantes).
         $this->configurableProduct('PLAYERA-DEP', 'Playera Deportiva', 399, $source, 15, $interStores, ['color', 'talla'], $this->cats($interferenciales, ['running']));
         // Gorra solo por color (5 variantes).
         $this->configurableProduct('GORRA-LOGO', 'Gorra con Logo', 249, $source, 30, $interStores, ['color'], $this->cats($interferenciales, ['running']));
+
+        // --- Bundle (Interferenciales) ---
+        // Paquete dinámico: su precio es la suma de los componentes.
+        $this->bundle('KIT-DEPORTIVO', 'Kit Deportivo', [[$balon, 2], [$sony, 1]], $interStores, $this->cats($interferenciales, ['futbol']));
 
         // --- Simples (Veterinaria) ---
         $veterinaria = Website::where('code', 'veterinaria')->first();
@@ -143,6 +147,46 @@ class ProductSeeder extends Seeder
                 ['physical_qty' => $stockPerVariant, 'reserved_qty' => 0, 'manage_stock' => true],
             );
         }
+    }
+
+    /**
+     * Crea un bundle dinámico (precio = suma de componentes) y lo habilita en las tiendas.
+     *
+     * @param  list<array{0: Product, 1: int}>  $components
+     * @param  list<Store>  $stores
+     * @param  list<int>  $categoryIds
+     */
+    private function bundle(string $sku, string $name, array $components, array $stores, array $categoryIds): Product
+    {
+        $bundle = Product::firstOrCreate(
+            ['sku' => $sku],
+            [
+                'type' => Product::TYPE_BUNDLE,
+                'price_type' => Product::PRICE_TYPE_DYNAMIC,
+                'name' => $name,
+                'slug' => Str::slug($name),
+                'status' => Product::STATUS_ACTIVE,
+                'visibility' => 'both',
+            ],
+        );
+
+        foreach ($stores as $store) {
+            $bundle->storeLinks()->firstOrCreate(['store_id' => $store->id], ['is_active' => true]);
+        }
+
+        if ($categoryIds !== []) {
+            $bundle->categories()->syncWithoutDetaching($categoryIds);
+        }
+
+        $sort = 0;
+        foreach ($components as [$component, $quantity]) {
+            $bundle->bundleItems()->firstOrCreate(
+                ['product_id' => $component->id],
+                ['quantity' => $quantity, 'sort_order' => $sort++],
+            );
+        }
+
+        return $bundle;
     }
 
     /**

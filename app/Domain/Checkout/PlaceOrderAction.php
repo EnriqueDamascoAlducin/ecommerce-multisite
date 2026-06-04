@@ -7,7 +7,9 @@ use App\Domain\Inventory\StockReservationService;
 use App\Domain\Inventory\StockService;
 use App\Models\Cart;
 use App\Models\CartPriceRule;
+use App\Models\InventorySource;
 use App\Models\Order;
+use App\Models\Product;
 use Illuminate\Support\Facades\DB;
 
 /**
@@ -29,7 +31,11 @@ class PlaceOrderAction
      */
     public function execute(Cart $cart, array $data): Order
     {
-        $cart->loadMissing('items.product.inventoryStocks', 'store.website');
+        $cart->loadMissing(
+            'items.product.inventoryStocks',
+            'items.product.bundleItems.product.inventoryStocks',
+            'store.website',
+        );
 
         return DB::transaction(function () use ($cart, $data) {
             $website = $cart->store->website;
@@ -76,11 +82,32 @@ class PlaceOrderAction
                 continue;
             }
 
-            $hasRow = $product->inventoryStocks->firstWhere('inventory_source_id', $source->id);
+            // Un bundle no tiene inventario propio: se reserva el de cada componente.
+            if ($product->isBundle()) {
+                foreach ($product->bundleItems as $bundleItem) {
+                    $this->reserveIfManaged($bundleItem->product, $bundleItem->quantity * $item->quantity, $reference, $source);
+                }
 
-            if ($hasRow !== null) {
-                $this->reservations->reserve($product, $item->quantity, $reference, $source);
+                continue;
             }
+
+            $this->reserveIfManaged($product, $item->quantity, $reference, $source);
+        }
+    }
+
+    /**
+     * Reserva stock solo si el producto tiene fila de inventario en la fuente dada.
+     */
+    private function reserveIfManaged(?Product $product, int $quantity, string $reference, InventorySource $source): void
+    {
+        if (! $product) {
+            return;
+        }
+
+        $hasRow = $product->inventoryStocks->firstWhere('inventory_source_id', $source->id);
+
+        if ($hasRow !== null) {
+            $this->reservations->reserve($product, $quantity, $reference, $source);
         }
     }
 

@@ -1,7 +1,7 @@
 # Progreso del proyecto
 
 > Registro vivo de avance. Roadmap completo en [`ROADMAP.md`](./ROADMAP.md).
-> Última actualización: 2026-06-03 (Fase 23 — Reglas de catálogo).
+> Última actualización: 2026-06-03 (Fase 19 — Bundles).
 
 ## Estado global
 
@@ -33,13 +33,27 @@
 | 22 — Cupones y reglas de carrito | 🟢 Terminada |
 | 29 — Mega menú del header | 🟢 Terminada |
 | 23 — Reglas de catálogo | 🟢 Terminada |
-| 19, 20, 28 | ⬜ Pendiente |
+| 19 — Productos bundle (paquetes) | 🟢 Terminada |
+| 20, 28 | ⬜ Pendiente |
 
 Leyenda: ⬜ pendiente · 🟡 en curso · 🟢 terminada · 🔴 bloqueada
 
 ---
 
 ## Bitácora
+
+### 2026-06-03 — Fase 19 cerrada (Productos bundle / paquetes)
+
+- **Nuevo tipo de producto `bundle`:** un paquete compuesto por varios productos (componentes) con cantidad por componente. Columna `price_type` en `products` (`dynamic`/`fixed`) y tabla `bundle_items` (`bundle_product_id`, `product_id`, `quantity`, `sort_order`, único por par).
+- **`BundleService`** (`app/Domain/Catalog`): resuelve **precio** (dinámico = suma del precio efectivo de cada componente × cantidad; fijo = precio propio del bundle), **contenido** (`componentsFor` para PDP y snapshot de orden) y **disponibilidad** (`canFulfill` = cada componente puede surtir su cantidad × bundles pedidos). Un bundle sin componentes no es surtible.
+- **Carrito/checkout:** `CartService` enruta precio y stock del bundle por su tipo; el bundle se agrega como **una línea** con `unit_price` = precio del paquete. En el checkout `OrderDraftBuilder` guarda el contenido en `order_items.options['bundle']` y `PlaceOrderAction` **reserva el stock de cada componente** (cantidad × bundles), ya que el bundle no tiene inventario propio.
+- **Pricing reutiliza descuentos:** como el precio dinámico se basa en `ProductPricingService::priceFor` de cada componente, **precios especiales y reglas de catálogo se reflejan automáticamente** en el total del paquete.
+- **Admin:** el formulario de producto añade el tipo "Paquete (bundle)", selector de precio (dinámico/fijo) y editor de componentes (agregar producto + cantidad). `ProductController` persiste `price_type` y `bundle_items` (reemplazo completo); el índice muestra el precio calculado del bundle. Validación en `Store/UpdateProductRequest` (al menos un componente; precio base no requerido en bundle dinámico).
+- **Storefront:** la PDP muestra el bloque "Este paquete incluye" con los componentes y cantidades; el precio y el "En stock" usan `BundleService`.
+- **Seeder:** bundle demo «Kit Deportivo» (2× Balón + 1× Audífonos Sony) en Interferenciales.
+- **Tests (14):** `Catalog/BundleTest` (6: suma dinámica, precio especial de componente, precio fijo, `canFulfill` por componente, bundle vacío, contenido), `Cart/BundleCartTest` (3: alta al precio sumado, bloqueo por componente agotado, reserva de componentes en checkout) y `Admin/BundleManagementTest` (5: crear dinámico, requiere componente, bundle fijo conserva precio, update reemplaza componentes, Soporte sin permiso).
+- **Verificación:** `pint` ✓ · `tsc` ✓ · `build` ✓ · suite **346 passed, 4 skipped**. *(1 test en rojo `HeaderMenuTest > an item can be updated` por un WIP del mega menú en paralelo — otro agente, archivos sin commitear —, **ajeno a esta fase**.)*
+- **Limitación conocida:** el precio "desde" del padre **configurable** sigue sin pasar por reglas de catálogo (los componentes simples del bundle sí, vía `priceFor`).
 
 ### 2026-06-03 — Fase 23 cerrada (Reglas de catálogo)
 

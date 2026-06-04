@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests\Admin;
 
+use App\Models\Product;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
@@ -17,7 +18,11 @@ class UpdateProductRequest extends FormRequest
      */
     public function rules(): array
     {
+        $product = $this->route('product');
+        $isBundle = $product instanceof Product && $product->isBundle();
+
         return [
+            'price_type' => ['nullable', 'in:dynamic,fixed'],
             'sku' => ['required', 'string', 'max:255', Rule::unique('products', 'sku')->ignore($this->route('product'))],
             'name' => ['required', 'string', 'max:255'],
             'slug' => ['nullable', 'string', 'max:255'],
@@ -27,7 +32,8 @@ class UpdateProductRequest extends FormRequest
             'visibility' => ['required', 'in:both,catalog,search,hidden'],
             'weight' => ['nullable', 'numeric', 'min:0'],
 
-            'price' => ['required', 'numeric', 'min:0'],
+            // El precio base no aplica a un bundle dinámico (suma de componentes).
+            'price' => [$isBundle ? 'nullable' : 'required', 'numeric', 'min:0'],
             'special_price' => ['nullable', 'numeric', 'min:0'],
             'special_price_from' => ['nullable', 'date'],
             'special_price_to' => ['nullable', 'date', 'after_or_equal:special_price_from'],
@@ -50,6 +56,10 @@ class UpdateProductRequest extends FormRequest
 
             'configurable_attributes' => ['nullable', 'array'],
             'configurable_attributes.*' => ['integer', 'exists:attributes,id'],
+
+            'bundle_items' => [$isBundle ? 'required' : 'nullable', 'array'],
+            'bundle_items.*.product_id' => ['required', 'integer', 'exists:products,id'],
+            'bundle_items.*.quantity' => ['required', 'integer', 'min:1', 'max:999'],
         ];
     }
 }

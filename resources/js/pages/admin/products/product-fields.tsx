@@ -26,6 +26,10 @@ type ConfigurableAttrDef = {
     options: AttributeOption[];
 };
 
+type ComponentProduct = { id: number; sku: string; name: string };
+
+type BundleItemDefault = { product_id: number; sku?: string; name?: string; quantity: number };
+
 type StoreDefault = {
     store_id: number;
     is_active: boolean;
@@ -55,6 +59,8 @@ export type ProductDefaults = {
     categories: number[];
     attribute_values: Record<number, string | string[]>;
     configurable_attributes?: number[];
+    price_type?: string | null;
+    bundle_items?: BundleItemDefault[];
     variants?: {
         id: number;
         sku: string;
@@ -72,6 +78,7 @@ export function ProductFields({
     categories,
     attributes,
     configurableAttributes,
+    componentProducts,
     defaults,
 }: {
     errors: Record<string, string>;
@@ -80,12 +87,36 @@ export function ProductFields({
     categories: CategoryOption[];
     attributes: AttributeDef[];
     configurableAttributes?: ConfigurableAttrDef[];
+    componentProducts?: ComponentProduct[];
     defaults?: ProductDefaults;
 }) {
     const [selected, setSelected] = useState<number[]>(defaults?.media ?? []);
     const [selectedCategories, setSelectedCategories] = useState<number[]>(defaults?.categories ?? []);
     const [productType, setProductType] = useState(defaults?.type ?? 'simple');
     const [configurableAttrIds, setConfigurableAttrIds] = useState<number[]>(defaults?.configurable_attributes ?? []);
+    const [priceType, setPriceType] = useState(defaults?.price_type ?? 'dynamic');
+    const [bundleItems, setBundleItems] = useState<BundleItemDefault[]>(defaults?.bundle_items ?? []);
+
+    const addBundleItem = (productId: number) => {
+        if (productId === 0 || bundleItems.some((i) => i.product_id === productId)) {
+            return;
+        }
+        const product = componentProducts?.find((p) => p.id === productId);
+        setBundleItems((current) => [
+            ...current,
+            { product_id: productId, sku: product?.sku, name: product?.name, quantity: 1 },
+        ]);
+    };
+
+    const setBundleQty = (productId: number, quantity: number) => {
+        setBundleItems((current) =>
+            current.map((i) => (i.product_id === productId ? { ...i, quantity: Math.max(1, quantity) } : i)),
+        );
+    };
+
+    const removeBundleItem = (productId: number) => {
+        setBundleItems((current) => current.filter((i) => i.product_id !== productId));
+    };
 
     const toggleImage = (id: number) => {
         setSelected((current) =>
@@ -125,8 +156,25 @@ export function ProductFields({
                     >
                         <option value="simple">Producto simple</option>
                         <option value="configurable">Producto configurable</option>
+                        <option value="bundle">Paquete (bundle)</option>
                     </select>
                 </div>
+
+                {productType === 'bundle' && (
+                    <div className="grid gap-2">
+                        <Label htmlFor="price_type">Precio del paquete</Label>
+                        <select
+                            id="price_type"
+                            name="price_type"
+                            value={priceType}
+                            onChange={(e) => setPriceType(e.target.value)}
+                            className="rounded-md border border-neutral-300 bg-white px-3 py-2 text-sm dark:border-neutral-700 dark:bg-neutral-800"
+                        >
+                            <option value="dynamic">Dinámico (suma de componentes)</option>
+                            <option value="fixed">Fijo (precio propio)</option>
+                        </select>
+                    </div>
+                )}
             </section>
 
             {/* Datos básicos */}
@@ -176,16 +224,27 @@ export function ProductFields({
                 </div>
             </section>
 
-            {/* Precio base (solo para simples; configurables usan precio de variante) */}
+            {/* Precio base (simples y bundle fijo; configurables y bundle dinámico lo derivan) */}
             <section>
                 <h2 className="mb-3 text-sm font-semibold">Precio base</h2>
                 {productType === 'configurable' && (
                     <p className="mb-3 text-xs text-neutral-500">El precio se hereda de la variante más barata.</p>
                 )}
+                {productType === 'bundle' && priceType === 'dynamic' && (
+                    <p className="mb-3 text-xs text-neutral-500">El precio se calcula sumando los componentes del paquete.</p>
+                )}
                 <div className="grid gap-4 sm:grid-cols-4">
                     <div className="grid gap-2">
                         <Label htmlFor="price">Precio</Label>
-                        <Input id="price" name="price" type="number" step="0.01" min={0} defaultValue={defaults?.price ?? ''} required />
+                        <Input
+                            id="price"
+                            name="price"
+                            type="number"
+                            step="0.01"
+                            min={0}
+                            defaultValue={defaults?.price ?? ''}
+                            required={!(productType === 'bundle' && priceType === 'dynamic')}
+                        />
                         <InputError message={errors.price} />
                     </div>
                     <div className="grid gap-2">
@@ -229,6 +288,85 @@ export function ProductFields({
                             </label>
                         ))}
                     </div>
+                </section>
+            )}
+
+            {/* Componentes del bundle */}
+            {productType === 'bundle' && (
+                <section>
+                    <h2 className="mb-1 text-sm font-semibold">Componentes del paquete</h2>
+                    <p className="mb-3 text-xs text-neutral-500">
+                        Agrega los productos que forman el paquete y la cantidad de cada uno.
+                    </p>
+                    {bundleItems.map((item, index) => (
+                        <div key={item.product_id}>
+                            <input type="hidden" name={`bundle_items[${index}][product_id]`} value={item.product_id} />
+                            <input type="hidden" name={`bundle_items[${index}][quantity]`} value={item.quantity} />
+                        </div>
+                    ))}
+                    <div className="mb-3 flex items-center gap-2">
+                        <select
+                            value=""
+                            onChange={(e) => {
+                                addBundleItem(Number(e.target.value));
+                                e.target.value = '';
+                            }}
+                            className="rounded-md border border-neutral-300 bg-white px-3 py-2 text-sm dark:border-neutral-700 dark:bg-neutral-800"
+                        >
+                            <option value="">Agregar producto…</option>
+                            {(componentProducts ?? [])
+                                .filter((p) => !bundleItems.some((i) => i.product_id === p.id))
+                                .map((p) => (
+                                    <option key={p.id} value={p.id}>
+                                        {p.name} ({p.sku})
+                                    </option>
+                                ))}
+                        </select>
+                    </div>
+                    <InputError message={errors.bundle_items} />
+                    {bundleItems.length > 0 ? (
+                        <div className="overflow-x-auto rounded-lg border border-neutral-200 dark:border-neutral-800">
+                            <table className="w-full text-sm">
+                                <thead className="bg-neutral-50 dark:bg-neutral-900">
+                                    <tr>
+                                        <th className="px-3 py-2 text-left font-medium">Producto</th>
+                                        <th className="px-3 py-2 text-left font-medium">Cantidad</th>
+                                        <th className="px-3 py-2"></th>
+                                    </tr>
+                                </thead>
+                                <tbody className="divide-y divide-neutral-200 dark:divide-neutral-800">
+                                    {bundleItems.map((item) => (
+                                        <tr key={item.product_id}>
+                                            <td className="px-3 py-2">
+                                                {item.name ?? `#${item.product_id}`}
+                                                {item.sku && <span className="ml-2 font-mono text-xs text-neutral-500">{item.sku}</span>}
+                                            </td>
+                                            <td className="px-3 py-2">
+                                                <Input
+                                                    type="number"
+                                                    min={1}
+                                                    value={item.quantity}
+                                                    onChange={(e) => setBundleQty(item.product_id, Number(e.target.value))}
+                                                    className="w-20"
+                                                />
+                                            </td>
+                                            <td className="px-3 py-2 text-right">
+                                                <button
+                                                    type="button"
+                                                    onClick={() => removeBundleItem(item.product_id)}
+                                                    className="text-sm text-red-500 hover:underline"
+                                                >
+                                                    Quitar
+                                                </button>
+                                            </td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        </div>
+                    ) : (
+                        <p className="text-sm text-neutral-500">Aún no hay componentes. Agrega al menos uno.</p>
+                    )}
                 </section>
             )}
 

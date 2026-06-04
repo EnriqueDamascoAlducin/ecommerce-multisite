@@ -24,9 +24,15 @@ class Product extends Model
 
     public const TYPE_CONFIGURABLE = 'configurable';
 
+    public const TYPE_BUNDLE = 'bundle';
+
+    public const PRICE_TYPE_DYNAMIC = 'dynamic';
+
+    public const PRICE_TYPE_FIXED = 'fixed';
+
     /** @var list<string> */
     protected $fillable = [
-        'type', 'parent_id', 'sku', 'name', 'slug', 'short_description', 'description',
+        'type', 'price_type', 'parent_id', 'sku', 'name', 'slug', 'short_description', 'description',
         'status', 'visibility', 'weight', 'attributes',
     ];
 
@@ -108,6 +114,16 @@ class Product extends Model
     }
 
     /**
+     * Componentes cuando el producto es un bundle.
+     *
+     * @return HasMany<BundleItem, $this>
+     */
+    public function bundleItems(): HasMany
+    {
+        return $this->hasMany(BundleItem::class, 'bundle_product_id')->orderBy('sort_order');
+    }
+
+    /**
      * Variantes hijas activas (productos simples con parent_id).
      *
      * @return HasMany<Product, $this>
@@ -164,5 +180,21 @@ class Product extends Model
     public function isConfigurable(): bool
     {
         return $this->type === self::TYPE_CONFIGURABLE;
+    }
+
+    /**
+     * ¿Este producto es un paquete (bundle) compuesto por otros productos?
+     */
+    public function isBundle(): bool
+    {
+        return $this->type === self::TYPE_BUNDLE;
+    }
+
+    /**
+     * ¿El precio del bundle es la suma dinámica de sus componentes?
+     */
+    public function hasDynamicBundlePrice(): bool
+    {
+        return $this->price_type !== self::PRICE_TYPE_FIXED;
     }
 }
