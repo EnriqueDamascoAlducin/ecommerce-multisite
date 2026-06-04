@@ -19,6 +19,7 @@ import {
     Settings,
     ShieldCheck,
     Store,
+    Tag,
     Tags,
     Ticket,
     Truck,
@@ -50,6 +51,7 @@ import media from '@/routes/admin/media';
 import adminOrders from '@/routes/admin/orders';
 import payments from '@/routes/admin/payments';
 import permissions from '@/routes/admin/permissions';
+import productLabels from '@/routes/admin/product-labels';
 import products from '@/routes/admin/products';
 import promotions from '@/routes/admin/promotions';
 import reports from '@/routes/admin/reports';
@@ -57,6 +59,7 @@ import roles from '@/routes/admin/roles';
 import { update as updateScope } from '@/routes/admin/scope';
 import shipments from '@/routes/admin/shipments';
 import shipping from '@/routes/admin/shipping';
+import storefrontPages from '@/routes/admin/storefront/pages';
 import stores from '@/routes/admin/stores';
 import users from '@/routes/admin/users';
 import websites from '@/routes/admin/websites';
@@ -127,6 +130,12 @@ const navGroups: AdminNavGroup[] = [
                 href: attributes.index(),
                 icon: Tags,
                 permission: 'catalog.attributes.view',
+            },
+            {
+                title: 'Etiquetas',
+                href: productLabels.index(),
+                icon: Tag,
+                permission: 'catalog.labels.view',
             },
             {
                 title: 'Inventario',
@@ -210,6 +219,12 @@ const navGroups: AdminNavGroup[] = [
                 title: 'Menú del header',
                 href: headerMenu.index(),
                 icon: Menu,
+                permission: 'settings.storefront',
+            },
+            {
+                title: 'Páginas',
+                href: storefrontPages.index(),
+                icon: LayoutDashboard,
                 permission: 'settings.storefront',
             },
         ],

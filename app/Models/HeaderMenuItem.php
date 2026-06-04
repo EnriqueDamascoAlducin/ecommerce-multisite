@@ -24,12 +24,14 @@ class HeaderMenuItem extends Model
 
     public const TYPE_PRODUCT = 'product';
 
+    public const TYPE_PAGE = 'page';
+
     public const TYPE_CUSTOM = 'custom';
 
     /** @var list<string> */
     protected $fillable = [
         'store_id', 'parent_id', 'type', 'label', 'url',
-        'category_id', 'product_id', 'is_active', 'expand_products', 'sort_order',
+        'category_id', 'product_id', 'page_id', 'is_active', 'expand_products', 'sort_order',
     ];
 
     /** @return array<string, string> */
@@ -65,6 +67,11 @@ class HeaderMenuItem extends Model
     public function product(): BelongsTo
     {
         return $this->belongsTo(Product::class);
+    }
+
+    public function page(): BelongsTo
+    {
+        return $this->belongsTo(StorefrontPage::class);
     }
 
     public function scopeActive(Builder $query): void

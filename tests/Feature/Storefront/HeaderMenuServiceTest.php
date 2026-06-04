@@ -5,6 +5,7 @@ use App\Models\Category;
 use App\Models\HeaderMenuItem;
 use App\Models\Product;
 use App\Models\Store;
+use App\Models\StorefrontPage;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 
 uses(RefreshDatabase::class);
@@ -75,10 +76,31 @@ test('categoryProducts returns products for a category', function () {
     $product->categories()->attach($category->id);
     $product->storeLinks()->create(['store_id' => $store->id, 'is_active' => true]);
 
-    $products = $this->service->categoryProducts($category->id, $store->id);
+    $products = $this->service->categoryProducts($category->id, $store);
 
     expect($products)->toHaveCount(1);
     expect($products[0]['name'])->toBe($product->name);
+});
+
+test('buildTree resolves page menu item urls', function () {
+    $store = Store::factory()->create();
+    $page = StorefrontPage::factory()->create([
+        'store_id' => $store->id,
+        'slug' => 'nosotros',
+        'title' => 'Nosotros',
+        'is_published' => true,
+    ]);
+
+    HeaderMenuItem::factory()->create([
+        'store_id' => $store->id,
+        'type' => HeaderMenuItem::TYPE_PAGE,
+        'page_id' => $page->id,
+        'label' => 'Nosotros',
+    ]);
+
+    $tree = $this->service->buildTree($store);
+
+    expect($tree[0]['url'])->toBe('/nosotros');
 });
 
 test('buildTree loads products when expand_products is true', function () {

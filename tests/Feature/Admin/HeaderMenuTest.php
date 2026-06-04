@@ -2,6 +2,8 @@
 
 use App\Models\Category;
 use App\Models\HeaderMenuItem;
+use App\Models\Product;
+use App\Models\ProductStore;
 use App\Models\Store;
 use App\Models\User;
 use Database\Seeders\RolesAndPermissionsSeeder;
@@ -57,6 +59,49 @@ test('a category item can be created', function () {
         'store_id' => $store->id,
         'label' => 'Electrónica',
         'category_id' => $category->id,
+    ]);
+});
+
+test('a product item can be created', function () {
+    $store = Store::factory()->create();
+    $product = Product::factory()->create();
+    ProductStore::factory()->create([
+        'store_id' => $store->id,
+        'product_id' => $product->id,
+    ]);
+
+    $this->post(route('admin.header-menu.store'), [
+        'store_id' => $store->id,
+        'type' => 'product',
+        'label' => 'Producto destacado',
+        'product_id' => $product->id,
+        'is_active' => '1',
+    ])->assertRedirect();
+
+    $this->assertDatabaseHas('store_header_menu_items', [
+        'store_id' => $store->id,
+        'type' => 'product',
+        'label' => 'Producto destacado',
+        'product_id' => $product->id,
+    ]);
+});
+
+test('an all categories item can be created as mega menu', function () {
+    $store = Store::factory()->create();
+
+    $this->post(route('admin.header-menu.store'), [
+        'store_id' => $store->id,
+        'type' => 'all_categories',
+        'label' => 'Paquetes',
+        'expand_products' => '1',
+        'is_active' => '1',
+    ])->assertRedirect();
+
+    $this->assertDatabaseHas('store_header_menu_items', [
+        'store_id' => $store->id,
+        'type' => 'all_categories',
+        'label' => 'Paquetes',
+        'expand_products' => 1,
     ]);
 });
 

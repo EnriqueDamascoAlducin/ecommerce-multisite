@@ -1,6 +1,7 @@
 <?php
 
 use App\Models\Category;
+use App\Models\HeaderMenuItem;
 use App\Models\Product;
 use App\Models\Store;
 use App\Models\Website;
@@ -48,6 +49,40 @@ test('the home excludes products not enabled in the store', function () {
 
     $this->get(route('home'))
         ->assertInertia(fn ($page) => $page->has('featured', 1));
+});
+
+test('the home shares header menu items for the resolved store', function () {
+    HeaderMenuItem::factory()->link()->create([
+        'store_id' => $this->store->id,
+        'label' => 'Ofertas',
+        'url' => '/ofertas',
+    ]);
+
+    $this->get(route('home'))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->component('storefront/home')
+            ->where('store.menu.0.label', 'Ofertas')
+            ->where('store.menu.0.url', '/ofertas'));
+});
+
+test('the home shares product menu item urls for the resolved store', function () {
+    $product = publishedProduct($this->store);
+
+    HeaderMenuItem::factory()->create([
+        'store_id' => $this->store->id,
+        'type' => HeaderMenuItem::TYPE_PRODUCT,
+        'label' => 'Producto estrella',
+        'product_id' => $product->id,
+        'url' => null,
+    ]);
+
+    $this->get(route('home'))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->component('storefront/home')
+            ->where('store.menu.0.label', 'Producto estrella')
+            ->where('store.menu.0.url', "/p/{$product->slug}"));
 });
 
 test('a category lists its products', function () {

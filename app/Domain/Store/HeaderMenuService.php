@@ -2,10 +2,11 @@
 
 namespace App\Domain\Store;
 
-use App\Models\HeaderMenuItem;
 use App\Models\Category;
+use App\Models\HeaderMenuItem;
 use App\Models\Product;
 use App\Models\Store;
+use App\Models\StorefrontPage;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Support\Collection;
 
@@ -23,7 +24,7 @@ class HeaderMenuService
     {
         $items = HeaderMenuItem::query()
             ->where('store_id', $store->id)
-            ->with(['category', 'product'])
+            ->with(['category', 'product', 'page'])
             ->orderBy('sort_order')
             ->get();
 
@@ -39,7 +40,7 @@ class HeaderMenuService
     {
         $items = HeaderMenuItem::query()
             ->where('store_id', $store->id)
-            ->with(['category:id,name', 'product:id,name,sku'])
+            ->with(['category:id,name', 'product:id,name,sku', 'page:id,title,slug'])
             ->orderBy('sort_order')
             ->get();
 
@@ -78,6 +79,7 @@ class HeaderMenuService
                 'url' => $item->url,
                 'category_id' => $item->category_id,
                 'product_id' => $item->product_id,
+                'page_id' => $item->page_id,
                 'is_active' => $item->is_active,
                 'expand_products' => $item->expand_products,
                 'children' => $this->buildAdminBranch($items, $item->id),
@@ -96,7 +98,7 @@ class HeaderMenuService
             'id' => $item->id,
             'type' => $item->type,
             'label' => $item->label,
-            'url' => $this->resolveUrl($item),
+            'url' => $this->resolveUrl($item, $store),
             'expand_products' => $item->expand_products,
             'children' => $this->buildBranch($allItems, $item->id, $store),
             'products' => [],
@@ -110,26 +112,46 @@ class HeaderMenuService
         }
 
         if ($item->expand_products && $item->category_id) {
-            $data['products'] = $this->categoryProducts($item->category_id, $store->id);
+            $data['products'] = $this->categoryProducts($item->category_id, $store);
         }
 
         return $data;
     }
 
-    private function resolveUrl(HeaderMenuItem $item): ?string
+    private function resolveUrl(HeaderMenuItem $item, Store $store): ?string
     {
         return match ($item->type) {
             HeaderMenuItem::TYPE_LINK => $item->url,
-            HeaderMenuItem::TYPE_ALL_CATEGORIES => route('storefront.home', absolute: false),
+            HeaderMenuItem::TYPE_ALL_CATEGORIES => $this->storefrontPath($store, '/'),
             HeaderMenuItem::TYPE_CATEGORY => $item->category
-                ? route('storefront.category', $item->category->slug, false)
+                ? $this->storefrontPath($store, "/c/{$item->category->slug}")
                 : null,
             HeaderMenuItem::TYPE_PRODUCT => $item->product
-                ? route('storefront.product', $item->product->slug, false)
+                ? $this->storefrontPath($store, "/p/{$item->product->slug}")
+                : null,
+            HeaderMenuItem::TYPE_PAGE => $item->page
+                ? $this->pageUrl($store, $item->page)
                 : null,
             HeaderMenuItem::TYPE_CUSTOM => $item->url,
             default => $item->url,
         };
+    }
+
+    private function pageUrl(Store $store, StorefrontPage $page): string
+    {
+        return $this->storefrontPath($store, $page->slug === StorefrontPage::HOME ? '/' : "/{$page->slug}");
+    }
+
+    private function storefrontPath(Store $store, string $path): string
+    {
+        $prefix = app(StoreContext::class)->pathPrefix();
+        $path = '/'.ltrim($path, '/');
+
+        if ($prefix === '' || $prefix !== $store->code) {
+            return $path;
+        }
+
+        return '/'.$prefix.($path === '/' ? '' : $path);
     }
 
     /**
@@ -148,10 +170,10 @@ class HeaderMenuService
                 'id' => "category:{$category->id}",
                 'type' => HeaderMenuItem::TYPE_CATEGORY,
                 'label' => $category->name,
-                'url' => route('storefront.category', $category->slug, false),
+                'url' => $this->storefrontPath($store, "/c/{$category->slug}"),
                 'expand_products' => $includeProducts,
                 'children' => $this->categoryBranch($category->id, $store, $includeProducts),
-                'products' => $includeProducts ? $this->categoryProducts($category->id, $store->id) : [],
+                'products' => $includeProducts ? $this->categoryProducts($category->id, $store) : [],
             ])
             ->all();
     }
@@ -161,16 +183,16 @@ class HeaderMenuService
      *
      * @return list<array<string, mixed>>
      */
-    public function categoryProducts(int $categoryId, int $storeId): array
+    public function categoryProducts(int $categoryId, Store $store): array
     {
         return Product::query()
             ->select('products.id', 'products.slug', 'products.name', 'products.sku')
             ->active()
             ->whereHas('categories', fn ($q) => $q->where('categories.id', $categoryId))
-            ->whereHas('storeLinks', fn ($q) => $q->where('store_id', $storeId)->where('is_active', true))
+            ->whereHas('storeLinks', fn ($q) => $q->where('store_id', $store->id)->where('is_active', true))
             ->with([
                 'media' => fn (BelongsToMany $q) => $q->wherePivot('collection', 'default')->wherePivot('is_primary', true),
-                'prices' => fn ($q) => $q->where('store_id', $storeId),
+                'prices' => fn ($q) => $q->where('store_id', $store->id),
                 'inventoryStocks',
             ])
             ->orderBy('name')
@@ -181,7 +203,7 @@ class HeaderMenuService
                 'slug' => $product->slug,
                 'name' => $product->name,
                 'sku' => $product->sku,
-                'url' => route('storefront.product', $product->slug, false),
+                'url' => $this->storefrontPath($store, "/p/{$product->slug}"),
                 'thumbnail' => $product->primaryMedia()?->url,
                 'in_stock' => $product->totalAvailableQty() > 0,
                 'price' => [

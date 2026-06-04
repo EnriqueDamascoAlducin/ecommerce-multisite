@@ -14,6 +14,7 @@ use App\Http\Controllers\Admin\OrderController;
 use App\Http\Controllers\Admin\PaymentSettingsController;
 use App\Http\Controllers\Admin\PermissionController;
 use App\Http\Controllers\Admin\ProductController;
+use App\Http\Controllers\Admin\ProductLabelController;
 use App\Http\Controllers\Admin\PromotionController;
 use App\Http\Controllers\Admin\ReportController;
 use App\Http\Controllers\Admin\RoleController;
@@ -21,6 +22,7 @@ use App\Http\Controllers\Admin\ShipmentController;
 use App\Http\Controllers\Admin\ShippingMethodController;
 use App\Http\Controllers\Admin\StoreConfigurationController;
 use App\Http\Controllers\Admin\StoreController;
+use App\Http\Controllers\Admin\StorefrontPageController;
 use App\Http\Controllers\Admin\StoreScopeController;
 use App\Http\Controllers\Admin\StoreShippingController;
 use App\Http\Controllers\Admin\UserController;
@@ -90,6 +92,16 @@ Route::middleware(['auth', 'verified'])->prefix('admin')->name('admin.')->group(
         Route::get('categories/{category}/edit', [CategoryController::class, 'edit'])->middleware('permission:catalog.categories.edit')->name('categories.edit');
         Route::put('categories/{category}', [CategoryController::class, 'update'])->middleware('permission:catalog.categories.edit')->name('categories.update');
         Route::delete('categories/{category}', [CategoryController::class, 'destroy'])->middleware('permission:catalog.categories.delete')->name('categories.destroy');
+    });
+
+    // Catálogo: etiquetas (badges) de productos
+    Route::middleware('permission:catalog.labels.view')->group(function () {
+        Route::get('product-labels', [ProductLabelController::class, 'index'])->name('product-labels.index');
+        Route::get('product-labels/create', [ProductLabelController::class, 'create'])->middleware('permission:catalog.labels.create')->name('product-labels.create');
+        Route::post('product-labels', [ProductLabelController::class, 'store'])->middleware('permission:catalog.labels.create')->name('product-labels.store');
+        Route::get('product-labels/{productLabel}/edit', [ProductLabelController::class, 'edit'])->middleware('permission:catalog.labels.edit')->name('product-labels.edit');
+        Route::put('product-labels/{productLabel}', [ProductLabelController::class, 'update'])->middleware('permission:catalog.labels.edit')->name('product-labels.update');
+        Route::delete('product-labels/{productLabel}', [ProductLabelController::class, 'destroy'])->middleware('permission:catalog.labels.delete')->name('product-labels.destroy');
     });
 
     // Catálogo: atributos
@@ -194,6 +206,18 @@ Route::middleware(['auth', 'verified'])->prefix('admin')->name('admin.')->group(
         Route::put('header-menu/{headerMenuItem}', [HeaderMenuController::class, 'update'])->name('header-menu.update');
         Route::delete('header-menu/{headerMenuItem}', [HeaderMenuController::class, 'destroy'])->name('header-menu.destroy');
         Route::post('header-menu/reorder', [HeaderMenuController::class, 'reorder'])->name('header-menu.reorder');
+
+        Route::get('storefront/pages/home', [StorefrontPageController::class, 'home'])->name('storefront.pages.home');
+        Route::put('storefront/pages/home', [StorefrontPageController::class, 'updateHome'])->name('storefront.pages.home.update');
+        Route::get('storefront/pages', [StorefrontPageController::class, 'index'])->name('storefront.pages.index');
+        Route::post('storefront/pages', [StorefrontPageController::class, 'store'])->name('storefront.pages.store');
+        Route::get('storefront/pages/{page}/edit', [StorefrontPageController::class, 'edit'])->name('storefront.pages.edit');
+        Route::put('storefront/pages/{page}', [StorefrontPageController::class, 'update'])->name('storefront.pages.update');
+        Route::delete('storefront/pages/{page}', [StorefrontPageController::class, 'destroy'])->name('storefront.pages.destroy');
+        Route::post('storefront/pages/{page}/sections', [StorefrontPageController::class, 'storeSection'])->name('storefront.pages.sections.store');
+        Route::put('storefront/pages/{page}/sections/{section}', [StorefrontPageController::class, 'updateSection'])->name('storefront.pages.sections.update');
+        Route::delete('storefront/pages/{page}/sections/{section}', [StorefrontPageController::class, 'destroySection'])->name('storefront.pages.sections.destroy');
+        Route::post('storefront/pages/{page}/sections/reorder', [StorefrontPageController::class, 'reorderSections'])->name('storefront.pages.sections.reorder');
     });
 
     // Biblioteca de medios

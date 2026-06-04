@@ -1,0 +1,24 @@
+<?php
+
+use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\Schema;
+
+return new class extends Migration
+{
+    public function up(): void
+    {
+        Schema::table('store_header_menu_items', function (Blueprint $table) {
+            $table->foreignId('page_id')->nullable()->after('product_id')
+                ->constrained('storefront_pages')->nullOnDelete();
+        });
+    }
+
+    public function down(): void
+    {
+        Schema::table('store_header_menu_items', function (Blueprint $table) {
+            $table->dropForeign(['page_id']);
+            $table->dropColumn('page_id');
+        });
+    }
+};

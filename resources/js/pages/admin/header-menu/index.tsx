@@ -1,6 +1,7 @@
 import { Head, router, useForm } from '@inertiajs/react';
 import { GripVertical, Plus, X } from 'lucide-react';
 import { useState } from 'react';
+import type { ChangeEvent } from 'react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -16,53 +17,106 @@ import {
 import { usePermissions } from '@/hooks/use-permissions';
 import headerMenu from '@/routes/admin/header-menu';
 
+type LinkType =
+    | 'all_categories'
+    | 'category'
+    | 'product'
+    | 'page'
+    | 'custom'
+    | 'link';
+
 type MenuItem = {
     id: number;
-    type: string;
+    store_id: number;
+    parent_id: number | null;
+    type: LinkType;
     label: string;
     url: string | null;
+    category_id: number | null;
+    product_id: number | null;
+    page_id: number | null;
+    is_active: boolean;
     expand_products: boolean;
     children: MenuItem[];
     products: unknown[];
 };
 
 type StoreOption = { id: number; label: string };
+type CategoryOption = { id: number; label: string };
+type ProductOption = { id: number; label: string; sku: string };
+type PageOption = { id: number; label: string; slug: string };
 
-const TYPE_LABELS: Record<string, string> = {
-    link: 'Enlace',
-    category: 'Categoría',
-    custom: 'Personalizado',
+type MenuFormData = {
+    store_id: number | null;
+    parent_id: number | null;
+    type: LinkType;
+    label: string;
+    url: string;
+    category_id: number | null;
+    product_id: number | null;
+    page_id: number | null;
+    is_active: boolean;
+    expand_products: boolean;
+};
+
+const TYPE_LABELS: Record<LinkType, string> = {
+    all_categories: 'Todas las categorias',
+    category: 'Categoria',
+    product: 'Producto',
+    page: 'Pagina',
+    custom: 'URL personalizada',
+    link: 'URL personalizada',
 };
 
 export default function HeaderMenuIndex({
     stores,
     currentStoreId,
     tree,
+    categories,
+    products,
+    pages,
 }: {
     stores: StoreOption[];
     currentStoreId: number | null;
     tree: MenuItem[];
+    categories: CategoryOption[];
+    products: ProductOption[];
+    pages: PageOption[];
 }) {
     const { can } = usePermissions();
     const [editingId, setEditingId] = useState<number | null>(null);
-    const [addingParentId, setAddingParentId] = useState<number | 'root' | null>(null);
+    const [addingParentId, setAddingParentId] = useState<
+        number | 'root' | null
+    >(null);
 
-    const onStoreChange = (event: React.ChangeEvent<HTMLSelectElement>) => {
-        router.get(headerMenu.index().url, { store_id: event.target.value }, { preserveState: false });
+    const onStoreChange = (event: ChangeEvent<HTMLSelectElement>) => {
+        router.get(
+            headerMenu.index().url,
+            { store_id: event.target.value },
+            { preserveState: false },
+        );
     };
 
     const destroyItem = (item: MenuItem) => {
-        if (confirm(`¿Eliminar "${item.label}" y sus hijos?`)) {
-            router.delete(headerMenu.destroy(item.id).url, { preserveScroll: true });
+        if (confirm(`Eliminar "${item.label}" y sus hijos?`)) {
+            router.delete(headerMenu.destroy(item.id).url, {
+                preserveScroll: true,
+            });
         }
     };
 
     return (
         <>
-            <Head title="Menú del header" />
+            <Head title="Menu del header" />
 
             <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
-                <h1 className="text-2xl font-semibold">Menú del header</h1>
+                <div>
+                    <h1 className="text-2xl font-semibold">Menu del header</h1>
+                    <p className="mt-1 text-sm text-neutral-500">
+                        Elige destinos desde categorias, productos o enlaces
+                        personalizados.
+                    </p>
+                </div>
                 <div className="flex items-center gap-2">
                     <select
                         value={currentStoreId ?? ''}
@@ -78,7 +132,7 @@ export default function HeaderMenuIndex({
                     {can('settings.storefront') && currentStoreId && (
                         <Button onClick={() => setAddingParentId('root')}>
                             <Plus className="mr-1 size-4" />
-                            Nuevo ítem
+                            Nuevo item
                         </Button>
                     )}
                 </div>
@@ -87,16 +141,20 @@ export default function HeaderMenuIndex({
             <div className="rounded-lg border border-neutral-200 bg-white p-4 dark:border-neutral-800 dark:bg-neutral-900">
                 {tree.length === 0 && addingParentId !== 'root' ? (
                     <p className="py-8 text-center text-sm text-neutral-500">
-                        No hay ítems de menú en esta tienda.
+                        No hay items de menu en esta tienda.
                     </p>
                 ) : (
-                    <ul className="space-y-1">
+                    <ul className="space-y-2">
                         {tree.map((item) => (
                             <TreeNode
                                 key={item.id}
                                 item={item}
+                                storeId={currentStoreId}
                                 depth={0}
                                 can={can}
+                                categories={categories}
+                                products={products}
+                                pages={pages}
                                 onDelete={destroyItem}
                                 editingId={editingId}
                                 setEditingId={setEditingId}
@@ -109,6 +167,9 @@ export default function HeaderMenuIndex({
                                 <AddForm
                                     storeId={currentStoreId}
                                     parentId={null}
+                                    categories={categories}
+                                    products={products}
+                                    pages={pages}
                                     onDone={() => setAddingParentId(null)}
                                 />
                             </li>
@@ -122,8 +183,12 @@ export default function HeaderMenuIndex({
 
 function TreeNode({
     item,
+    storeId,
     depth,
     can,
+    categories,
+    products,
+    pages,
     onDelete,
     editingId,
     setEditingId,
@@ -131,8 +196,12 @@ function TreeNode({
     setAddingParentId,
 }: {
     item: MenuItem;
+    storeId: number | null;
     depth: number;
     can: (permission: string) => boolean;
+    categories: CategoryOption[];
+    products: ProductOption[];
+    pages: PageOption[];
     onDelete: (item: MenuItem) => void;
     editingId: number | null;
     setEditingId: (id: number | null) => void;
@@ -148,25 +217,51 @@ function TreeNode({
                 className="flex items-center justify-between rounded-md px-2 py-1.5 hover:bg-neutral-50 dark:hover:bg-neutral-800"
                 style={{ paddingLeft: `${depth * 1.5 + 0.5}rem` }}
             >
-                <span className="flex items-center gap-2 text-sm">
-                    <GripVertical className="size-3.5 cursor-grab text-neutral-300" />
-                    {item.label}
-                    <Badge variant="outline" className="text-[10px]">{TYPE_LABELS[item.type] ?? item.type}</Badge>
-                    {item.expand_products && <Badge className="text-[10px]">Mega menú</Badge>}
+                <span className="flex min-w-0 items-center gap-2 text-sm">
+                    <GripVertical className="size-3.5 shrink-0 cursor-grab text-neutral-300" />
+                    <span className="truncate">{item.label}</span>
+                    <Badge variant="outline" className="shrink-0 text-[10px]">
+                        {TYPE_LABELS[item.type] ?? item.type}
+                    </Badge>
+                    {item.expand_products && (
+                        <Badge className="shrink-0 text-[10px]">
+                            Mega menu
+                        </Badge>
+                    )}
+                    {!item.is_active && (
+                        <Badge
+                            variant="secondary"
+                            className="shrink-0 text-[10px]"
+                        >
+                            Oculto
+                        </Badge>
+                    )}
                 </span>
-                <div className="flex items-center gap-2">
+                <div className="flex shrink-0 items-center gap-2">
                     {can('settings.storefront') && (
-                        <Button variant="ghost" size="sm" onClick={() => setAddingParentId(item.id)}>
+                        <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => setAddingParentId(item.id)}
+                        >
                             <Plus className="size-3.5" />
                         </Button>
                     )}
                     {can('settings.storefront') && !isEditing && (
-                        <Button variant="outline" size="sm" onClick={() => setEditingId(item.id)}>
+                        <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => setEditingId(item.id)}
+                        >
                             Editar
                         </Button>
                     )}
                     {can('settings.storefront') && (
-                        <Button variant="destructive" size="sm" onClick={() => onDelete(item)}>
+                        <Button
+                            variant="destructive"
+                            size="sm"
+                            onClick={() => onDelete(item)}
+                        >
                             <X className="size-3.5" />
                         </Button>
                     )}
@@ -178,7 +273,13 @@ function TreeNode({
                     className="mb-1 rounded-md border border-dashed border-neutral-300 p-3 dark:border-neutral-700"
                     style={{ marginLeft: `${depth * 1.5 + 0.5}rem` }}
                 >
-                    <EditForm item={item} onDone={() => setEditingId(null)} />
+                    <EditForm
+                        item={item}
+                        categories={categories}
+                        products={products}
+                        pages={pages}
+                        onDone={() => setEditingId(null)}
+                    />
                 </div>
             )}
 
@@ -187,7 +288,14 @@ function TreeNode({
                     className="mb-1 rounded-md border border-dashed border-neutral-300 p-3 dark:border-neutral-700"
                     style={{ marginLeft: `${(depth + 1) * 1.5 + 0.5}rem` }}
                 >
-                    <AddForm storeId={null} parentId={item.id} onDone={() => setAddingParentId(null)} />
+                    <AddForm
+                        storeId={storeId}
+                        parentId={item.id}
+                        categories={categories}
+                        products={products}
+                        pages={pages}
+                        onDone={() => setAddingParentId(null)}
+                    />
                 </div>
             )}
 
@@ -197,8 +305,12 @@ function TreeNode({
                         <TreeNode
                             key={child.id}
                             item={child}
+                            storeId={storeId}
                             depth={depth + 1}
                             can={can}
+                            categories={categories}
+                            products={products}
+                            pages={pages}
                             onDelete={onDelete}
                             editingId={editingId}
                             setEditingId={setEditingId}
@@ -215,73 +327,219 @@ function TreeNode({
 function AddForm({
     storeId,
     parentId,
+    categories,
+    products,
+    pages,
     onDone,
 }: {
     storeId: number | null;
     parentId: number | null;
+    categories: CategoryOption[];
+    products: ProductOption[];
+    pages: PageOption[];
     onDone: () => void;
 }) {
-    const { data, setData, post, processing } = useForm({
+    const form = useForm<MenuFormData>({
         store_id: storeId,
         parent_id: parentId,
-        type: 'link',
+        type: 'custom',
         label: '',
         url: '',
+        category_id: null,
+        product_id: null,
+        page_id: null,
         is_active: true,
         expand_products: false,
     });
 
     const save = () => {
-        post(headerMenu.store().url, {
+        form.post(headerMenu.store().url, {
             preserveScroll: true,
             onSuccess: onDone,
         });
     };
 
     return (
-        <div className="flex flex-wrap items-end gap-3">
+        <MenuItemForm
+            form={form}
+            categories={categories}
+            products={products}
+            pages={pages}
+            onSubmit={save}
+            onCancel={onDone}
+            submitLabel="Crear"
+        />
+    );
+}
+
+function EditForm({
+    item,
+    categories,
+    products,
+    pages,
+    onDone,
+}: {
+    item: MenuItem;
+    categories: CategoryOption[];
+    products: ProductOption[];
+    pages: PageOption[];
+    onDone: () => void;
+}) {
+    const form = useForm<MenuFormData>({
+        store_id: item.store_id,
+        parent_id: item.parent_id,
+        type: item.type === 'link' ? 'custom' : item.type,
+        label: item.label,
+        url: item.url ?? '',
+        category_id: item.category_id,
+        product_id: item.product_id,
+        page_id: item.page_id,
+        is_active: item.is_active,
+        expand_products: item.expand_products,
+    });
+
+    const update = () => {
+        form.put(headerMenu.update(item.id).url, {
+            preserveScroll: true,
+            onSuccess: onDone,
+        });
+    };
+
+    return (
+        <MenuItemForm
+            form={form}
+            categories={categories}
+            products={products}
+            pages={pages}
+            onSubmit={update}
+            onCancel={onDone}
+            submitLabel="Guardar"
+        />
+    );
+}
+
+function MenuItemForm({
+    form,
+    categories,
+    products,
+    pages,
+    onSubmit,
+    onCancel,
+    submitLabel,
+}: {
+    form: ReturnType<typeof useForm<MenuFormData>>;
+    categories: CategoryOption[];
+    products: ProductOption[];
+    pages: PageOption[];
+    onSubmit: () => void;
+    onCancel: () => void;
+    submitLabel: string;
+}) {
+    const { data, setData, processing } = form;
+    const supportsMegaMenu =
+        data.type === 'all_categories' || data.type === 'category';
+    const canSubmit =
+        data.label.trim().length > 0 &&
+        (data.type !== 'custom' || data.url.trim().length > 0) &&
+        (data.type !== 'category' || data.category_id !== null) &&
+        (data.type !== 'product' || data.product_id !== null) &&
+        (data.type !== 'page' || data.page_id !== null);
+
+    const changeType = (type: string) => {
+        const nextType = type as LinkType;
+
+        setData('type', nextType);
+        setData('url', nextType === 'custom' ? data.url : '');
+        setData('category_id', null);
+        setData('product_id', null);
+        setData('page_id', null);
+        setData(
+            'expand_products',
+            nextType === 'all_categories' || nextType === 'category'
+                ? data.expand_products
+                : false,
+        );
+    };
+
+    return (
+        <div className="grid gap-3 md:grid-cols-[minmax(10rem,14rem)_minmax(10rem,1fr)_minmax(12rem,1.2fr)_auto] md:items-end">
             <div className="flex flex-col gap-1">
                 <Label className="text-xs">Tipo</Label>
-                <Select value={data.type} onValueChange={(v) => setData('type', v)}>
-                    <SelectTrigger className="w-32">
+                <Select value={data.type} onValueChange={changeType}>
+                    <SelectTrigger>
                         <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                        <SelectItem value="link">Enlace</SelectItem>
-                        <SelectItem value="category">Categoría</SelectItem>
-                        <SelectItem value="custom">Personalizado</SelectItem>
+                        <SelectItem value="all_categories">
+                            Todas las categorias
+                        </SelectItem>
+                        <SelectItem value="category">Categoria</SelectItem>
+                        <SelectItem value="product">Producto</SelectItem>
+                        <SelectItem value="page">Pagina</SelectItem>
+                        <SelectItem value="custom">
+                            URL personalizada
+                        </SelectItem>
                     </SelectContent>
                 </Select>
             </div>
+
             <div className="flex flex-col gap-1">
                 <Label className="text-xs">Etiqueta</Label>
                 <Input
                     value={data.label}
-                    onChange={(e) => setData('label', e.target.value)}
-                    className="w-40"
+                    onChange={(event: ChangeEvent<HTMLInputElement>) =>
+                        setData('label', event.target.value)
+                    }
                 />
             </div>
-            <div className="flex flex-col gap-1">
-                <Label className="text-xs">URL</Label>
-                <Input
-                    value={data.url}
-                    onChange={(e) => setData('url', e.target.value)}
-                    className="w-48"
-                />
-            </div>
-            <div className="flex items-center gap-2 pb-1">
-                <Checkbox
-                    id="add-expand"
-                    checked={data.expand_products}
-                    onCheckedChange={(v) => setData('expand_products', v === true)}
-                />
-                <Label htmlFor="add-expand" className="text-xs">Mostrar productos</Label>
-            </div>
-            <div className="flex items-center gap-2">
-                <Button size="sm" onClick={save} disabled={!data.label || processing}>
-                    Crear
+
+            <MenuTargetField
+                form={form}
+                categories={categories}
+                products={products}
+                pages={pages}
+            />
+
+            <div className="flex flex-wrap items-center gap-2">
+                <div className="flex items-center gap-2">
+                    <Checkbox
+                        id={`active-${data.parent_id ?? 'root'}-${submitLabel}`}
+                        checked={data.is_active}
+                        onCheckedChange={(value) =>
+                            setData('is_active', value === true)
+                        }
+                    />
+                    <Label
+                        htmlFor={`active-${data.parent_id ?? 'root'}-${submitLabel}`}
+                        className="text-xs"
+                    >
+                        Visible
+                    </Label>
+                </div>
+                <div className="flex items-center gap-2">
+                    <Checkbox
+                        id={`mega-${data.parent_id ?? 'root'}-${submitLabel}`}
+                        checked={data.expand_products}
+                        disabled={!supportsMegaMenu}
+                        onCheckedChange={(value) =>
+                            setData('expand_products', value === true)
+                        }
+                    />
+                    <Label
+                        htmlFor={`mega-${data.parent_id ?? 'root'}-${submitLabel}`}
+                        className="text-xs"
+                    >
+                        Mega menu
+                    </Label>
+                </div>
+                <Button
+                    size="sm"
+                    onClick={onSubmit}
+                    disabled={!canSubmit || processing}
+                >
+                    {submitLabel}
                 </Button>
-                <Button variant="outline" size="sm" onClick={onDone}>
+                <Button variant="outline" size="sm" onClick={onCancel}>
                     Cancelar
                 </Button>
             </div>
@@ -289,69 +547,121 @@ function AddForm({
     );
 }
 
-function EditForm({ item, onDone }: { item: MenuItem; onDone: () => void }) {
-    const { data, setData, put, processing } = useForm({
-        type: item.type,
-        label: item.label,
-        url: item.url ?? '',
-        is_active: true,
-        expand_products: item.expand_products,
-    });
+function MenuTargetField({
+    form,
+    categories,
+    products,
+    pages,
+}: {
+    form: ReturnType<typeof useForm<MenuFormData>>;
+    categories: CategoryOption[];
+    products: ProductOption[];
+    pages: PageOption[];
+}) {
+    const { data, setData } = form;
 
-    const update = () => {
-        put(headerMenu.update(item.id).url, {
-            preserveScroll: true,
-            onSuccess: onDone,
-        });
-    };
-
-    return (
-        <div className="flex flex-wrap items-end gap-3">
+    if (data.type === 'all_categories') {
+        return (
             <div className="flex flex-col gap-1">
-                <Label className="text-xs">Tipo</Label>
-                <Select value={data.type} onValueChange={(v) => setData('type', v)}>
-                    <SelectTrigger className="w-32">
-                        <SelectValue />
+                <Label className="text-xs">Destino</Label>
+                <Input value="Raices activas del catalogo" disabled />
+            </div>
+        );
+    }
+
+    if (data.type === 'category') {
+        return (
+            <div className="flex flex-col gap-1">
+                <Label className="text-xs">Categoria</Label>
+                <Select
+                    value={
+                        data.category_id ? String(data.category_id) : undefined
+                    }
+                    onValueChange={(value) =>
+                        setData('category_id', Number(value))
+                    }
+                >
+                    <SelectTrigger>
+                        <SelectValue placeholder="Selecciona categoria" />
                     </SelectTrigger>
                     <SelectContent>
-                        <SelectItem value="link">Enlace</SelectItem>
-                        <SelectItem value="category">Categoría</SelectItem>
-                        <SelectItem value="custom">Personalizado</SelectItem>
+                        {categories.map((category) => (
+                            <SelectItem
+                                key={category.id}
+                                value={String(category.id)}
+                            >
+                                {category.label}
+                            </SelectItem>
+                        ))}
                     </SelectContent>
                 </Select>
             </div>
+        );
+    }
+
+    if (data.type === 'product') {
+        return (
             <div className="flex flex-col gap-1">
-                <Label className="text-xs">Etiqueta</Label>
-                <Input
-                    value={data.label}
-                    onChange={(e) => setData('label', e.target.value)}
-                    className="w-40"
-                />
+                <Label className="text-xs">Producto</Label>
+                <Select
+                    value={
+                        data.product_id ? String(data.product_id) : undefined
+                    }
+                    onValueChange={(value) =>
+                        setData('product_id', Number(value))
+                    }
+                >
+                    <SelectTrigger>
+                        <SelectValue placeholder="Selecciona producto" />
+                    </SelectTrigger>
+                    <SelectContent>
+                        {products.map((product) => (
+                            <SelectItem
+                                key={product.id}
+                                value={String(product.id)}
+                            >
+                                {product.label} ({product.sku})
+                            </SelectItem>
+                        ))}
+                    </SelectContent>
+                </Select>
             </div>
+        );
+    }
+
+    if (data.type === 'page') {
+        return (
             <div className="flex flex-col gap-1">
-                <Label className="text-xs">URL</Label>
-                <Input
-                    value={data.url}
-                    onChange={(e) => setData('url', e.target.value)}
-                    className="w-48"
-                />
+                <Label className="text-xs">Pagina</Label>
+                <Select
+                    value={data.page_id ? String(data.page_id) : undefined}
+                    onValueChange={(value) => setData('page_id', Number(value))}
+                >
+                    <SelectTrigger>
+                        <SelectValue placeholder="Selecciona pagina" />
+                    </SelectTrigger>
+                    <SelectContent>
+                        {pages.map((page) => (
+                            <SelectItem key={page.id} value={String(page.id)}>
+                                {page.label}
+                            </SelectItem>
+                        ))}
+                    </SelectContent>
+                </Select>
             </div>
-            <div className="flex items-center gap-2 pb-1">
-                <Checkbox
-                    id="edit-expand"
-                    checked={data.expand_products}
-                    onCheckedChange={(v) => setData('expand_products', v === true)}
-                />
-                <Label htmlFor="edit-expand" className="text-xs">Mostrar productos</Label>
-            </div>
-            <div className="flex items-center gap-2">
-                <Button size="sm" onClick={update} disabled={!data.label || processing}>
-                    Guardar
-                </Button>
-                <Button variant="outline" size="sm" onClick={onDone}>
-                    Cancelar
-                </Button>
-            </div>
+        );
+    }
+
+    return (
+        <div className="flex flex-col gap-1">
+            <Label className="text-xs">URL</Label>
+            <Input
+                value={data.url}
+                onChange={(event: ChangeEvent<HTMLInputElement>) =>
+                    setData('url', event.target.value)
+                }
+                placeholder="/contacto"
+            />
         </div>
     );
 }

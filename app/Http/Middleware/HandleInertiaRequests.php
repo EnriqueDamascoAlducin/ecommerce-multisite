@@ -52,9 +52,9 @@ class HandleInertiaRequests extends Middleware
                 'success' => $request->session()->get('success'),
                 'error' => $request->session()->get('error'),
             ],
-            'store' => $this->currentStore(),
+            'store' => fn () => $this->currentStore(),
             'customer' => $request->user('customer')?->only(['id', 'name', 'email']),
-            'cart' => $this->cartSummary(),
+            'cart' => fn () => $this->cartSummary(),
             'adminScope' => $this->adminScope($request),
             'sidebarOpen' => ! $request->hasCookie('sidebar_state') || $request->cookie('sidebar_state') === 'true',
         ];

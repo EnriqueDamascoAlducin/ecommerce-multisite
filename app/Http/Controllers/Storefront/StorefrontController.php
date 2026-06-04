@@ -7,9 +7,12 @@ use App\Domain\Catalog\ConfigurableProductService;
 use App\Domain\Catalog\ProductPricingService;
 use App\Domain\Inventory\StockAvailabilityChecker;
 use App\Domain\Store\StoreContext;
+use App\Domain\Storefront\StorefrontPagePresenter;
 use App\Http\Controllers\Controller;
 use App\Models\Category;
 use App\Models\Product;
+use App\Models\StorefrontPage;
+use App\Models\StorefrontPageSection;
 use Illuminate\Database\Eloquent\Builder;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -23,6 +26,7 @@ class StorefrontController extends Controller
         private readonly ConfigurableProductService $configurable,
         private readonly BundleService $bundles,
         private readonly StockAvailabilityChecker $availability,
+        private readonly StorefrontPagePresenter $pagePresenter,
     ) {}
 
     public function home(): Response
@@ -37,9 +41,20 @@ class StorefrontController extends Controller
             ->get()
             ->map(fn (Product $product) => $this->productCard($product));
 
-        return Inertia::render('storefront/home', [
-            'featured' => $products,
-        ]);
+        return $this->renderPage(StorefrontPage::HOME, $products->all());
+    }
+
+    public function page(string $slug): Response
+    {
+        if (! $this->context->hasStore()) {
+            throw new NotFoundHttpException('Tienda no resuelta.');
+        }
+
+        if ($slug === StorefrontPage::HOME) {
+            throw new NotFoundHttpException('Pagina no encontrada.');
+        }
+
+        return $this->renderPage($slug, []);
     }
 
     public function category(string $slug): Response
@@ -87,7 +102,7 @@ class StorefrontController extends Controller
 
         $product = Product::query()
             ->with([
-                'prices', 'media', 'categories', 'attributeValues.attribute.options', 'inventoryStocks',
+                'prices', 'media', 'categories', 'labels', 'attributeValues.attribute.options', 'inventoryStocks',
                 'configurableAttributes.options',
                 'bundleItems.product.prices', 'bundleItems.product.inventoryStocks',
             ])
@@ -132,6 +147,7 @@ class StorefrontController extends Controller
                 ->where('website_id', $websiteId)
                 ->map(fn (Category $category) => ['name' => $category->name, 'slug' => $category->slug])
                 ->values(),
+            'labels' => $this->labelsFor($product),
         ];
 
         if ($product->isBundle()) {
@@ -181,10 +197,41 @@ class StorefrontController extends Controller
         $storeId = $this->context->store()->id;
 
         return Product::query()
-            ->with(['prices', 'media', 'inventoryStocks'])
+            ->with(['prices', 'media', 'inventoryStocks', 'labels'])
             ->where('status', Product::STATUS_ACTIVE)
             ->whereIn('visibility', ['both', 'catalog'])
             ->whereHas('storeLinks', fn (Builder $q) => $q->where('store_id', $storeId)->where('is_active', true));
+    }
+
+    /**
+     * @param  list<array<string, mixed>>  $featured
+     */
+    private function renderPage(string $slug, array $featured): Response
+    {
+        $page = StorefrontPage::query()
+            ->where('store_id', $this->context->store()->id)
+            ->where('slug', $slug)
+            ->where('is_published', true)
+            ->with('sections')
+            ->first();
+
+        if (! $page && $slug !== StorefrontPage::HOME) {
+            throw new NotFoundHttpException('Pagina no encontrada.');
+        }
+
+        if ($page && $featured === [] && $page->sections->contains('type', StorefrontPageSection::TYPE_FEATURED_PRODUCTS)) {
+            $featured = $this->catalogQuery()
+                ->latest()
+                ->limit(12)
+                ->get()
+                ->map(fn (Product $product) => $this->productCard($product))
+                ->all();
+        }
+
+        return Inertia::render('storefront/home', [
+            'featured' => $featured,
+            'contentPage' => $page ? $this->pagePresenter->present($page) : null,
+        ]);
     }
 
     /**
@@ -201,7 +248,30 @@ class StorefrontController extends Controller
             'price' => $this->pricing->priceFor($product, $storeId),
             'thumbnail' => $product->primaryMedia('gallery')?->url,
             'in_stock' => $this->availability->canFulfill($product, 1),
+            'labels' => $this->labelsFor($product),
         ];
+    }
+
+    /**
+     * Etiquetas activas del producto para el website actual, ordenadas.
+     *
+     * @return list<array{text: string, text_color: string, background_color: string}>
+     */
+    private function labelsFor(Product $product): array
+    {
+        $websiteId = $this->context->website()?->id;
+
+        return $product->labels
+            ->where('is_active', true)
+            ->where('website_id', $websiteId)
+            ->sortBy('sort_order')
+            ->map(fn ($label) => [
+                'text' => $label->text,
+                'text_color' => $label->text_color,
+                'background_color' => $label->background_color,
+            ])
+            ->values()
+            ->all();
     }
 
     /**

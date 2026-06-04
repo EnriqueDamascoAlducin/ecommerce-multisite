@@ -28,6 +28,7 @@ class StoreHeaderMenuItemRequest extends FormRequest
                 HeaderMenuItem::TYPE_LINK,
                 HeaderMenuItem::TYPE_CATEGORY,
                 HeaderMenuItem::TYPE_PRODUCT,
+                HeaderMenuItem::TYPE_PAGE,
                 HeaderMenuItem::TYPE_CUSTOM,
             ])],
             'label' => ['required', 'string', 'max:255'],
@@ -42,6 +43,11 @@ class StoreHeaderMenuItemRequest extends FormRequest
             'product_id' => [
                 Rule::requiredIf($this->input('type') === HeaderMenuItem::TYPE_PRODUCT),
                 'nullable', 'integer', 'exists:products,id',
+            ],
+            'page_id' => [
+                Rule::requiredIf($this->input('type') === HeaderMenuItem::TYPE_PAGE),
+                'nullable', 'integer',
+                Rule::exists('storefront_pages', 'id')->where('store_id', $this->integer('store_id')),
             ],
             'is_active' => ['boolean'],
             'expand_products' => ['boolean'],

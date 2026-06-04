@@ -9,6 +9,7 @@ use App\Models\Category;
 use App\Models\HeaderMenuItem;
 use App\Models\Product;
 use App\Models\Store;
+use App\Models\StorefrontPage;
 use App\Services\AuditLogger;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -33,6 +34,7 @@ class HeaderMenuController extends Controller
             'tree' => $store ? $this->menuService->buildAdminTree($store) : [],
             'categories' => $store ? $this->categoryOptions($store) : [],
             'products' => $store ? $this->productOptions($store) : [],
+            'pages' => $store ? $this->pageOptions($store) : [],
         ]);
     }
 
@@ -42,10 +44,10 @@ class HeaderMenuController extends Controller
 
         $item = HeaderMenuItem::create($this->menuItemPayload($data));
 
-        $this->auditLogger->log('header_menu.created', $item, "Ítem de menú {$item->label} creado");
+        $this->auditLogger->log('header_menu.created', $item, "Item de menu {$item->label} creado");
 
         return to_route('admin.header-menu.index', ['store_id' => $item->store_id])
-            ->with('success', 'Ítem de menú creado.');
+            ->with('success', 'Item de menu creado.');
     }
 
     public function update(StoreHeaderMenuItemRequest $request, HeaderMenuItem $headerMenuItem): RedirectResponse
@@ -54,10 +56,10 @@ class HeaderMenuController extends Controller
 
         $headerMenuItem->update($this->menuItemPayload($data, $headerMenuItem));
 
-        $this->auditLogger->log('header_menu.updated', $headerMenuItem, "Ítem de menú {$headerMenuItem->label} actualizado");
+        $this->auditLogger->log('header_menu.updated', $headerMenuItem, "Item de menu {$headerMenuItem->label} actualizado");
 
         return to_route('admin.header-menu.index', ['store_id' => $headerMenuItem->store_id])
-            ->with('success', 'Ítem de menú actualizado.');
+            ->with('success', 'Item de menu actualizado.');
     }
 
     public function destroy(HeaderMenuItem $headerMenuItem): RedirectResponse
@@ -66,15 +68,12 @@ class HeaderMenuController extends Controller
         $label = $headerMenuItem->label;
         $headerMenuItem->delete();
 
-        $this->auditLogger->log('header_menu.deleted', null, "Ítem de menú {$label} eliminado");
+        $this->auditLogger->log('header_menu.deleted', null, "Item de menu {$label} eliminado");
 
         return to_route('admin.header-menu.index', ['store_id' => $storeId])
-            ->with('success', 'Ítem de menú eliminado.');
+            ->with('success', 'Item de menu eliminado.');
     }
 
-    /**
-     * Reordena ítems vía drag & drop. Recibe un array de {id: int, sort_order: int, parent_id: int|null}.
-     */
     /**
      * @param  array<string, mixed>  $data
      * @return array<string, mixed>
@@ -93,12 +92,16 @@ class HeaderMenuController extends Controller
             'url' => $isUrlMenu ? ($data['url'] ?? null) : null,
             'category_id' => $type === HeaderMenuItem::TYPE_CATEGORY ? ($data['category_id'] ?? null) : null,
             'product_id' => $type === HeaderMenuItem::TYPE_PRODUCT ? ($data['product_id'] ?? null) : null,
+            'page_id' => $type === HeaderMenuItem::TYPE_PAGE ? ($data['page_id'] ?? null) : null,
             'is_active' => $data['is_active'] ?? true,
             'expand_products' => $isCategoryMenu && ($data['expand_products'] ?? false),
             'sort_order' => $data['sort_order'] ?? $existing?->sort_order ?? 0,
         ];
     }
 
+    /**
+     * Reorder items via drag and drop. Expects {id, sort_order, parent_id}.
+     */
     public function reorder(Request $request): RedirectResponse
     {
         $validated = $request->validate([
@@ -117,10 +120,10 @@ class HeaderMenuController extends Controller
 
         $storeId = HeaderMenuItem::find($validated['items'][0]['id'])?->store_id;
 
-        $this->auditLogger->log('header_menu.reordered', null, 'Ítems de menú reordenados');
+        $this->auditLogger->log('header_menu.reordered', null, 'Items de menu reordenados');
 
         return to_route('admin.header-menu.index', ['store_id' => $storeId])
-            ->with('success', 'Menú reordenado.');
+            ->with('success', 'Menu reordenado.');
     }
 
     private function resolveStore(int $storeId): ?Store
@@ -132,7 +135,7 @@ class HeaderMenuController extends Controller
     /**
      * @return Collection<int, array{id: int, label: string}>
      */
-    private function storeOptions()
+    private function storeOptions(): Collection
     {
         return Store::with('website:id,name')->orderBy('website_id')->orderBy('sort_order')->get()
             ->map(fn (Store $store) => ['id' => $store->id, 'label' => "{$store->website->name} / {$store->name}"]);
@@ -166,6 +169,24 @@ class HeaderMenuController extends Controller
                 'id' => $product->id,
                 'label' => $product->name,
                 'sku' => $product->sku,
+            ]);
+    }
+
+    /**
+     * @return Collection<int, array{id: int, label: string, slug: string}>
+     */
+    private function pageOptions(Store $store): Collection
+    {
+        return StorefrontPage::query()
+            ->where('store_id', $store->id)
+            ->where('is_published', true)
+            ->orderByRaw("CASE WHEN slug = 'home' THEN 0 ELSE 1 END")
+            ->orderBy('title')
+            ->get(['id', 'title', 'slug'])
+            ->map(fn (StorefrontPage $page) => [
+                'id' => $page->id,
+                'label' => $page->slug === StorefrontPage::HOME ? "{$page->title} (/)" : $page->title,
+                'slug' => $page->slug,
             ]);
     }
 }

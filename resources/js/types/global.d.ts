@@ -1,6 +1,7 @@
 import type { Auth } from '@/types/auth';
 
 declare module 'react' {
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     interface InputHTMLAttributes<T> {
         passwordrules?: string;
     }
@@ -23,7 +24,7 @@ interface StoreMenuProduct {
 }
 
 interface StoreMenuItem {
-    id: number;
+    id: number | string;
     type: string;
     label: string;
     url: string | null;

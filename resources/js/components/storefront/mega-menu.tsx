@@ -21,7 +21,7 @@ type MenuProduct = {
 };
 
 type MenuItem = {
-    id: number;
+    id: number | string;
     type: string;
     label: string;
     url: string | null;
@@ -44,7 +44,13 @@ export function MegaMenu({ items }: { items: MenuItem[] }) {
     );
 }
 
-function MenuItemComponent({ item, urls }: { item: MenuItem; urls: ReturnType<typeof useStoreUrls> }) {
+function MenuItemComponent({
+    item,
+    urls,
+}: {
+    item: MenuItem;
+    urls: ReturnType<typeof useStoreUrls>;
+}) {
     const [open, setOpen] = useState(false);
     const hasChildren = item.children.length > 0;
     const hasProducts = item.products.length > 0;
@@ -60,11 +66,13 @@ function MenuItemComponent({ item, urls }: { item: MenuItem; urls: ReturnType<ty
                 className="flex items-center gap-1 px-3 py-2 text-neutral-600 hover:text-neutral-900 dark:text-neutral-400 dark:hover:text-neutral-100"
             >
                 {item.label}
-                {(hasChildren || hasProducts) && <ChevronDown className="size-3.5" />}
+                {(hasChildren || hasProducts) && (
+                    <ChevronDown className="size-3.5" />
+                )}
             </Link>
 
             {(hasChildren || hasProducts) && open && (
-                <div className="absolute left-0 top-full z-50 min-w-[220px] rounded-lg border border-neutral-200 bg-white p-3 shadow-lg dark:border-neutral-800 dark:bg-neutral-950">
+                <div className="absolute top-full left-0 z-50 min-w-[220px] rounded-lg border border-neutral-200 bg-white p-3 shadow-lg dark:border-neutral-800 dark:bg-neutral-950">
                     {hasProducts && (
                         <div className="grid grid-cols-3 gap-3">
                             {item.products.map((product) => (
@@ -85,19 +93,39 @@ function MenuItemComponent({ item, urls }: { item: MenuItem; urls: ReturnType<ty
                                         )}
                                     </div>
                                     <div className="flex flex-col gap-0.5 p-2">
-                                        <span className="line-clamp-1 text-xs font-medium">{product.name}</span>
+                                        <span className="line-clamp-1 text-xs font-medium">
+                                            {product.name}
+                                        </span>
                                         <span className="text-xs font-semibold">
-                                            {product.price.is_special && product.price.special_price ? (
+                                            {product.price.is_special &&
+                                            product.price.special_price ? (
                                                 <>
-                                                    <span className="text-red-600">{formatPrice(product.price.special_price)}</span>
-                                                    <span className="ml-1 text-neutral-400 line-through">{formatPrice(product.price.price)}</span>
+                                                    <span className="text-red-600">
+                                                        {formatPrice(
+                                                            product.price
+                                                                .special_price,
+                                                        )}
+                                                    </span>
+                                                    <span className="ml-1 text-neutral-400 line-through">
+                                                        {formatPrice(
+                                                            product.price.price,
+                                                        )}
+                                                    </span>
                                                 </>
                                             ) : (
-                                                formatPrice(product.price.effective_price)
+                                                formatPrice(
+                                                    product.price
+                                                        .effective_price,
+                                                )
                                             )}
                                         </span>
                                         {!product.in_stock && (
-                                            <Badge variant="outline" className="w-fit text-[10px]">Agotado</Badge>
+                                            <Badge
+                                                variant="outline"
+                                                className="w-fit text-[10px]"
+                                            >
+                                                Agotado
+                                            </Badge>
                                         )}
                                     </div>
                                 </Link>
