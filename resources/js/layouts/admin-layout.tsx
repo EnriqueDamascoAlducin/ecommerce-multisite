@@ -1,4 +1,4 @@
-import { Link, router, usePage } from '@inertiajs/react';
+import { Link, usePage } from '@inertiajs/react';
 import {
     BarChart3,
     Boxes,
@@ -29,14 +29,30 @@ import {
 import type { LucideIcon } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { toast } from 'sonner';
+import { AppShell } from '@/components/app-shell';
+import { NavUser } from '@/components/nav-user';
 import {
     Collapsible,
     CollapsibleContent,
     CollapsibleTrigger,
 } from '@/components/ui/collapsible';
+import {
+    Sidebar,
+    SidebarContent,
+    SidebarFooter,
+    SidebarGroup,
+    SidebarGroupContent,
+    SidebarGroupLabel,
+    SidebarHeader,
+    SidebarInset,
+    SidebarMenu,
+    SidebarMenuButton,
+    SidebarMenuItem,
+    SidebarTrigger,
+    useSidebar,
+} from '@/components/ui/sidebar';
 import { useCurrentUrl } from '@/hooks/use-current-url';
 import { usePermissions } from '@/hooks/use-permissions';
-import { cn } from '@/lib/utils';
 import { dashboard } from '@/routes/admin';
 import attributes from '@/routes/admin/attributes';
 import audit from '@/routes/admin/audit';
@@ -56,7 +72,6 @@ import products from '@/routes/admin/products';
 import promotions from '@/routes/admin/promotions';
 import reports from '@/routes/admin/reports';
 import roles from '@/routes/admin/roles';
-import { update as updateScope } from '@/routes/admin/scope';
 import shipments from '@/routes/admin/shipments';
 import shipping from '@/routes/admin/shipping';
 import storefrontPages from '@/routes/admin/storefront/pages';
@@ -273,55 +288,90 @@ const navGroups: AdminNavGroup[] = [
     },
 ];
 
-function AdminNavGroup({
-    group,
-    isCurrentOrParentUrl,
-}: {
-    group: AdminNavGroup;
-    isCurrentOrParentUrl: (href: AdminNavItem['href']) => boolean;
-}) {
+function AdminNavGroup({ group }: { group: AdminNavGroup }) {
+    const { isCurrentOrParentUrl } = useCurrentUrl();
+    const { state } = useSidebar();
     const hasActiveItem = group.items.some((item) =>
         isCurrentOrParentUrl(item.href),
     );
-    const [isOpen, setIsOpen] = useState(hasActiveItem);
+    const [open, setOpen] = useState(hasActiveItem);
+
+    // En modo icono el sidebar es angosto y las etiquetas se ocultan: forzamos
+    // el contenido abierto para que todos los iconos sigan accesibles.
+    const isIconMode = state === 'collapsed';
 
     return (
-        <Collapsible open={isOpen} onOpenChange={setIsOpen}>
-            <CollapsibleTrigger
-                className={cn(
-                    'flex w-full items-center gap-2 rounded-md px-3 py-2 text-left text-neutral-700 transition-colors hover:bg-neutral-100 dark:text-neutral-300 dark:hover:bg-neutral-800',
-                    hasActiveItem &&
-                        'bg-neutral-100 font-medium text-neutral-900 dark:bg-neutral-800 dark:text-neutral-100',
-                )}
-            >
-                <group.icon className="size-4 shrink-0" />
-                <span className="min-w-0 flex-1 truncate">{group.title}</span>
-                <ChevronRight
-                    className={cn(
-                        'size-4 shrink-0 transition-transform',
-                        isOpen && 'rotate-90',
-                    )}
-                />
-            </CollapsibleTrigger>
-
-            <CollapsibleContent className="mt-1 space-y-1">
-                {group.items.map((item) => (
-                    <Link
-                        key={item.title}
-                        href={item.href}
-                        prefetch
-                        className={cn(
-                            'ml-6 flex items-center gap-2 rounded-md px-3 py-2 text-neutral-600 transition-colors hover:bg-neutral-100 dark:text-neutral-400 dark:hover:bg-neutral-800',
-                            isCurrentOrParentUrl(item.href) &&
-                                'bg-neutral-100 font-medium text-neutral-900 dark:bg-neutral-800 dark:text-neutral-100',
-                        )}
-                    >
-                        <item.icon className="size-4 shrink-0" />
-                        <span className="min-w-0 truncate">{item.title}</span>
-                    </Link>
-                ))}
-            </CollapsibleContent>
+        <Collapsible
+            open={isIconMode || open}
+            onOpenChange={setOpen}
+            className="group/collapsible"
+        >
+            <SidebarGroup className="py-1">
+                <SidebarGroupLabel asChild>
+                    <CollapsibleTrigger className="cursor-pointer hover:text-sidebar-foreground">
+                        <group.icon />
+                        <span className="ml-2">{group.title}</span>
+                        <ChevronRight className="ml-auto transition-transform duration-200 group-data-[state=open]/collapsible:rotate-90" />
+                    </CollapsibleTrigger>
+                </SidebarGroupLabel>
+                <CollapsibleContent>
+                    <SidebarGroupContent>
+                        <SidebarMenu>
+                            {group.items.map((item) => (
+                                <SidebarMenuItem key={item.title}>
+                                    <SidebarMenuButton
+                                        asChild
+                                        isActive={isCurrentOrParentUrl(item.href)}
+                                        tooltip={item.title}
+                                    >
+                                        <Link href={item.href} prefetch>
+                                            <item.icon />
+                                            <span>{item.title}</span>
+                                        </Link>
+                                    </SidebarMenuButton>
+                                </SidebarMenuItem>
+                            ))}
+                        </SidebarMenu>
+                    </SidebarGroupContent>
+                </CollapsibleContent>
+            </SidebarGroup>
         </Collapsible>
+    );
+}
+
+function AdminSidebar() {
+    const { can } = usePermissions();
+
+    const visibleGroups = navGroups
+        .map((group) => ({
+            ...group,
+            items: group.items.filter(
+                (item) => !item.permission || can(item.permission),
+            ),
+        }))
+        .filter((group) => group.items.length > 0);
+
+    return (
+        <Sidebar collapsible="icon">
+            <SidebarHeader className="gap-2">
+                <Link
+                    href={dashboard()}
+                    className="px-2 text-lg font-semibold group-data-[collapsible=icon]:hidden"
+                >
+                    Admin
+                </Link>
+            </SidebarHeader>
+
+            <SidebarContent>
+                {visibleGroups.map((group) => (
+                    <AdminNavGroup key={group.title} group={group} />
+                ))}
+            </SidebarContent>
+
+            <SidebarFooter>
+                <NavUser />
+            </SidebarFooter>
+        </Sidebar>
     );
 }
 
@@ -330,9 +380,7 @@ export default function AdminLayout({
 }: {
     children: React.ReactNode;
 }) {
-    const { can } = usePermissions();
-    const { isCurrentOrParentUrl } = useCurrentUrl();
-    const { flash, adminScope } = usePage().props;
+    const { flash } = usePage().props;
 
     useEffect(() => {
         if (flash.success) {
@@ -344,65 +392,19 @@ export default function AdminLayout({
         }
     }, [flash.success, flash.error]);
 
-    const visibleGroups = navGroups
-        .map((group) => ({
-            ...group,
-            items: group.items.filter(
-                (item) => !item.permission || can(item.permission),
-            ),
-        }))
-        .filter((group) => group.items.length > 0);
-
-    const onScopeChange = (event: React.ChangeEvent<HTMLSelectElement>) => {
-        const [type, id] = event.target.value.split(':');
-        router.post(
-            updateScope().url,
-            { type, id: Number(id) },
-            { preserveScroll: true, preserveState: false },
-        );
-    };
-
     return (
-        <div className="flex min-h-screen bg-neutral-100 text-neutral-900 dark:bg-neutral-950 dark:text-neutral-100">
-            <aside className="hidden w-64 shrink-0 border-r border-neutral-200 bg-white p-4 md:block dark:border-neutral-800 dark:bg-neutral-900">
-                <Link href={dashboard()} className="text-lg font-semibold">
-                    Admin
-                </Link>
+        <AppShell variant="sidebar">
+            <AdminSidebar />
 
-                {adminScope && can('settings.stores') && (
-                    <div className="mt-4">
-                        <label className="text-xs font-medium text-neutral-500">
-                            Scope
-                        </label>
-                        <select
-                            value={`${adminScope.current.type}:${adminScope.current.id}`}
-                            onChange={onScopeChange}
-                            className="mt-1 w-full rounded-md border border-neutral-300 bg-white px-2 py-1.5 text-sm dark:border-neutral-700 dark:bg-neutral-800"
-                        >
-                            {adminScope.options.map((option) => (
-                                <option
-                                    key={`${option.type}:${option.id}`}
-                                    value={`${option.type}:${option.id}`}
-                                >
-                                    {option.label}
-                                </option>
-                            ))}
-                        </select>
-                    </div>
-                )}
+            <SidebarInset className="min-w-0">
+                <header className="sticky top-0 z-10 flex h-14 shrink-0 items-center gap-2 border-b border-neutral-200 bg-white px-4 dark:border-neutral-800 dark:bg-neutral-900">
+                    <SidebarTrigger className="-ml-1" />
+                </header>
 
-                <nav className="mt-6 flex flex-col gap-1 text-sm">
-                    {visibleGroups.map((group) => (
-                        <AdminNavGroup
-                            key={`${group.title}:${group.items.some((item) => isCurrentOrParentUrl(item.href))}`}
-                            group={group}
-                            isCurrentOrParentUrl={isCurrentOrParentUrl}
-                        />
-                    ))}
-                </nav>
-            </aside>
-
-            <main className="flex-1 p-6">{children}</main>
-        </div>
+                <main className="min-w-0 flex-1 overflow-x-auto p-6">
+                    {children}
+                </main>
+            </SidebarInset>
+        </AppShell>
     );
 }
