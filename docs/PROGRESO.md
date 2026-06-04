@@ -1,7 +1,7 @@
 # Progreso del proyecto
 
 > Registro vivo de avance. Roadmap completo en [`ROADMAP.md`](./ROADMAP.md).
-> Última actualización: 2026-06-03 (Fase 20 — Descargables).
+> Última actualización: 2026-06-03 (Fase 28 — QA / performance).
 
 ## Estado global
 
@@ -35,13 +35,22 @@
 | 23 — Reglas de catálogo | 🟢 Terminada |
 | 19 — Productos bundle (paquetes) | 🟢 Terminada |
 | 20 — Productos descargables | 🟢 Terminada |
-| 28 | ⬜ Pendiente |
+| 28 — QA / performance | 🟢 Terminada |
+| DevOps / producción (cierre) | ⬜ Pendiente |
 
 Leyenda: ⬜ pendiente · 🟡 en curso · 🟢 terminada · 🔴 bloqueada
 
 ---
 
 ## Bitácora
+
+### 2026-06-04 — Fase 28 cerrada (QA / performance)
+
+- **Guardia anti N+1:** `Model::preventLazyLoading(! app()->isProduction())` en `AppServiceProvider` convierte cualquier carga perezosa en excepción fuera de producción (dev/tests). Al activarla solo apareció **una** violación real: `ConfigurableProductService::generateVariants` accedía a `storeLinks/prices/categories/media` del padre dentro del bucle de variantes → ahora se cargan una vez con `loadMissing`. (En producción la guardia se desactiva para no romper peticiones.)
+- **Pruebas de arquitectura** (`tests/Feature/ArchTest.php`, Pest `arch`): sin helpers de depuración (`dd`, `dump`, `ray`, `var_dump`…), el dominio no depende de controladores ni de Inertia, los modelos extienden Eloquent, los controladores extienden el controlador base, los form requests extienden `FormRequest`, y `PaymentStatus` es enum. Guardrails que corren en cada suite.
+- **Prueba de presupuesto de consultas** (`tests/Feature/Performance/StorefrontQueryTest.php`): el listado de categoría **no aumenta** sus consultas al pasar de 3 a 15 productos (prueba directa de ausencia de N+1, gracias al eager-load de `catalogQuery` y al caché por request de `CatalogRuleEvaluator`); la home se mantiene bajo un presupuesto acotado.
+- **Índices de catálogo** (migración): `products(status, visibility)` y `products(type, parent_id)` para acelerar las consultas del storefront (productos raíz activos y visibles por tienda).
+- **Verificación:** `pint` ✓ · `tsc` ✓ · `build` ✓ · suite **368 passed, 4 skipped** (+8 tests: 6 arquitectura + 2 performance). *(1 test en rojo `HeaderMenuTest > an item can be updated` por el WIP del mega menú en paralelo — otro agente —, **ajeno a esta fase**.)*
 
 ### 2026-06-03 — Fase 20 cerrada (Productos descargables)
 

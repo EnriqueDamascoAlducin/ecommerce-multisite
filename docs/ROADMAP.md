@@ -73,7 +73,7 @@ resources/js/pages/{admin,storefront}/...   (se mantiene la raíz pages/ del sta
 Fase 7 robusto (movimientos/ajustes/historial) · 16 Invoices internas ✅ · 17 Shipments ✅ · 18 Productos configurables ✅ · mejoras de checkout ✅ · 21 (Openpay) ✅ · 26 Reportes básicos ✅ · 27 Logs/auditoría ✅ · 24 APIs básicas ✅.
 
 ### 🔵 MVP 3 — Magento avanzado
-19 Bundles ✅ · 20 Descargables ✅ · 23 Reglas de catálogo ✅ · 22 Reglas de carrito y cupones ✅ · 21 (PayPal + Kueski) · 24 APIs completas · 28 QA/performance · 29 DevOps/producción.
+19 Bundles ✅ · 20 Descargables ✅ · 23 Reglas de catálogo ✅ · 22 Reglas de carrito y cupones ✅ · 21 (PayPal + Kueski) · 24 APIs completas · 28 QA/performance ✅ · 29 DevOps/producción.
 
 ---
 

@@ -20,6 +20,10 @@ class ConfigurableProductService
      */
     public function generateVariants(Product $product, array $attributeIds): int
     {
+        // Las relaciones del padre se copian a cada variante; se cargan una vez
+        // para evitar consultas repetidas (N+1) dentro del bucle de combinaciones.
+        $product->loadMissing(['storeLinks', 'prices', 'categories', 'media']);
+
         $attributes = Attribute::whereIn('id', $attributeIds)
             ->with('options')
             ->get();

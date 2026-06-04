@@ -8,6 +8,7 @@ use App\Domain\Payment\Gateways\OpenpayGateway;
 use App\Domain\Payment\PaymentGatewayRegistry;
 use App\Domain\Store\StoreContext;
 use Carbon\CarbonImmutable;
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Date;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\ServiceProvider;
@@ -49,6 +50,10 @@ class AppServiceProvider extends ServiceProvider
     protected function configureDefaults(): void
     {
         Date::use(CarbonImmutable::class);
+
+        // Fuera de producción, convierte cualquier carga perezosa (N+1) en una
+        // excepción para detectarla en desarrollo y tests.
+        Model::preventLazyLoading(! app()->isProduction());
 
         DB::prohibitDestructiveCommands(
             app()->isProduction(),

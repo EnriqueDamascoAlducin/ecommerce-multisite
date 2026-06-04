@@ -102,7 +102,9 @@ test('configurable product variants inherit parent store links and categories', 
         'configurable_attributes' => [$color->id],
     ])->assertRedirect();
 
-    $parent = Product::where('sku', 'CONF-STORE')->firstOrFail();
+    $parent = Product::where('sku', 'CONF-STORE')
+        ->with(['children.storeLinks', 'children.prices'])
+        ->firstOrFail();
 
     foreach ($parent->children as $child) {
         expect($child->storeLinks->where('store_id', $store->id)->first()->is_active)->toBeTrue();
