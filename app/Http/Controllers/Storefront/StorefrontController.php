@@ -7,6 +7,7 @@ use App\Domain\Catalog\ConfigurableProductService;
 use App\Domain\Catalog\ProductPricingService;
 use App\Domain\Inventory\StockAvailabilityChecker;
 use App\Domain\Store\StoreContext;
+use App\Domain\Storefront\ProductSectionResolver;
 use App\Domain\Storefront\StorefrontPagePresenter;
 use App\Http\Controllers\Controller;
 use App\Models\Category;
@@ -27,6 +28,7 @@ class StorefrontController extends Controller
         private readonly BundleService $bundles,
         private readonly StockAvailabilityChecker $availability,
         private readonly StorefrontPagePresenter $pagePresenter,
+        private readonly ProductSectionResolver $productSectionResolver,
     ) {}
 
     public function home(): Response
@@ -219,19 +221,65 @@ class StorefrontController extends Controller
             throw new NotFoundHttpException('Pagina no encontrada.');
         }
 
+        $contentPage = $page ? $this->pagePresenter->present($page) : null;
+
+        if ($page && $contentPage) {
+            $contentPage['sections'] = array_map(
+                fn (array $section) => $this->resolveSectionProducts($section, $featured),
+                $contentPage['sections'],
+            );
+        }
+
         if ($page && $featured === [] && $page->sections->contains('type', StorefrontPageSection::TYPE_FEATURED_PRODUCTS)) {
-            $featured = $this->catalogQuery()
-                ->latest()
-                ->limit(12)
-                ->get()
-                ->map(fn (Product $product) => $this->productCard($product))
-                ->all();
+            $fallbackSections = $page->sections->where('type', StorefrontPageSection::TYPE_FEATURED_PRODUCTS)
+                ->filter(fn (StorefrontPageSection $s) => empty($s->settings['product_ids'] ?? []));
+
+            if ($fallbackSections->isNotEmpty()) {
+                $featured = $this->catalogQuery()
+                    ->latest()
+                    ->limit(12)
+                    ->get()
+                    ->map(fn (Product $product) => $this->productCard($product))
+                    ->all();
+            }
         }
 
         return Inertia::render('storefront/home', [
             'featured' => $featured,
-            'contentPage' => $page ? $this->pagePresenter->present($page) : null,
+            'contentPage' => $contentPage,
         ]);
+    }
+
+    /**
+     * @param  array<string, mixed>  $section
+     * @param  list<array<string, mixed>>  $featured
+     * @return array<string, mixed>
+     */
+    private function resolveSectionProducts(array $section, array $featured): array
+    {
+        if ($section['type'] !== StorefrontPageSection::TYPE_FEATURED_PRODUCTS) {
+            return $section;
+        }
+
+        $settings = $section['settings'];
+        $ids = $settings['product_ids'] ?? [];
+
+        if (empty($ids) || ! is_array($ids)) {
+            return $section;
+        }
+
+        $products = $this->productSectionResolver
+            ->resolve(
+                StorefrontPageSection::make(['settings' => ['product_ids' => $ids]]),
+                $this->context->store()->id,
+            )
+            ->map(fn (Product $product) => $this->productCard($product))
+            ->all();
+
+        $settings['products'] = $products;
+        $section['settings'] = $settings;
+
+        return $section;
     }
 
     /**

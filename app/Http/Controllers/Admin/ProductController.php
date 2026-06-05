@@ -15,8 +15,10 @@ use App\Models\Product;
 use App\Models\ProductLabel;
 use App\Models\Store;
 use App\Services\AuditLogger;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use Inertia\Inertia;
@@ -37,41 +39,65 @@ class ProductController extends Controller
             'search' => $request->string('search')->toString(),
             'status' => $request->string('status')->toString(),
             'type' => $request->string('type')->toString(),
+            'visibility' => $request->string('visibility')->toString(),
+            'category_id' => $request->string('category_id')->toString(),
+            'store_id' => $request->string('store_id')->toString(),
+            'label_id' => $request->string('label_id')->toString(),
+            'stock' => $request->string('stock')->toString(),
+            'price_min' => $request->string('price_min')->toString(),
+            'price_max' => $request->string('price_max')->toString(),
+            'attrs' => $request->input('attrs', []),
         ];
 
-        $products = Product::query()
+        $filterableAttributes = Attribute::with('options')
+            ->where('is_filterable', true)
+            ->orderBy('sort_order')
+            ->orderBy('name')
+            ->get();
+        $visibleAttributes = Attribute::query()
+            ->where('is_visible', true)
+            ->orderBy('sort_order')
+            ->orderBy('name')
+            ->get(['id', 'code', 'name', 'type']);
+
+        $query = Product::query()
             ->whereNull('parent_id')
-            ->with(['prices', 'media', 'labels'])
+            ->with([
+                'prices',
+                'media',
+                'labels',
+                'categories:id,name',
+                'storeLinks.store:id,name,code',
+                'inventoryStocks',
+                'attributeValues.attribute.options',
+            ])
             ->when($filters['search'], fn ($query, $search) => $query->where(
                 fn ($q) => $q->where('name', 'like', "%{$search}%")->orWhere('sku', 'like', "%{$search}%"),
             ))
             ->when($filters['status'], fn ($query, $status) => $query->where('status', $status))
             ->when($filters['type'], fn ($query, $type) => $query->where('type', $type))
+            ->when($filters['visibility'], fn ($query, $visibility) => $query->where('visibility', $visibility))
+            ->when($filters['category_id'], fn ($query, $categoryId) => $query->whereHas('categories', fn ($q) => $q->whereKey($categoryId)))
+            ->when($filters['store_id'], fn ($query, $storeId) => $query->whereHas('storeLinks', fn ($q) => $q->where('store_id', $storeId)->where('is_active', true)))
+            ->when($filters['label_id'], fn ($query, $labelId) => $query->whereHas('labels', fn ($q) => $q->whereKey($labelId)))
+            ->when($filters['stock'] === 'in', fn ($query) => $query->whereHas('inventoryStocks', fn ($q) => $q->whereRaw('(physical_qty - reserved_qty) > 0')))
+            ->when($filters['stock'] === 'out', fn ($query) => $query->whereDoesntHave('inventoryStocks', fn ($q) => $q->whereRaw('(physical_qty - reserved_qty) > 0')))
+            ->when($filters['price_min'] !== '', fn ($query) => $query->whereHas('prices', fn ($q) => $q->whereNull('store_id')->where('price', '>=', $filters['price_min'])))
+            ->when($filters['price_max'] !== '', fn ($query) => $query->whereHas('prices', fn ($q) => $q->whereNull('store_id')->where('price', '<=', $filters['price_max'])));
+
+        $this->applyAttributeFilters($query, is_array($filters['attrs']) ? $filters['attrs'] : [], $filterableAttributes);
+
+        $products = $query
             ->latest()
             ->paginate(15)
             ->withQueryString()
-            ->through(fn (Product $product) => [
-                'id' => $product->id,
-                'type' => $product->type,
-                'sku' => $product->sku,
-                'name' => $product->name,
-                'status' => $product->status,
-                'price' => match (true) {
-                    $product->isConfigurable() => $this->configurable->lowestVariantBasePrice($product),
-                    $product->isBundle() => $this->bundles->priceFor($product)['effective_price'],
-                    default => $this->pricing->priceFor($product)['effective_price'],
-                },
-                'thumbnail' => $product->primaryMedia('gallery')?->url,
-                'labels' => $product->labels->map(fn (ProductLabel $label) => [
-                    'text' => $label->text,
-                    'text_color' => $label->text_color,
-                    'background_color' => $label->background_color,
-                ])->values(),
-            ]);
+            ->through(fn (Product $product) => $this->productGridRow($product));
 
         return Inertia::render('admin/products/index', [
             'products' => $products,
             'filters' => $filters,
+            'filterOptions' => $this->productGridFilterOptions($filterableAttributes),
+            'columns' => $this->productGridColumns($visibleAttributes),
         ]);
     }
 
@@ -430,6 +456,246 @@ class ProductController extends Controller
         }
 
         return $candidate;
+    }
+
+    /**
+     * @param  Builder<Product>  $query
+     * @param  array<int|string, mixed>  $attrs
+     * @param  Collection<int, Attribute>  $filterableAttributes
+     */
+    private function applyAttributeFilters(Builder $query, array $attrs, Collection $filterableAttributes): void
+    {
+        $attributes = $filterableAttributes->keyBy('id');
+
+        foreach ($attrs as $attributeId => $raw) {
+            $attribute = $attributes->get((int) $attributeId);
+
+            if (! $attribute || ! $this->hasAttributeFilterValue($attribute, $raw)) {
+                continue;
+            }
+
+            $query->whereHas('attributeValues', function (Builder $q) use ($attribute, $raw) {
+                $q->where('attribute_id', $attribute->id);
+
+                match ($attribute->type) {
+                    Attribute::TYPE_NUMBER => $this->applyNumberAttributeFilter($q, is_array($raw) ? $raw : []),
+                    Attribute::TYPE_DATE => $this->applyDateAttributeFilter($q, is_array($raw) ? $raw : []),
+                    Attribute::TYPE_BOOLEAN => $raw === '' || $raw === null ? null : $q->where('value', (string) $raw),
+                    Attribute::TYPE_MULTISELECT => $raw === '' || $raw === null ? null : $q->where('value', 'like', '%"'.addcslashes((string) $raw, '%_\\').'"%'),
+                    default => $raw === '' || $raw === null ? null : $q->where('value', 'like', '%'.addcslashes((string) $raw, '%_\\').'%'),
+                };
+            });
+        }
+    }
+
+    private function hasAttributeFilterValue(Attribute $attribute, mixed $raw): bool
+    {
+        if ($attribute->type === Attribute::TYPE_NUMBER) {
+            return is_array($raw) && (($raw['min'] ?? '') !== '' || ($raw['max'] ?? '') !== '');
+        }
+
+        if ($attribute->type === Attribute::TYPE_DATE) {
+            return is_array($raw) && (($raw['from'] ?? '') !== '' || ($raw['to'] ?? '') !== '');
+        }
+
+        return $raw !== '' && $raw !== null;
+    }
+
+    /**
+     * @param  array<string, mixed>  $raw
+     */
+    private function applyNumberAttributeFilter(Builder $query, array $raw): void
+    {
+        if (($raw['min'] ?? '') !== '') {
+            $query->whereRaw('CAST(value AS DECIMAL(12, 4)) >= ?', [$raw['min']]);
+        }
+
+        if (($raw['max'] ?? '') !== '') {
+            $query->whereRaw('CAST(value AS DECIMAL(12, 4)) <= ?', [$raw['max']]);
+        }
+    }
+
+    /**
+     * @param  array<string, mixed>  $raw
+     */
+    private function applyDateAttributeFilter(Builder $query, array $raw): void
+    {
+        if (($raw['from'] ?? '') !== '') {
+            $query->where('value', '>=', $raw['from']);
+        }
+
+        if (($raw['to'] ?? '') !== '') {
+            $query->where('value', '<=', $raw['to']);
+        }
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function productGridRow(Product $product): array
+    {
+        $attributes = $product->attributeValues
+            ->mapWithKeys(fn ($value) => [
+                $value->attribute_id => [
+                    'raw' => $this->attributeRawValue((string) $value->value),
+                    'label' => $this->attributeDisplayValue($value->attribute, (string) $value->value),
+                ],
+            ]);
+
+        return [
+            'id' => $product->id,
+            'type' => $product->type,
+            'sku' => $product->sku,
+            'name' => $product->name,
+            'status' => $product->status,
+            'visibility' => $product->visibility,
+            'price' => match (true) {
+                $product->isConfigurable() => $this->configurable->lowestVariantBasePrice($product),
+                $product->isBundle() => $this->bundles->priceFor($product)['effective_price'],
+                default => $this->pricing->priceFor($product)['effective_price'],
+            },
+            'stock' => [
+                'available' => $product->totalAvailableQty(),
+                'status' => $product->totalAvailableQty() > 0 ? 'in' : 'out',
+            ],
+            'thumbnail' => $product->primaryMedia('gallery')?->url,
+            'categories' => $product->categories->map(fn (Category $category) => [
+                'id' => $category->id,
+                'name' => $category->name,
+            ])->values(),
+            'stores' => $product->storeLinks->map(fn ($link) => [
+                'id' => $link->store_id,
+                'name' => $link->store?->name,
+                'code' => $link->store?->code,
+                'is_active' => $link->is_active,
+            ])->values(),
+            'labels' => $product->labels->map(fn (ProductLabel $label) => [
+                'id' => $label->id,
+                'text' => $label->text,
+                'text_color' => $label->text_color,
+                'background_color' => $label->background_color,
+            ])->values(),
+            'attributes' => $attributes,
+        ];
+    }
+
+    private function attributeDisplayValue(?Attribute $attribute, string $value): string
+    {
+        if (! $attribute) {
+            return $value;
+        }
+
+        if ($attribute->type === Attribute::TYPE_BOOLEAN) {
+            return $value === '1' ? 'Sí' : 'No';
+        }
+
+        if ($attribute->type === Attribute::TYPE_MULTISELECT) {
+            $values = json_decode($value, true);
+
+            if (! is_array($values)) {
+                return $value;
+            }
+
+            return collect($values)
+                ->map(fn ($optionValue) => $attribute->options->firstWhere('value', $optionValue)?->label ?? $optionValue)
+                ->implode(', ');
+        }
+
+        if ($attribute->type === Attribute::TYPE_SELECT) {
+            return $attribute->options->firstWhere('value', $value)?->label ?? $value;
+        }
+
+        return $value;
+    }
+
+    /**
+     * @return string|list<string>
+     */
+    private function attributeRawValue(string $value): string|array
+    {
+        $decoded = json_decode($value, true);
+
+        return is_array($decoded) ? array_values($decoded) : $value;
+    }
+
+    /**
+     * @param  Collection<int, Attribute>  $filterableAttributes
+     * @return array<string, mixed>
+     */
+    private function productGridFilterOptions(Collection $filterableAttributes): array
+    {
+        return [
+            'statuses' => [
+                ['value' => Product::STATUS_ACTIVE, 'label' => 'Activo'],
+                ['value' => Product::STATUS_INACTIVE, 'label' => 'Inactivo'],
+            ],
+            'types' => [
+                ['value' => Product::TYPE_SIMPLE, 'label' => 'Simple'],
+                ['value' => Product::TYPE_CONFIGURABLE, 'label' => 'Configurable'],
+                ['value' => Product::TYPE_BUNDLE, 'label' => 'Paquete'],
+                ['value' => Product::TYPE_DOWNLOADABLE, 'label' => 'Descargable'],
+            ],
+            'visibilities' => [
+                ['value' => 'both', 'label' => 'Catálogo y búsqueda'],
+                ['value' => 'catalog', 'label' => 'Solo catálogo'],
+                ['value' => 'search', 'label' => 'Solo búsqueda'],
+                ['value' => 'hidden', 'label' => 'Oculto'],
+            ],
+            'categories' => Category::with('website:id,name')->orderBy('website_id')->orderBy('name')->get()
+                ->map(fn (Category $category) => [
+                    'id' => $category->id,
+                    'label' => "{$category->website->name} / {$category->name}",
+                ]),
+            'stores' => Store::with('website:id,name')->orderBy('website_id')->orderBy('sort_order')->get()
+                ->map(fn (Store $store) => [
+                    'id' => $store->id,
+                    'label' => "{$store->website->name} / {$store->name}",
+                ]),
+            'labels' => ProductLabel::active()->with('website:id,name')->orderBy('website_id')->orderBy('sort_order')->get()
+                ->map(fn (ProductLabel $label) => [
+                    'id' => $label->id,
+                    'label' => $label->website ? "{$label->website->name} / {$label->text}" : $label->text,
+                ]),
+            'attributes' => $filterableAttributes->map(fn (Attribute $attribute) => [
+                'id' => $attribute->id,
+                'code' => $attribute->code,
+                'name' => $attribute->name,
+                'type' => $attribute->type,
+                'options' => $attribute->options->map(fn ($option) => [
+                    'label' => $option->label,
+                    'value' => $option->value,
+                ])->values(),
+            ])->values(),
+        ];
+    }
+
+    /**
+     * @param  Collection<int, Attribute>  $visibleAttributes
+     * @return list<array<string, mixed>>
+     */
+    private function productGridColumns(Collection $visibleAttributes): array
+    {
+        return [
+            ...collect([
+                ['key' => 'image', 'label' => 'Imagen', 'locked' => true],
+                ['key' => 'sku', 'label' => 'SKU', 'locked' => true],
+                ['key' => 'name', 'label' => 'Nombre', 'locked' => true],
+                ['key' => 'type', 'label' => 'Tipo'],
+                ['key' => 'status', 'label' => 'Estado'],
+                ['key' => 'visibility', 'label' => 'Visibilidad'],
+                ['key' => 'price', 'label' => 'Precio'],
+                ['key' => 'stock', 'label' => 'Stock'],
+                ['key' => 'categories', 'label' => 'Categorías'],
+                ['key' => 'stores', 'label' => 'Tiendas'],
+                ['key' => 'labels', 'label' => 'Etiquetas'],
+            ])->all(),
+            ...$visibleAttributes->map(fn (Attribute $attribute) => [
+                'key' => "attr:{$attribute->id}",
+                'label' => $attribute->name,
+                'attribute_id' => $attribute->id,
+                'type' => $attribute->type,
+            ])->all(),
+        ];
     }
 
     /**

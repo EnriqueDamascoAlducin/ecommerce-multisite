@@ -1,5 +1,6 @@
 <?php
 
+use App\Models\InventorySource;
 use App\Models\Store;
 use App\Models\StorefrontPage;
 use App\Models\StorefrontPageSection;
@@ -83,6 +84,45 @@ test('unpublished cms page returns not found', function () {
 
 test('category route still wins over cms catch all route', function () {
     $this->get('/c/no-existe')->assertNotFound();
+});
+
+test('featured_products section renders selected products from product_ids', function () {
+    $source = InventorySource::factory()->default()->create();
+    $productA = sellableProduct($this->store, $source, 100);
+    $productB = sellableProduct($this->store, $source, 200);
+
+    $page = StorefrontPage::factory()->create(['store_id' => $this->store->id]);
+    StorefrontPageSection::factory()->create([
+        'storefront_page_id' => $page->id,
+        'type' => StorefrontPageSection::TYPE_FEATURED_PRODUCTS,
+        'settings' => [
+            'title' => 'Destacados',
+            'product_ids' => [$productA->id, $productB->id],
+        ],
+    ]);
+
+    $this->get(route('home'))
+        ->assertOk()
+        ->assertInertia(fn ($inertia) => $inertia
+            ->component('storefront/home')
+            ->where('contentPage.sections.0.settings.title', 'Destacados')
+            ->where('contentPage.sections.0.settings.product_ids', [$productA->id, $productB->id])
+            ->has('contentPage.sections.0.settings.products', 2));
+});
+
+test('featured_products section without product_ids uses fallback featured', function () {
+    $page = StorefrontPage::factory()->create(['store_id' => $this->store->id]);
+    StorefrontPageSection::factory()->create([
+        'storefront_page_id' => $page->id,
+        'type' => StorefrontPageSection::TYPE_FEATURED_PRODUCTS,
+        'settings' => ['title' => 'Destacados automáticos'],
+    ]);
+
+    $this->get(route('home'))
+        ->assertOk()
+        ->assertInertia(fn ($inertia) => $inertia
+            ->component('storefront/home')
+            ->has('featured'));
 });
 
 test('inquiry form stores leads for the resolved store', function () {

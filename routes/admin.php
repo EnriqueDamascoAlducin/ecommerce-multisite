@@ -6,6 +6,7 @@ use App\Http\Controllers\Admin\CatalogRuleController;
 use App\Http\Controllers\Admin\CategoryController;
 use App\Http\Controllers\Admin\DownloadableController;
 use App\Http\Controllers\Admin\HeaderMenuController;
+use App\Http\Controllers\Admin\HeaderSettingsController;
 use App\Http\Controllers\Admin\InventoryController;
 use App\Http\Controllers\Admin\InventorySourceController;
 use App\Http\Controllers\Admin\InvoiceController;
@@ -30,7 +31,9 @@ use App\Http\Controllers\Admin\WebsiteController;
 use Illuminate\Support\Facades\Route;
 
 Route::middleware(['auth', 'verified'])->prefix('admin')->name('admin.')->group(function () {
-    Route::inertia('/', 'admin/dashboard')->name('dashboard');
+    Route::get('/', [ReportController::class, 'dashboard'])
+        ->middleware('permission:reports.view')
+        ->name('dashboard');
 
     // Usuarios administrativos
     Route::middleware('permission:admin.users.view')->group(function () {
@@ -131,7 +134,7 @@ Route::middleware(['auth', 'verified'])->prefix('admin')->name('admin.')->group(
         Route::put('inventory/{product}', [InventoryController::class, 'update'])->middleware('permission:inventory.adjust')->name('inventory.update');
     });
 
-    // Reportes de ventas
+    // Reportes de ventas (compatibilidad; la vista principal vive en Dashboard).
     Route::middleware('permission:reports.view')->group(function () {
         Route::get('reports', [ReportController::class, 'index'])->name('reports.index');
     });
@@ -199,8 +202,12 @@ Route::middleware(['auth', 'verified'])->prefix('admin')->name('admin.')->group(
         Route::put('shipping-stores', [StoreShippingController::class, 'update'])->name('shipping-stores.update');
     });
 
-    // Storefront: menú del header por tienda
+    // Encabezado: cintillo (por website) + menú del header (por tienda)
     Route::middleware('permission:settings.storefront')->group(function () {
+        Route::get('header-settings', [HeaderSettingsController::class, 'edit'])->name('header-settings.edit');
+        Route::put('header-settings', [HeaderSettingsController::class, 'update'])->name('header-settings.update');
+        Route::post('header-settings/image', [HeaderSettingsController::class, 'uploadImage'])->name('header-settings.image');
+
         Route::get('header-menu', [HeaderMenuController::class, 'index'])->name('header-menu.index');
         Route::post('header-menu', [HeaderMenuController::class, 'store'])->name('header-menu.store');
         Route::put('header-menu/{headerMenuItem}', [HeaderMenuController::class, 'update'])->name('header-menu.update');

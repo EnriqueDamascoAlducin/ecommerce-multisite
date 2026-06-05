@@ -16,6 +16,11 @@ class ReportController extends Controller
 
     public function index(Request $request): Response
     {
+        return $this->dashboard($request);
+    }
+
+    public function dashboard(Request $request): Response
+    {
         $to = $request->date('to') ?? now();
         $from = $request->date('from') ?? now()->subDays(29);
 
@@ -30,7 +35,7 @@ class ReportController extends Controller
             'store_id' => $request->integer('store_id') ?: null,
         ];
 
-        return Inertia::render('admin/reports/index', [
+        return Inertia::render('admin/dashboard', [
             'filters' => $filters,
             'summary' => $this->reports->summary($filters),
             'revenueByDay' => $this->reports->revenueByDay($filters),

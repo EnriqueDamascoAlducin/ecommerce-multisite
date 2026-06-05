@@ -1,6 +1,5 @@
 import { Link, usePage } from '@inertiajs/react';
 import {
-    BarChart3,
     Boxes,
     ChevronRight,
     CreditCard,
@@ -10,9 +9,11 @@ import {
     Image,
     KeyRound,
     LayoutDashboard,
+    Megaphone,
     Menu,
     Package,
     PackageCheck,
+    PanelTop,
     Percent,
     Receipt,
     ScrollText,
@@ -60,6 +61,7 @@ import catalogRules from '@/routes/admin/catalog-rules';
 import categories from '@/routes/admin/categories';
 import configuration from '@/routes/admin/configuration';
 import headerMenu from '@/routes/admin/header-menu';
+import headerSettings from '@/routes/admin/header-settings';
 import inventory from '@/routes/admin/inventory';
 import inventorySources from '@/routes/admin/inventory-sources';
 import invoices from '@/routes/admin/invoices';
@@ -70,7 +72,6 @@ import permissions from '@/routes/admin/permissions';
 import productLabels from '@/routes/admin/product-labels';
 import products from '@/routes/admin/products';
 import promotions from '@/routes/admin/promotions';
-import reports from '@/routes/admin/reports';
 import roles from '@/routes/admin/roles';
 import shipments from '@/routes/admin/shipments';
 import shipping from '@/routes/admin/shipping';
@@ -197,6 +198,24 @@ const navGroups: AdminNavGroup[] = [
         ],
     },
     {
+        title: 'Encabezado',
+        icon: PanelTop,
+        items: [
+            {
+                title: 'Cintillo',
+                href: headerSettings.edit(),
+                icon: Megaphone,
+                permission: 'settings.storefront',
+            },
+            {
+                title: 'Menú del header',
+                href: headerMenu.index(),
+                icon: Menu,
+                permission: 'settings.storefront',
+            },
+        ],
+    },
+    {
         title: 'Tiendas',
         icon: Store,
         items: [
@@ -229,12 +248,6 @@ const navGroups: AdminNavGroup[] = [
                 href: payments.index(),
                 icon: CreditCard,
                 permission: 'settings.payments',
-            },
-            {
-                title: 'Menú del header',
-                href: headerMenu.index(),
-                icon: Menu,
-                permission: 'settings.storefront',
             },
             {
                 title: 'Páginas',
@@ -274,18 +287,6 @@ const navGroups: AdminNavGroup[] = [
             },
         ],
     },
-    {
-        title: 'Reportes',
-        icon: BarChart3,
-        items: [
-            {
-                title: 'Reportes',
-                href: reports.index(),
-                icon: BarChart3,
-                permission: 'reports.view',
-            },
-        ],
-    },
 ];
 
 function AdminNavGroup({ group }: { group: AdminNavGroup }) {
@@ -321,7 +322,9 @@ function AdminNavGroup({ group }: { group: AdminNavGroup }) {
                                 <SidebarMenuItem key={item.title}>
                                     <SidebarMenuButton
                                         asChild
-                                        isActive={isCurrentOrParentUrl(item.href)}
+                                        isActive={isCurrentOrParentUrl(
+                                            item.href,
+                                        )}
                                         tooltip={item.title}
                                     >
                                         <Link href={item.href} prefetch>

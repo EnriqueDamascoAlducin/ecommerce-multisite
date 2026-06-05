@@ -123,20 +123,27 @@ class CheckoutController extends Controller
      */
     private function orderSummary(Order $order): array
     {
-        $order->load('items', 'shippingAddress');
+        $order->load('items.product.media', 'shippingAddress');
 
         return [
             'number' => $order->number,
             'status' => $order->status,
             'email' => $order->email,
-            'total' => (string) $order->total,
-            'shipping_amount' => (string) $order->shipping_amount,
             'subtotal' => (string) $order->subtotal,
+            'discount' => (string) $order->discount,
+            'shipping_amount' => (string) $order->shipping_amount,
+            'tax' => (string) $order->tax,
+            'total' => (string) $order->total,
             'payment_method' => $order->payment_method,
+            'shipping_method_label' => $order->shipping_method_label,
+            'placed_at' => ($order->placed_at ?? $order->created_at)?->toIso8601String(),
             'items' => $order->items->map(fn ($item) => [
                 'name' => $item->name,
+                'sku' => $item->sku,
                 'quantity' => $item->quantity,
+                'unit_price' => (string) $item->unit_price,
                 'line_total' => (string) $item->line_total,
+                'thumbnail' => $item->product?->primaryMedia('gallery')?->url,
             ])->values(),
             'shipping_address' => $order->shippingAddress?->only([
                 'first_name', 'last_name', 'line1', 'line2', 'city', 'state', 'postal_code', 'country',

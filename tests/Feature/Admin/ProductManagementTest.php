@@ -1,9 +1,15 @@
 <?php
 
+use App\Models\Attribute;
+use App\Models\Category;
+use App\Models\InventorySource;
 use App\Models\Product;
+use App\Models\ProductAttributeValue;
+use App\Models\ProductLabel;
 use App\Models\Store;
 use App\Models\User;
 use Database\Seeders\RolesAndPermissionsSeeder;
+use Inertia\Testing\AssertableInertia;
 
 beforeEach(function () {
     $this->seed(RolesAndPermissionsSeeder::class);
@@ -122,6 +128,114 @@ test('search filters products by name or sku', function () {
     $this->get(route('admin.products.index', ['search' => 'Zapato']))
         ->assertOk()
         ->assertInertia(fn ($page) => $page->has('products.data', 1));
+});
+
+test('product grid filters by status type and visibility', function () {
+    Product::factory()->create([
+        'sku' => 'MATCH-001',
+        'type' => Product::TYPE_BUNDLE,
+        'status' => Product::STATUS_ACTIVE,
+        'visibility' => 'catalog',
+    ]);
+    Product::factory()->create([
+        'sku' => 'MISS-001',
+        'type' => Product::TYPE_SIMPLE,
+        'status' => Product::STATUS_INACTIVE,
+        'visibility' => 'hidden',
+    ]);
+
+    $this->get(route('admin.products.index', [
+        'status' => Product::STATUS_ACTIVE,
+        'type' => Product::TYPE_BUNDLE,
+        'visibility' => 'catalog',
+    ]))
+        ->assertOk()
+        ->assertInertia(fn (AssertableInertia $page) => $page
+            ->has('products.data', 1)
+            ->where('products.data.0.sku', 'MATCH-001')
+        );
+});
+
+test('product grid filters by category store label and stock', function () {
+    $category = Category::factory()->create();
+    $store = Store::factory()->create(['website_id' => $category->website_id]);
+    $label = ProductLabel::factory()->create(['website_id' => $category->website_id]);
+    $source = InventorySource::factory()->create();
+    $matching = Product::factory()->create(['sku' => 'MATCH-REL']);
+    $missing = Product::factory()->create(['sku' => 'MISS-REL']);
+
+    $matching->categories()->attach($category->id);
+    $matching->storeLinks()->create(['store_id' => $store->id, 'is_active' => true]);
+    $matching->labels()->attach($label->id);
+    $matching->inventoryStocks()->create([
+        'inventory_source_id' => $source->id,
+        'physical_qty' => 8,
+        'reserved_qty' => 2,
+    ]);
+    $missing->inventoryStocks()->create([
+        'inventory_source_id' => $source->id,
+        'physical_qty' => 0,
+        'reserved_qty' => 0,
+    ]);
+
+    $this->get(route('admin.products.index', [
+        'category_id' => $category->id,
+        'store_id' => $store->id,
+        'label_id' => $label->id,
+        'stock' => 'in',
+    ]))
+        ->assertOk()
+        ->assertInertia(fn (AssertableInertia $page) => $page
+            ->has('products.data', 1)
+            ->where('products.data.0.sku', 'MATCH-REL')
+            ->where('products.data.0.stock.available', 6)
+        );
+});
+
+test('product grid filters by filterable attributes and exposes visible columns', function () {
+    $color = Attribute::factory()->select()->create([
+        'name' => 'Color',
+        'is_filterable' => true,
+        'is_visible' => true,
+    ]);
+    $color->options()->create(['label' => 'Rojo', 'value' => 'red', 'sort_order' => 0]);
+    $watts = Attribute::factory()->create([
+        'name' => 'Watts',
+        'type' => Attribute::TYPE_NUMBER,
+        'is_filterable' => true,
+        'is_visible' => true,
+    ]);
+    $notes = Attribute::factory()->create([
+        'name' => 'Notas',
+        'type' => Attribute::TYPE_TEXT,
+        'is_filterable' => true,
+        'is_visible' => false,
+    ]);
+    $matching = Product::factory()->create(['sku' => 'MATCH-ATTR']);
+    $missing = Product::factory()->create(['sku' => 'MISS-ATTR']);
+
+    ProductAttributeValue::create(['product_id' => $matching->id, 'attribute_id' => $color->id, 'value' => 'red']);
+    ProductAttributeValue::create(['product_id' => $matching->id, 'attribute_id' => $watts->id, 'value' => '120']);
+    ProductAttributeValue::create(['product_id' => $matching->id, 'attribute_id' => $notes->id, 'value' => 'clinico premium']);
+    ProductAttributeValue::create(['product_id' => $missing->id, 'attribute_id' => $color->id, 'value' => 'blue']);
+    ProductAttributeValue::create(['product_id' => $missing->id, 'attribute_id' => $watts->id, 'value' => '40']);
+    ProductAttributeValue::create(['product_id' => $missing->id, 'attribute_id' => $notes->id, 'value' => 'basico']);
+
+    $this->get(route('admin.products.index', [
+        'attrs' => [
+            $color->id => 'red',
+            $watts->id => ['min' => '100', 'max' => '140'],
+            $notes->id => 'premium',
+        ],
+    ]))
+        ->assertOk()
+        ->assertInertia(fn (AssertableInertia $page) => $page
+            ->has('products.data', 1)
+            ->where('products.data.0.sku', 'MATCH-ATTR')
+            ->where("products.data.0.attributes.{$color->id}.label", 'Rojo')
+            ->where('filterOptions.attributes.0.name', 'Color')
+            ->where('columns.11.label', 'Color')
+        );
 });
 
 test('a user without catalog permission is forbidden', function () {

@@ -29,6 +29,9 @@ class StorefrontPageSectionRequest extends FormRequest
             'settings.buttons' => ['nullable', 'array'],
             'settings.brands' => ['nullable', 'array'],
             'settings.interest_areas' => ['nullable', 'array'],
+            'settings.product_ids' => ['nullable', 'array'],
+            'settings.product_ids.*' => ['integer', 'exists:products,id'],
+            'settings.display_type' => ['nullable', 'string', Rule::in(['grid', 'carrousel'])],
         ];
     }
 }

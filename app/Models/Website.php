@@ -7,6 +7,7 @@ use Database\Factories\WebsiteFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 
 class Website extends Model
 {
@@ -33,6 +34,14 @@ class Website extends Model
     public function stores(): HasMany
     {
         return $this->hasMany(Store::class);
+    }
+
+    /**
+     * @return HasOne<WebsiteHeaderSettings, $this>
+     */
+    public function headerSettings(): HasOne
+    {
+        return $this->hasOne(WebsiteHeaderSettings::class);
     }
 
     public function defaultStore(): ?Store

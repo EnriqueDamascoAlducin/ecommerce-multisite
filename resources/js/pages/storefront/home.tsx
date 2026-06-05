@@ -14,12 +14,13 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { ProductCard, type ProductCardData } from './product-card';
+import { ProductCarousel } from '@/components/storefront/product-carousel';
 
 type CmsMedia = { id: number; url: string; alt: string | null } | null;
 type CmsSection = {
     id: number;
     type: string;
-    settings: Record<string, unknown> & { media?: CmsMedia };
+    settings: Record<string, unknown> & { media?: CmsMedia; products?: ProductCardData[]; display_type?: string };
 };
 type CmsPage = { title: string; sections: CmsSection[] } | null;
 type CmsItem = {
@@ -88,7 +89,7 @@ function HomeSection({
     if (section.type === 'gallery') return <GallerySection section={section} />;
     if (section.type === 'cta_banner') return <CtaBanner section={section} />;
     if (section.type === 'featured_products')
-        return <FeaturedProducts products={featured} />;
+        return <FeaturedProducts products={featured} section={section} />;
 
     return null;
 }
@@ -478,18 +479,30 @@ function CtaBanner({ section }: { section: CmsSection }) {
     );
 }
 
-function FeaturedProducts({ products }: { products: ProductCardData[] }) {
+function FeaturedProducts({ products, section }: { products: ProductCardData[]; section?: CmsSection }) {
+    const sectionProducts = section?.settings?.products as ProductCardData[] | undefined;
+
+    if (sectionProducts && sectionProducts.length > 0) {
+        products = sectionProducts;
+    }
+
+    const displayType = (section?.settings?.display_type as string | undefined) || 'grid';
+
     return (
         <section className="bg-neutral-50 px-4 py-16 dark:bg-neutral-950">
             <div className="mx-auto max-w-6xl">
                 <h2 className="mb-6 text-2xl font-bold">
                     Productos destacados
                 </h2>
-                <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
-                    {products.map((product) => (
-                        <ProductCard key={product.sku} product={product} />
-                    ))}
-                </div>
+                {displayType === 'carrousel' ? (
+                    <ProductCarousel products={products} />
+                ) : (
+                    <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
+                        {products.map((product) => (
+                            <ProductCard key={product.sku} product={product} />
+                        ))}
+                    </div>
+                )}
             </div>
         </section>
     );

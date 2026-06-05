@@ -22,11 +22,13 @@ import {
     SelectTrigger,
     SelectValue,
 } from '@/components/ui/select';
+import ProductSelector from '@/components/admin/product-selector';
 import mediaRoutes from '@/routes/admin/media';
 import storefrontPages from '@/routes/admin/storefront/pages';
 
 type MediaOption = { id: number; label: string; url: string };
 type StoreOption = { id: number; label: string };
+type ProductOption = { id: number; label: string };
 type CmsMedia = { id: number; url: string; alt: string | null } | null;
 type SectionSettings = Record<string, FormDataConvertible> & {
     media?: CmsMedia;
@@ -34,6 +36,8 @@ type SectionSettings = Record<string, FormDataConvertible> & {
     buttons?: BuilderButton[];
     brands?: string[];
     interest_areas?: string[];
+    product_ids?: number[];
+    display_type?: string;
 };
 type Section = {
     id: number;
@@ -81,6 +85,7 @@ export default function StorefrontPageEdit({
     page,
     sectionTypes,
     media,
+    productOptions,
     publicUrl,
     isHome,
 }: {
@@ -89,6 +94,7 @@ export default function StorefrontPageEdit({
     page: Page;
     sectionTypes: string[];
     media: MediaOption[];
+    productOptions: ProductOption[];
     publicUrl: string;
     isHome: boolean;
 }) {
@@ -331,6 +337,7 @@ export default function StorefrontPageEdit({
                             storeId={currentStoreId}
                             section={selected}
                             media={media}
+                            productOptions={productOptions}
                             onDuplicate={() => duplicateSection(selected)}
                             onDelete={() => destroySection(selected)}
                         />
@@ -350,6 +357,7 @@ function SectionEditor({
     storeId,
     section,
     media,
+    productOptions,
     onDuplicate,
     onDelete,
 }: {
@@ -357,6 +365,7 @@ function SectionEditor({
     storeId: number;
     section: Section;
     media: MediaOption[];
+    productOptions: ProductOption[];
     onDuplicate: () => void;
     onDelete: () => void;
 }) {
@@ -471,6 +480,32 @@ function SectionEditor({
                     value={arrayValue<string>(draft.settings.brands)}
                     onChange={(value) => setSetting('brands', value)}
                 />
+            )}
+
+            {section.type === 'featured_products' && (
+                <>
+                    <ProductSelector
+                        label="Productos"
+                        options={productOptions}
+                        value={arrayValue<number>(draft.settings.product_ids)}
+                        onChange={(value) => setSetting('product_ids', value)}
+                    />
+                    <div className="space-y-1.5">
+                        <Label>Mostrar como</Label>
+                        <Select
+                            value={text(draft.settings.display_type) || 'grid'}
+                            onValueChange={(value) => setSetting('display_type', value)}
+                        >
+                            <SelectTrigger className="w-full">
+                                <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="grid">Grid de productos</SelectItem>
+                                <SelectItem value="carrousel">Carrusel</SelectItem>
+                            </SelectContent>
+                        </Select>
+                    </div>
+                </>
             )}
 
             {section.type === 'inquiry_form' && (
@@ -927,6 +962,8 @@ function defaultSettings(type: string): SectionSettings {
         return {
             title: 'Productos destacados',
             text: 'Seleccion automatica de productos.',
+            product_ids: [],
+            display_type: 'grid',
         };
     }
 
@@ -956,6 +993,7 @@ function sectionPayload(section: {
 function stripResolvedMedia(settings: SectionSettings): SectionSettings {
     const clone = JSON.parse(JSON.stringify(settings)) as SectionSettings;
     delete clone.media;
+    delete clone.products;
 
     if (Array.isArray(clone.items)) {
         clone.items = clone.items.map((item) => {

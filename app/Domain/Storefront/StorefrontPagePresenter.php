@@ -3,6 +3,7 @@
 namespace App\Domain\Storefront;
 
 use App\Models\Media;
+use App\Models\Product;
 use App\Models\StorefrontPage;
 use App\Models\StorefrontPageSection;
 use Illuminate\Support\Collection;
@@ -38,6 +39,10 @@ class StorefrontPagePresenter
     public function presentSection(StorefrontPageSection $section): array
     {
         $settings = $this->resolveMedia($section->settings ?? []);
+
+        if ($section->type === StorefrontPageSection::TYPE_FEATURED_PRODUCTS) {
+            $settings = $this->resolveProducts($settings);
+        }
 
         return [
             'id' => $section->id,
@@ -116,6 +121,49 @@ class StorefrontPagePresenter
             'id' => $media->id,
             'url' => $media->url,
             'alt' => $media->alt,
+        ];
+    }
+
+    /**
+     * @param  array<string, mixed>  $settings
+     * @return array<string, mixed>
+     */
+    private function resolveProducts(array $settings): array
+    {
+        $ids = $settings['product_ids'] ?? [];
+
+        if (empty($ids) || ! is_array($ids)) {
+            return $settings;
+        }
+
+        $products = Product::query()
+            ->active()
+            ->with('media')
+            ->whereIn('id', $ids)
+            ->get()
+            ->keyBy('id');
+
+        $settings['products'] = array_values(
+            array_filter(array_map(fn (int $id) => $this->productPayload($products->get($id)), $ids)),
+        );
+
+        return $settings;
+    }
+
+    /**
+     * @return array{id: int, name: string, sku: string, thumbnail: string|null}|null
+     */
+    private function productPayload(?Product $product): ?array
+    {
+        if (! $product) {
+            return null;
+        }
+
+        return [
+            'id' => $product->id,
+            'name' => $product->name,
+            'sku' => $product->sku,
+            'thumbnail' => $product->primaryMedia('gallery')?->url,
         ];
     }
 }

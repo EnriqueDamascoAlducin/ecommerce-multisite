@@ -7,10 +7,12 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\Admin\StorefrontPageRequest;
 use App\Http\Requests\Admin\StorefrontPageSectionRequest;
 use App\Models\Media;
+use App\Models\Product;
 use App\Models\Store;
 use App\Models\StorefrontPage;
 use App\Models\StorefrontPageSection;
 use App\Services\AuditLogger;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
@@ -79,6 +81,7 @@ class StorefrontPageController extends Controller
             ],
             'sectionTypes' => StorefrontPageSection::TYPES,
             'media' => $this->mediaOptions(),
+            'productOptions' => $this->productOptions($page->store_id),
             'publicUrl' => $this->publicUrl($page),
             'isHome' => $page->slug === StorefrontPage::HOME,
         ]);
@@ -161,10 +164,12 @@ class StorefrontPageController extends Controller
         return back()->with('success', 'Seccion creada.');
     }
 
-    public function updateSection(StorefrontPageSectionRequest $request, StorefrontPageSection $section): RedirectResponse
+    public function updateSection(StorefrontPageSectionRequest $request, StorefrontPage $page, StorefrontPageSection $section): RedirectResponse
     {
+        abort_unless($section->storefront_page_id === $page->id, 404);
+
         $validated = $request->validated();
-        abort_unless((int) $validated['store_id'] === $section->page->store_id, 404);
+        abort_unless((int) $validated['store_id'] === $page->store_id, 404);
 
         $section->update([
             'type' => $validated['type'],
@@ -177,8 +182,10 @@ class StorefrontPageController extends Controller
         return back()->with('success', 'Seccion actualizada.');
     }
 
-    public function destroySection(StorefrontPageSection $section): RedirectResponse
+    public function destroySection(StorefrontPage $page, StorefrontPageSection $section): RedirectResponse
     {
+        abort_unless($section->storefront_page_id === $page->id, 404);
+
         $section->delete();
 
         $this->auditLogger->log('storefront_section.deleted', null, "Seccion {$section->type} eliminada");
@@ -235,6 +242,27 @@ class StorefrontPageController extends Controller
             ->map(fn (Store $store) => [
                 'id' => $store->id,
                 'label' => "{$store->website->name} / {$store->name}",
+            ])
+            ->all();
+    }
+
+    /**
+     * @return list<array{id: int, label: string}>
+     */
+    private function productOptions(int $storeId): array
+    {
+        return Product::query()
+            ->active()
+            ->whereIn('visibility', ['both', 'catalog'])
+            ->whereHas('storeLinks', fn (Builder $q) => $q
+                ->where('store_id', $storeId)
+                ->where('is_active', true))
+            ->orderBy('name')
+            ->limit(200)
+            ->get()
+            ->map(fn (Product $product) => [
+                'id' => $product->id,
+                'label' => "{$product->name} ({$product->sku})",
             ])
             ->all();
     }

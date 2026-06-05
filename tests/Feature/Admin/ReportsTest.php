@@ -39,11 +39,23 @@ test('the report sums revenue and units only for paid orders', function () {
     $this->get(route('admin.reports.index'))
         ->assertOk()
         ->assertInertia(fn ($page) => $page
-            ->component('admin/reports/index')
+            ->component('admin/dashboard')
             ->where('summary.revenue', '500.00')
             ->where('summary.paid_orders', 2)
             ->where('summary.total_orders', 3)
             ->where('summary.units_sold', 5)
+        );
+});
+
+test('dashboard shows the sales report data', function () {
+    orderWithItems(Order::STATUS_PAID, 300, [['sku' => 'AAA', 'name' => 'A', 'quantity' => 2, 'unit_price' => 150, 'line_total' => 300]]);
+
+    $this->get(route('admin.dashboard'))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->component('admin/dashboard')
+            ->where('summary.revenue', '300.00')
+            ->where('summary.paid_orders', 1)
         );
 });
 

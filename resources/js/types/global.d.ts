@@ -1,3 +1,4 @@
+import type { CintilloData } from '@/components/storefront/cintillo';
 import type { Auth } from '@/types/auth';
 
 declare module 'react' {
@@ -48,6 +49,15 @@ declare module '@inertiajs/core' {
                 locale: string | null;
                 pathPrefix: string;
                 menu: StoreMenuItem[];
+                header: {
+                    cintillo: CintilloData;
+                    colors: {
+                        header_text_color: string | null;
+                        header_background_color: string | null;
+                        menu_text_color: string | null;
+                        menu_background_color: string | null;
+                    };
+                };
             } | null;
             customer: { id: number; name: string; email: string } | null;
             cart: { count: number; total: string } | null;

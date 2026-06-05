@@ -30,14 +30,33 @@ type MenuItem = {
     products: MenuProduct[];
 };
 
-export function MegaMenu({ items }: { items: MenuItem[] }) {
+export type MegaMenuColors = {
+    text?: string | null;
+    background?: string | null;
+};
+
+export function MegaMenu({
+    items,
+    colors,
+}: {
+    items: MenuItem[];
+    colors?: MegaMenuColors;
+}) {
     const urls = useStoreUrls();
 
     return (
-        <nav className="border-t border-neutral-100 dark:border-neutral-900">
+        <nav
+            className="border-t border-neutral-100 dark:border-neutral-900"
+            style={{ backgroundColor: colors?.background ?? undefined }}
+        >
             <div className="mx-auto flex w-full max-w-6xl gap-0 px-4 text-sm">
                 {items.map((item) => (
-                    <MenuItemComponent key={item.id} item={item} urls={urls} />
+                    <MenuItemComponent
+                        key={item.id}
+                        item={item}
+                        urls={urls}
+                        textColor={colors?.text ?? undefined}
+                    />
                 ))}
             </div>
         </nav>
@@ -47,9 +66,11 @@ export function MegaMenu({ items }: { items: MenuItem[] }) {
 function MenuItemComponent({
     item,
     urls,
+    textColor,
 }: {
     item: MenuItem;
     urls: ReturnType<typeof useStoreUrls>;
+    textColor?: string;
 }) {
     const [open, setOpen] = useState(false);
     const hasChildren = item.children.length > 0;
@@ -64,6 +85,7 @@ function MenuItemComponent({
             <Link
                 href={item.url ?? urls.home()}
                 className="flex items-center gap-1 px-3 py-2 text-neutral-600 hover:text-neutral-900 dark:text-neutral-400 dark:hover:text-neutral-100"
+                style={{ color: textColor }}
             >
                 {item.label}
                 {(hasChildren || hasProducts) && (

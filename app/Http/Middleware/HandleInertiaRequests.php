@@ -7,6 +7,8 @@ use App\Domain\Store\AdminScopeManager;
 use App\Domain\Store\HeaderMenuService;
 use App\Domain\Store\StoreContext;
 use App\Models\Store;
+use App\Models\Website;
+use App\Models\WebsiteHeaderSettings;
 use Illuminate\Http\Request;
 use Inertia\Middleware;
 
@@ -84,7 +86,7 @@ class HandleInertiaRequests extends Middleware
     /**
      * Sitio resuelto para el storefront (null en el admin y rutas sin resolver).
      *
-     * @return array{website: array{id: int, code: string, name: string, logo_url: string|null}, store: array{id: int, code: string, name: string}, locale: string|null, pathPrefix: string, menu: list<array<string, mixed>>}|null
+     * @return array{website: array{id: int, code: string, name: string, logo_url: string|null}, store: array{id: int, code: string, name: string}, locale: string|null, pathPrefix: string, menu: list<array<string, mixed>>, header: array<string, mixed>}|null
      */
     private function currentStore(): ?array
     {
@@ -108,6 +110,34 @@ class HandleInertiaRequests extends Middleware
             'locale' => $context->storeView()?->locale,
             'pathPrefix' => $context->pathPrefix(),
             'menu' => $this->buildMenu($store),
+            'header' => $this->headerConfig($website),
+        ];
+    }
+
+    /**
+     * Configuración del encabezado por website (cintillo). Se consulta directo
+     * para no disparar lazy loading sobre la relación del website.
+     *
+     * @return array{cintillo: array{enabled: bool, show_on_mobile: bool, blocks: list<array<string, mixed>>, text_color: string, background_color: string}, colors: array{header_text_color: string|null, header_background_color: string|null, menu_text_color: string|null, menu_background_color: string|null}}
+     */
+    private function headerConfig(Website $website): array
+    {
+        $settings = WebsiteHeaderSettings::firstWhere('website_id', $website->id);
+
+        return [
+            'cintillo' => [
+                'enabled' => $settings?->cintillo_enabled ?? false,
+                'show_on_mobile' => $settings?->cintillo_show_on_mobile ?? true,
+                'blocks' => $settings?->cintillo_blocks ?? [],
+                'text_color' => $settings?->cintillo_text_color ?? '#ffffff',
+                'background_color' => $settings?->cintillo_background_color ?? '#111827',
+            ],
+            'colors' => [
+                'header_text_color' => $settings?->header_text_color,
+                'header_background_color' => $settings?->header_background_color,
+                'menu_text_color' => $settings?->menu_text_color,
+                'menu_background_color' => $settings?->menu_background_color,
+            ],
         ];
     }
 

@@ -1,5 +1,6 @@
 <?php
 
+use App\Models\InventorySource;
 use App\Models\Media;
 use App\Models\Store;
 use App\Models\StorefrontPage;
@@ -102,4 +103,93 @@ test('home page cannot be deleted', function () {
     $page = StorefrontPage::factory()->create(['slug' => StorefrontPage::HOME]);
 
     $this->delete(route('admin.storefront.pages.destroy', $page))->assertStatus(422);
+});
+
+test('edit page includes productOptions', function () {
+    $store = Store::factory()->create();
+    $source = InventorySource::factory()->default()->create();
+    $product = sellableProduct($store, $source, 100);
+    $page = StorefrontPage::factory()->create(['store_id' => $store->id]);
+
+    $this->get(route('admin.storefront.pages.edit', $page))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->has('productOptions', 1)
+            ->where('productOptions.0.id', $product->id));
+});
+
+test('can save featured_products section with product_ids', function () {
+    $store = Store::factory()->create();
+    $source = InventorySource::factory()->default()->create();
+    $productA = sellableProduct($store, $source, 100);
+    $productB = sellableProduct($store, $source, 200);
+    $page = StorefrontPage::factory()->create(['store_id' => $store->id]);
+
+    $this->post(route('admin.storefront.pages.sections.store', $page), [
+        'store_id' => $store->id,
+        'type' => StorefrontPageSection::TYPE_FEATURED_PRODUCTS,
+        'is_active' => true,
+        'settings' => [
+            'title' => 'Destacados',
+            'product_ids' => [$productA->id, $productB->id],
+        ],
+    ])->assertRedirect();
+
+    $section = $page->sections()->firstOrFail();
+    expect($section->settings['product_ids'])->toBe([$productA->id, $productB->id]);
+});
+
+test('can save featured_products section with display_type carrousel', function () {
+    $store = Store::factory()->create();
+    $source = InventorySource::factory()->default()->create();
+    $product = sellableProduct($store, $source, 100);
+    $page = StorefrontPage::factory()->create(['store_id' => $store->id]);
+
+    $this->post(route('admin.storefront.pages.sections.store', $page), [
+        'store_id' => $store->id,
+        'type' => StorefrontPageSection::TYPE_FEATURED_PRODUCTS,
+        'is_active' => true,
+        'settings' => [
+            'title' => 'Destacados',
+            'product_ids' => [$product->id],
+            'display_type' => 'carrousel',
+        ],
+    ])->assertRedirect();
+
+    $section = $page->sections()->firstOrFail();
+    expect($section->settings['display_type'])->toBe('carrousel');
+});
+
+test('rejects invalid display_type', function () {
+    $store = Store::factory()->create();
+    $page = StorefrontPage::factory()->create(['store_id' => $store->id]);
+
+    $this->post(route('admin.storefront.pages.sections.store', $page), [
+        'store_id' => $store->id,
+        'type' => StorefrontPageSection::TYPE_FEATURED_PRODUCTS,
+        'is_active' => true,
+        'settings' => [
+            'display_type' => 'invalid_value',
+        ],
+    ])->assertSessionHasErrors('settings.display_type');
+});
+
+test('featured_products section defaults to grid display', function () {
+    $store = Store::factory()->create();
+    $source = InventorySource::factory()->default()->create();
+    $product = sellableProduct($store, $source, 100);
+    $page = StorefrontPage::factory()->create(['store_id' => $store->id]);
+
+    $this->post(route('admin.storefront.pages.sections.store', $page), [
+        'store_id' => $store->id,
+        'type' => StorefrontPageSection::TYPE_FEATURED_PRODUCTS,
+        'is_active' => true,
+        'settings' => [
+            'title' => 'Destacados',
+            'product_ids' => [$product->id],
+        ],
+    ])->assertRedirect();
+
+    $section = $page->sections()->firstOrFail();
+    expect($section->settings['display_type'] ?? 'grid')->toBe('grid');
 });

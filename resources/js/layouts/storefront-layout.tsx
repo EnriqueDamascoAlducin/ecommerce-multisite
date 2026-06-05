@@ -2,6 +2,7 @@ import { Link, usePage } from '@inertiajs/react';
 import { ShoppingCart } from 'lucide-react';
 import { useEffect } from 'react';
 import { toast } from 'sonner';
+import { CintilloBar } from '@/components/storefront/cintillo';
 import { MegaMenu } from '@/components/storefront/mega-menu';
 import { useStoreUrls } from '@/lib/storefront';
 
@@ -12,6 +13,7 @@ export default function StorefrontLayout({
 }) {
     const { store, customer, cart, flash } = usePage().props;
     const urls = useStoreUrls();
+    const colors = store?.header.colors;
 
     useEffect(() => {
         if (flash.success) {
@@ -24,7 +26,15 @@ export default function StorefrontLayout({
 
     return (
         <div className="flex min-h-screen flex-col bg-white text-neutral-900 dark:bg-neutral-950 dark:text-neutral-100">
-            <header className="border-b border-neutral-200 dark:border-neutral-800">
+            {store && <CintilloBar cintillo={store.header.cintillo} />}
+
+            <header
+                className="border-b border-neutral-200 dark:border-neutral-800"
+                style={{
+                    color: colors?.header_text_color ?? undefined,
+                    backgroundColor: colors?.header_background_color ?? undefined,
+                }}
+            >
                 <div className="mx-auto flex w-full max-w-6xl items-center justify-between px-4 py-4">
                     <Link href={urls.home()} className="flex items-center gap-2 text-lg font-semibold">
                         {store?.website.logo_url ? (
@@ -71,7 +81,13 @@ export default function StorefrontLayout({
                 </div>
 
                 {store && store.menu.length > 0 && (
-                    <MegaMenu items={store.menu} />
+                    <MegaMenu
+                        items={store.menu}
+                        colors={{
+                            text: colors?.menu_text_color,
+                            background: colors?.menu_background_color,
+                        }}
+                    />
                 )}
             </header>
 

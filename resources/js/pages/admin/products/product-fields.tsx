@@ -1,7 +1,23 @@
+import {
+    BadgeDollarSign,
+    CheckCircle2,
+    FileText,
+    ImageIcon,
+    Layers3,
+    Package,
+    Settings2,
+    Store,
+    Tags,
+    Trash2,
+    UploadCloud,
+} from 'lucide-react';
+import type { LucideIcon } from 'lucide-react';
+import type { ReactNode } from 'react';
 import { useState } from 'react';
 import DownloadableController from '@/actions/App/Http/Controllers/Admin/DownloadableController';
 import InputError from '@/components/input-error';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 
@@ -29,9 +45,20 @@ type ConfigurableAttrDef = {
 
 type ComponentProduct = { id: number; sku: string; name: string };
 
-type LabelOption = { id: number; text: string; text_color: string; background_color: string; website: string | null };
+type LabelOption = {
+    id: number;
+    text: string;
+    text_color: string;
+    background_color: string;
+    website: string | null;
+};
 
-type BundleItemDefault = { product_id: number; sku?: string; name?: string; quantity: number };
+type BundleItemDefault = {
+    product_id: number;
+    sku?: string;
+    name?: string;
+    quantity: number;
+};
 
 type DownloadableLinkDefault = {
     id?: number;
@@ -84,6 +111,12 @@ export type ProductDefaults = {
     }[];
 };
 
+const fieldClass =
+    'rounded-md border border-neutral-300 bg-white px-3 py-2 text-sm outline-none transition focus:border-red-700 focus:ring-2 focus:ring-red-700/10 dark:border-neutral-700 dark:bg-neutral-900';
+
+const mutedBoxClass =
+    'rounded-lg border border-neutral-200 bg-neutral-50/70 p-3 text-sm text-neutral-500 dark:border-neutral-800 dark:bg-neutral-950/40 dark:text-neutral-400';
+
 export function ProductFields({
     errors,
     stores,
@@ -106,37 +139,66 @@ export function ProductFields({
     defaults?: ProductDefaults;
 }) {
     const [selected, setSelected] = useState<number[]>(defaults?.media ?? []);
-    const [selectedCategories, setSelectedCategories] = useState<number[]>(defaults?.categories ?? []);
-    const [selectedLabels, setSelectedLabels] = useState<number[]>(defaults?.labels ?? []);
+    const [selectedCategories, setSelectedCategories] = useState<number[]>(
+        defaults?.categories ?? [],
+    );
+    const [selectedLabels, setSelectedLabels] = useState<number[]>(
+        defaults?.labels ?? [],
+    );
     const [productType, setProductType] = useState(defaults?.type ?? 'simple');
-    const [configurableAttrIds, setConfigurableAttrIds] = useState<number[]>(defaults?.configurable_attributes ?? []);
-    const [priceType, setPriceType] = useState(defaults?.price_type ?? 'dynamic');
-    const [bundleItems, setBundleItems] = useState<BundleItemDefault[]>(defaults?.bundle_items ?? []);
+    const [configurableAttrIds, setConfigurableAttrIds] = useState<number[]>(
+        defaults?.configurable_attributes ?? [],
+    );
+    const [priceType, setPriceType] = useState(
+        defaults?.price_type ?? 'dynamic',
+    );
+    const [bundleItems, setBundleItems] = useState<BundleItemDefault[]>(
+        defaults?.bundle_items ?? [],
+    );
+    const [downloadableLinks, setDownloadableLinks] = useState<
+        DownloadableLinkDefault[]
+    >(defaults?.downloadable_links ?? []);
+    const [uploading, setUploading] = useState(false);
+    const [uploadError, setUploadError] = useState<string | null>(null);
 
     const addBundleItem = (productId: number) => {
-        if (productId === 0 || bundleItems.some((i) => i.product_id === productId)) {
+        if (
+            productId === 0 ||
+            bundleItems.some((item) => item.product_id === productId)
+        ) {
             return;
         }
-        const product = componentProducts?.find((p) => p.id === productId);
+
+        const product = componentProducts?.find(
+            (item) => item.id === productId,
+        );
+
         setBundleItems((current) => [
             ...current,
-            { product_id: productId, sku: product?.sku, name: product?.name, quantity: 1 },
+            {
+                product_id: productId,
+                sku: product?.sku,
+                name: product?.name,
+                quantity: 1,
+            },
         ]);
     };
 
     const setBundleQty = (productId: number, quantity: number) => {
         setBundleItems((current) =>
-            current.map((i) => (i.product_id === productId ? { ...i, quantity: Math.max(1, quantity) } : i)),
+            current.map((item) =>
+                item.product_id === productId
+                    ? { ...item, quantity: Math.max(1, quantity) }
+                    : item,
+            ),
         );
     };
 
     const removeBundleItem = (productId: number) => {
-        setBundleItems((current) => current.filter((i) => i.product_id !== productId));
+        setBundleItems((current) =>
+            current.filter((item) => item.product_id !== productId),
+        );
     };
-
-    const [downloadableLinks, setDownloadableLinks] = useState<DownloadableLinkDefault[]>(defaults?.downloadable_links ?? []);
-    const [uploading, setUploading] = useState(false);
-    const [uploadError, setUploadError] = useState<string | null>(null);
 
     const uploadDownloadable = async (file: File) => {
         setUploading(true);
@@ -147,7 +209,10 @@ export function ProductFields({
             form.append('file', file);
 
             const xsrf = decodeURIComponent(
-                document.cookie.split('; ').find((row) => row.startsWith('XSRF-TOKEN='))?.split('=')[1] ?? '',
+                document.cookie
+                    .split('; ')
+                    .find((row) => row.startsWith('XSRF-TOKEN='))
+                    ?.split('=')[1] ?? '',
             );
 
             const response = await fetch(DownloadableController.upload.url(), {
@@ -158,161 +223,279 @@ export function ProductFields({
             });
 
             if (!response.ok) {
-                throw new Error('No se pudo subir el archivo.');
+                throw new Error('Upload failed');
             }
 
-            const data = (await response.json()) as { file_path: string; original_name: string };
+            const data = (await response.json()) as {
+                file_path: string;
+                original_name: string;
+            };
 
             setDownloadableLinks((current) => [
                 ...current,
-                { title: data.original_name, file_path: data.file_path, original_name: data.original_name, max_downloads: null },
+                {
+                    title: data.original_name,
+                    file_path: data.file_path,
+                    original_name: data.original_name,
+                    max_downloads: null,
+                },
             ]);
         } catch {
-            setUploadError('No se pudo subir el archivo. Inténtalo de nuevo.');
+            setUploadError('No se pudo subir el archivo. Intentalo de nuevo.');
         } finally {
             setUploading(false);
         }
     };
 
-    const setLinkField = (index: number, field: 'title' | 'max_downloads', value: string) => {
+    const setLinkField = (
+        index: number,
+        field: 'title' | 'max_downloads',
+        value: string,
+    ) => {
         setDownloadableLinks((current) =>
-            current.map((link, i) =>
-                i === index
-                    ? { ...link, [field]: field === 'max_downloads' ? (value === '' ? null : Number(value)) : value }
+            current.map((link, currentIndex) =>
+                currentIndex === index
+                    ? {
+                          ...link,
+                          [field]:
+                              field === 'max_downloads'
+                                  ? value === ''
+                                      ? null
+                                      : Number(value)
+                                  : value,
+                      }
                     : link,
             ),
         );
     };
 
     const removeDownloadable = (index: number) => {
-        setDownloadableLinks((current) => current.filter((_, i) => i !== index));
+        setDownloadableLinks((current) =>
+            current.filter((_, currentIndex) => currentIndex !== index),
+        );
     };
 
     const toggleImage = (id: number) => {
         setSelected((current) =>
-            current.includes(id) ? current.filter((x) => x !== id) : [...current, id],
+            current.includes(id)
+                ? current.filter((item) => item !== id)
+                : [...current, id],
         );
     };
 
     const toggleCategory = (id: number) => {
         setSelectedCategories((current) =>
-            current.includes(id) ? current.filter((x) => x !== id) : [...current, id],
+            current.includes(id)
+                ? current.filter((item) => item !== id)
+                : [...current, id],
         );
     };
 
     const toggleLabel = (id: number) => {
         setSelectedLabels((current) =>
-            current.includes(id) ? current.filter((x) => x !== id) : [...current, id],
+            current.includes(id)
+                ? current.filter((item) => item !== id)
+                : [...current, id],
         );
     };
 
     const toggleConfigurableAttr = (id: number) => {
         setConfigurableAttrIds((current) =>
-            current.includes(id) ? current.filter((x) => x !== id) : [...current, id],
+            current.includes(id)
+                ? current.filter((item) => item !== id)
+                : [...current, id],
         );
     };
 
-    const attributeDefault = (id: number): string | string[] | undefined => defaults?.attribute_values?.[id];
+    const attributeDefault = (id: number): string | string[] | undefined =>
+        defaults?.attribute_values?.[id];
 
     const storeDefault = (storeId: number): StoreDefault | undefined =>
-        defaults?.stores.find((s) => s.store_id === storeId);
+        defaults?.stores.find((store) => store.store_id === storeId);
+
+    const sections = [
+        { id: 'general', label: 'General', icon: Package },
+        { id: 'descriptions', label: 'Descripciones', icon: FileText },
+        { id: 'pricing', label: 'Precios', icon: BadgeDollarSign },
+        { id: 'stores', label: 'Tiendas', icon: Store },
+        { id: 'taxonomy', label: 'Categorias & labels', icon: Tags },
+        ...(attributes.length > 0
+            ? [{ id: 'attributes', label: 'Atributos', icon: Settings2 }]
+            : []),
+        { id: 'media', label: 'Media', icon: ImageIcon },
+        ...(productType !== 'simple' || (defaults?.variants?.length ?? 0) > 0
+            ? [
+                  {
+                      id: 'special',
+                      label: specialSectionLabel(productType),
+                      icon: Layers3,
+                  },
+              ]
+            : []),
+    ];
+
+    const scrollToSection = (id: string) => {
+        document
+            .getElementById(id)
+            ?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    };
 
     return (
-        <div className="space-y-8">
-            {/* Tipo de producto */}
-            <section className="grid gap-4 sm:grid-cols-2">
-                <div className="grid gap-2">
-                    <Label htmlFor="type">Tipo de producto</Label>
-                    <select
-                        id="type"
-                        name="type"
-                        value={productType}
-                        onChange={(e) => setProductType(e.target.value)}
-                        className="rounded-md border border-neutral-300 bg-white px-3 py-2 text-sm dark:border-neutral-700 dark:bg-neutral-800"
-                    >
-                        <option value="simple">Producto simple</option>
-                        <option value="configurable">Producto configurable</option>
-                        <option value="bundle">Paquete (bundle)</option>
-                        <option value="downloadable">Descargable (digital)</option>
-                    </select>
-                </div>
-
-                {productType === 'bundle' && (
-                    <div className="grid gap-2">
-                        <Label htmlFor="price_type">Precio del paquete</Label>
-                        <select
-                            id="price_type"
-                            name="price_type"
-                            value={priceType}
-                            onChange={(e) => setPriceType(e.target.value)}
-                            className="rounded-md border border-neutral-300 bg-white px-3 py-2 text-sm dark:border-neutral-700 dark:bg-neutral-800"
+        <div className="space-y-6">
+            <div className="sticky top-14 z-20 -mx-1 overflow-x-auto border-y border-neutral-200 bg-neutral-50/95 px-1 py-3 backdrop-blur dark:border-neutral-800 dark:bg-neutral-950/90">
+                <div className="flex min-w-max gap-2">
+                    {sections.map((section) => (
+                        <button
+                            key={section.id}
+                            type="button"
+                            onClick={() => scrollToSection(section.id)}
+                            className="inline-flex h-9 items-center gap-2 rounded-md border border-neutral-200 bg-white px-3 text-sm font-medium text-neutral-700 shadow-sm transition hover:border-red-200 hover:text-red-800 dark:border-neutral-800 dark:bg-neutral-900 dark:text-neutral-200 dark:hover:border-red-900"
                         >
-                            <option value="dynamic">Dinámico (suma de componentes)</option>
-                            <option value="fixed">Fijo (precio propio)</option>
+                            <section.icon className="size-4" />
+                            {section.label}
+                        </button>
+                    ))}
+                </div>
+            </div>
+
+            <ProductSection
+                id="general"
+                icon={Package}
+                title="General"
+                description="Identidad comercial, tipo de producto y datos base del catalogo."
+                aside={
+                    <div className="space-y-3">
+                        <Badge variant="outline" className="w-fit">
+                            {typeLabel(productType)}
+                        </Badge>
+                        <p className="text-xs text-neutral-500">
+                            El tipo controla secciones especiales como
+                            variantes, paquete o archivos digitales.
+                        </p>
+                    </div>
+                }
+            >
+                <div className="grid gap-4 lg:grid-cols-4">
+                    <Field label="Tipo de producto" htmlFor="type">
+                        <select
+                            id="type"
+                            name="type"
+                            value={productType}
+                            onChange={(event) =>
+                                setProductType(event.target.value)
+                            }
+                            className={fieldClass}
+                        >
+                            <option value="simple">Producto simple</option>
+                            <option value="configurable">
+                                Producto configurable
+                            </option>
+                            <option value="bundle">Paquete (bundle)</option>
+                            <option value="downloadable">
+                                Descargable (digital)
+                            </option>
                         </select>
+                    </Field>
+                    {productType === 'bundle' && (
+                        <Field label="Precio del paquete" htmlFor="price_type">
+                            <select
+                                id="price_type"
+                                name="price_type"
+                                value={priceType}
+                                onChange={(event) =>
+                                    setPriceType(event.target.value)
+                                }
+                                className={fieldClass}
+                            >
+                                <option value="dynamic">Dinamico</option>
+                                <option value="fixed">Fijo</option>
+                            </select>
+                        </Field>
+                    )}
+                    <Field label="SKU" htmlFor="sku" error={errors.sku}>
+                        <Input
+                            id="sku"
+                            name="sku"
+                            defaultValue={defaults?.sku}
+                            required
+                        />
+                    </Field>
+                    <Field label="Nombre" htmlFor="name" error={errors.name}>
+                        <Input
+                            id="name"
+                            name="name"
+                            defaultValue={defaults?.name}
+                            required
+                        />
+                    </Field>
+                    <Field label="Slug" htmlFor="slug" error={errors.slug}>
+                        <Input
+                            id="slug"
+                            name="slug"
+                            defaultValue={defaults?.slug ?? ''}
+                            placeholder="se genera del nombre"
+                        />
+                    </Field>
+                    <Field label="Peso (kg)" htmlFor="weight">
+                        <Input
+                            id="weight"
+                            name="weight"
+                            type="number"
+                            step="0.001"
+                            min={0}
+                            defaultValue={defaults?.weight ?? ''}
+                        />
+                    </Field>
+                </div>
+            </ProductSection>
+
+            <ProductSection
+                id="descriptions"
+                icon={FileText}
+                title="Descripciones"
+                description="Texto para resultados, ficha del producto y contenido tecnico."
+            >
+                <div className="grid gap-4">
+                    <Field
+                        label="Descripcion corta"
+                        htmlFor="short_description"
+                    >
+                        <Input
+                            id="short_description"
+                            name="short_description"
+                            defaultValue={defaults?.short_description ?? ''}
+                            placeholder="Resumen breve para listados y previews"
+                        />
+                    </Field>
+                    <Field label="Descripcion completa" htmlFor="description">
+                        <textarea
+                            id="description"
+                            name="description"
+                            rows={7}
+                            defaultValue={defaults?.description ?? ''}
+                            className={fieldClass}
+                            placeholder="Descripcion tecnica, beneficios, uso y notas comerciales"
+                        />
+                    </Field>
+                </div>
+            </ProductSection>
+
+            <ProductSection
+                id="pricing"
+                icon={BadgeDollarSign}
+                title="Pricing & Visibility"
+                description="Precio base, promociones temporales, estado y exposicion en storefront."
+            >
+                {(productType === 'configurable' ||
+                    (productType === 'bundle' && priceType === 'dynamic')) && (
+                    <div className={mutedBoxClass}>
+                        {productType === 'configurable'
+                            ? 'Captura precio base; el storefront puede mostrar precio desde variantes cuando aplique.'
+                            : 'El precio dinamico se calcula sumando componentes del paquete.'}
                     </div>
                 )}
-            </section>
-
-            {/* Datos básicos */}
-            <section className="grid gap-4 sm:grid-cols-2">
-                <div className="grid gap-2">
-                    <Label htmlFor="sku">SKU</Label>
-                    <Input id="sku" name="sku" defaultValue={defaults?.sku} required />
-                    <InputError message={errors.sku} />
-                </div>
-                <div className="grid gap-2">
-                    <Label htmlFor="name">Nombre</Label>
-                    <Input id="name" name="name" defaultValue={defaults?.name} required />
-                    <InputError message={errors.name} />
-                </div>
-                <div className="grid gap-2">
-                    <Label htmlFor="slug">Slug (opcional)</Label>
-                    <Input id="slug" name="slug" defaultValue={defaults?.slug ?? ''} placeholder="se genera del nombre" />
-                    <InputError message={errors.slug} />
-                </div>
-                <div className="grid gap-2">
-                    <Label htmlFor="weight">Peso (kg)</Label>
-                    <Input id="weight" name="weight" type="number" step="0.001" min={0} defaultValue={defaults?.weight ?? ''} />
-                </div>
-                <div className="grid gap-2">
-                    <Label htmlFor="status">Estado</Label>
-                    <select id="status" name="status" defaultValue={defaults?.status ?? 'active'} className="rounded-md border border-neutral-300 bg-white px-3 py-2 text-sm dark:border-neutral-700 dark:bg-neutral-800">
-                        <option value="active">Activo</option>
-                        <option value="inactive">Inactivo</option>
-                    </select>
-                </div>
-                <div className="grid gap-2">
-                    <Label htmlFor="visibility">Visibilidad</Label>
-                    <select id="visibility" name="visibility" defaultValue={defaults?.visibility ?? 'both'} className="rounded-md border border-neutral-300 bg-white px-3 py-2 text-sm dark:border-neutral-700 dark:bg-neutral-800">
-                        <option value="both">Catálogo y búsqueda</option>
-                        <option value="catalog">Solo catálogo</option>
-                        <option value="search">Solo búsqueda</option>
-                        <option value="hidden">Oculto</option>
-                    </select>
-                </div>
-                <div className="grid gap-2 sm:col-span-2">
-                    <Label htmlFor="short_description">Descripción corta</Label>
-                    <Input id="short_description" name="short_description" defaultValue={defaults?.short_description ?? ''} />
-                </div>
-                <div className="grid gap-2 sm:col-span-2">
-                    <Label htmlFor="description">Descripción</Label>
-                    <textarea id="description" name="description" rows={4} defaultValue={defaults?.description ?? ''} className="rounded-md border border-neutral-300 bg-white px-3 py-2 text-sm dark:border-neutral-700 dark:bg-neutral-800" />
-                </div>
-            </section>
-
-            {/* Precio base (simples y bundle fijo; configurables y bundle dinámico lo derivan) */}
-            <section>
-                <h2 className="mb-3 text-sm font-semibold">Precio base</h2>
-                {productType === 'configurable' && (
-                    <p className="mb-3 text-xs text-neutral-500">El precio se hereda de la variante más barata.</p>
-                )}
-                {productType === 'bundle' && priceType === 'dynamic' && (
-                    <p className="mb-3 text-xs text-neutral-500">El precio se calcula sumando los componentes del paquete.</p>
-                )}
-                <div className="grid gap-4 sm:grid-cols-4">
-                    <div className="grid gap-2">
-                        <Label htmlFor="price">Precio</Label>
+                <div className="grid gap-4 lg:grid-cols-4">
+                    <Field label="Precio" htmlFor="price" error={errors.price}>
                         <Input
                             id="price"
                             name="price"
@@ -320,433 +503,977 @@ export function ProductFields({
                             step="0.01"
                             min={0}
                             defaultValue={defaults?.price ?? ''}
-                            required={!(productType === 'bundle' && priceType === 'dynamic')}
+                            required={
+                                !(
+                                    productType === 'bundle' &&
+                                    priceType === 'dynamic'
+                                )
+                            }
                         />
-                        <InputError message={errors.price} />
-                    </div>
-                    <div className="grid gap-2">
-                        <Label htmlFor="special_price">Precio especial</Label>
-                        <Input id="special_price" name="special_price" type="number" step="0.01" min={0} defaultValue={defaults?.special_price ?? ''} />
-                    </div>
-                    <div className="grid gap-2">
-                        <Label htmlFor="special_price_from">Desde</Label>
-                        <Input id="special_price_from" name="special_price_from" type="date" defaultValue={defaults?.special_price_from ?? ''} />
-                    </div>
-                    <div className="grid gap-2">
-                        <Label htmlFor="special_price_to">Hasta</Label>
-                        <Input id="special_price_to" name="special_price_to" type="date" defaultValue={defaults?.special_price_to ?? ''} />
-                    </div>
-                </div>
-            </section>
-
-            {/* Atributos configurables (solo para tipo configurable) */}
-            {productType === 'configurable' && configurableAttributes && configurableAttributes.length > 0 && (
-                <section>
-                    <h2 className="mb-1 text-sm font-semibold">Atributos configurables</h2>
-                    <p className="mb-3 text-xs text-neutral-500">
-                        Selecciona los atributos que definen las variantes. Se generará una variante por cada combinación de opciones.
-                    </p>
-                    {configurableAttrIds.map((id) => (
-                        <input key={id} type="hidden" name="configurable_attributes[]" value={id} />
-                    ))}
-                    <div className="flex flex-wrap gap-3">
-                        {configurableAttributes.map((attr) => (
-                            <label key={attr.id} className="flex items-center gap-2 rounded-lg border border-neutral-200 p-3 text-sm dark:border-neutral-800">
-                                <input
-                                    type="checkbox"
-                                    checked={configurableAttrIds.includes(attr.id)}
-                                    onChange={() => toggleConfigurableAttr(attr.id)}
-                                    className="size-4 rounded"
-                                />
-                                <div>
-                                    <span className="font-medium">{attr.name}</span>
-                                    <span className="ml-2 text-neutral-500">({attr.options.map((o) => o.label).join(', ')})</span>
-                                </div>
-                            </label>
-                        ))}
-                    </div>
-                </section>
-            )}
-
-            {/* Componentes del bundle */}
-            {productType === 'bundle' && (
-                <section>
-                    <h2 className="mb-1 text-sm font-semibold">Componentes del paquete</h2>
-                    <p className="mb-3 text-xs text-neutral-500">
-                        Agrega los productos que forman el paquete y la cantidad de cada uno.
-                    </p>
-                    {bundleItems.map((item, index) => (
-                        <div key={item.product_id}>
-                            <input type="hidden" name={`bundle_items[${index}][product_id]`} value={item.product_id} />
-                            <input type="hidden" name={`bundle_items[${index}][quantity]`} value={item.quantity} />
-                        </div>
-                    ))}
-                    <div className="mb-3 flex items-center gap-2">
+                    </Field>
+                    <Field label="Precio especial" htmlFor="special_price">
+                        <Input
+                            id="special_price"
+                            name="special_price"
+                            type="number"
+                            step="0.01"
+                            min={0}
+                            defaultValue={defaults?.special_price ?? ''}
+                        />
+                    </Field>
+                    <Field label="Especial desde" htmlFor="special_price_from">
+                        <Input
+                            id="special_price_from"
+                            name="special_price_from"
+                            type="date"
+                            defaultValue={defaults?.special_price_from ?? ''}
+                        />
+                    </Field>
+                    <Field label="Especial hasta" htmlFor="special_price_to">
+                        <Input
+                            id="special_price_to"
+                            name="special_price_to"
+                            type="date"
+                            defaultValue={defaults?.special_price_to ?? ''}
+                        />
+                    </Field>
+                    <Field label="Estado" htmlFor="status">
                         <select
-                            value=""
-                            onChange={(e) => {
-                                addBundleItem(Number(e.target.value));
-                                e.target.value = '';
-                            }}
-                            className="rounded-md border border-neutral-300 bg-white px-3 py-2 text-sm dark:border-neutral-700 dark:bg-neutral-800"
+                            id="status"
+                            name="status"
+                            defaultValue={defaults?.status ?? 'active'}
+                            className={fieldClass}
                         >
-                            <option value="">Agregar producto…</option>
-                            {(componentProducts ?? [])
-                                .filter((p) => !bundleItems.some((i) => i.product_id === p.id))
-                                .map((p) => (
-                                    <option key={p.id} value={p.id}>
-                                        {p.name} ({p.sku})
-                                    </option>
-                                ))}
+                            <option value="active">Activo</option>
+                            <option value="inactive">Inactivo</option>
                         </select>
-                    </div>
-                    <InputError message={errors.bundle_items} />
-                    {bundleItems.length > 0 ? (
-                        <div className="overflow-x-auto rounded-lg border border-neutral-200 dark:border-neutral-800">
-                            <table className="w-full text-sm">
-                                <thead className="bg-neutral-50 dark:bg-neutral-900">
-                                    <tr>
-                                        <th className="px-3 py-2 text-left font-medium">Producto</th>
-                                        <th className="px-3 py-2 text-left font-medium">Cantidad</th>
-                                        <th className="px-3 py-2"></th>
-                                    </tr>
-                                </thead>
-                                <tbody className="divide-y divide-neutral-200 dark:divide-neutral-800">
-                                    {bundleItems.map((item) => (
-                                        <tr key={item.product_id}>
-                                            <td className="px-3 py-2">
-                                                {item.name ?? `#${item.product_id}`}
-                                                {item.sku && <span className="ml-2 font-mono text-xs text-neutral-500">{item.sku}</span>}
-                                            </td>
-                                            <td className="px-3 py-2">
-                                                <Input
-                                                    type="number"
-                                                    min={1}
-                                                    value={item.quantity}
-                                                    onChange={(e) => setBundleQty(item.product_id, Number(e.target.value))}
-                                                    className="w-20"
-                                                />
-                                            </td>
-                                            <td className="px-3 py-2 text-right">
-                                                <button
-                                                    type="button"
-                                                    onClick={() => removeBundleItem(item.product_id)}
-                                                    className="text-sm text-red-500 hover:underline"
-                                                >
-                                                    Quitar
-                                                </button>
-                                            </td>
-                                        </tr>
-                                    ))}
-                                </tbody>
-                            </table>
-                        </div>
-                    ) : (
-                        <p className="text-sm text-neutral-500">Aún no hay componentes. Agrega al menos uno.</p>
-                    )}
-                </section>
-            )}
+                    </Field>
+                    <Field label="Visibilidad" htmlFor="visibility">
+                        <select
+                            id="visibility"
+                            name="visibility"
+                            defaultValue={defaults?.visibility ?? 'both'}
+                            className={fieldClass}
+                        >
+                            <option value="both">Catalogo y busqueda</option>
+                            <option value="catalog">Solo catalogo</option>
+                            <option value="search">Solo busqueda</option>
+                            <option value="hidden">Oculto</option>
+                        </select>
+                    </Field>
+                </div>
+            </ProductSection>
 
-            {/* Archivos descargables */}
-            {productType === 'downloadable' && (
-                <section>
-                    <h2 className="mb-1 text-sm font-semibold">Archivos descargables</h2>
-                    <p className="mb-3 text-xs text-neutral-500">
-                        Sube los archivos que el cliente podrá descargar tras pagar. Deja el límite vacío para descargas ilimitadas.
-                    </p>
-                    {downloadableLinks.map((link, index) => (
-                        <div key={index}>
-                            {link.id !== undefined && (
-                                <input type="hidden" name={`downloadable_links[${index}][id]`} value={link.id} />
-                            )}
-                            <input type="hidden" name={`downloadable_links[${index}][file_path]`} value={link.file_path} />
-                            <input type="hidden" name={`downloadable_links[${index}][original_name]`} value={link.original_name ?? ''} />
-                            <input type="hidden" name={`downloadable_links[${index}][title]`} value={link.title} />
-                            {link.max_downloads != null && (
-                                <input type="hidden" name={`downloadable_links[${index}][max_downloads]`} value={link.max_downloads} />
-                            )}
-                        </div>
-                    ))}
-
-                    <div className="mb-3">
-                        <input
-                            type="file"
-                            disabled={uploading}
-                            onChange={(e) => {
-                                const file = e.target.files?.[0];
-                                if (file) {
-                                    void uploadDownloadable(file);
-                                }
-                                e.target.value = '';
-                            }}
-                            className="text-sm"
-                        />
-                        {uploading && <span className="ml-2 text-xs text-neutral-500">Subiendo…</span>}
-                        {uploadError && <p className="mt-1 text-xs text-red-500">{uploadError}</p>}
-                    </div>
-                    <InputError message={errors.downloadable_links} />
-
-                    {downloadableLinks.length > 0 ? (
-                        <div className="overflow-x-auto rounded-lg border border-neutral-200 dark:border-neutral-800">
-                            <table className="w-full text-sm">
-                                <thead className="bg-neutral-50 dark:bg-neutral-900">
-                                    <tr>
-                                        <th className="px-3 py-2 text-left font-medium">Título</th>
-                                        <th className="px-3 py-2 text-left font-medium">Archivo</th>
-                                        <th className="px-3 py-2 text-left font-medium">Límite</th>
-                                        <th className="px-3 py-2"></th>
-                                    </tr>
-                                </thead>
-                                <tbody className="divide-y divide-neutral-200 dark:divide-neutral-800">
-                                    {downloadableLinks.map((link, index) => (
-                                        <tr key={index}>
-                                            <td className="px-3 py-2">
-                                                <Input
-                                                    value={link.title}
-                                                    onChange={(e) => setLinkField(index, 'title', e.target.value)}
-                                                />
-                                            </td>
-                                            <td className="px-3 py-2 font-mono text-xs text-neutral-500">{link.original_name ?? link.file_path}</td>
-                                            <td className="px-3 py-2">
-                                                <Input
-                                                    type="number"
-                                                    min={1}
-                                                    placeholder="∞"
-                                                    value={link.max_downloads ?? ''}
-                                                    onChange={(e) => setLinkField(index, 'max_downloads', e.target.value)}
-                                                    className="w-24"
-                                                />
-                                            </td>
-                                            <td className="px-3 py-2 text-right">
-                                                <button
-                                                    type="button"
-                                                    onClick={() => removeDownloadable(index)}
-                                                    className="text-sm text-red-500 hover:underline"
-                                                >
-                                                    Quitar
-                                                </button>
-                                            </td>
-                                        </tr>
-                                    ))}
-                                </tbody>
-                            </table>
-                        </div>
-                    ) : (
-                        <p className="text-sm text-neutral-500">Aún no hay archivos. Sube al menos uno.</p>
-                    )}
-                </section>
-            )}
-
-            {/* Variantes (solo edición de configurable) */}
-            {defaults?.variants && defaults.variants.length > 0 && (
-                <section>
-                    <h2 className="mb-1 text-sm font-semibold">Variantes ({defaults.variants.length})</h2>
-                    <p className="mb-3 text-xs text-neutral-500">
-                        Variantes generadas automáticamente. Edítalas individualmente para ajustar precio o stock.
-                    </p>
+            <ProductSection
+                id="stores"
+                icon={Store}
+                title="Tiendas"
+                description="Activacion y precios por tienda. Precio vacio usa precio base."
+                badge={`${stores.length} tiendas`}
+            >
+                {stores.length === 0 ? (
+                    <EmptyState text="No hay tiendas configuradas." />
+                ) : (
                     <div className="overflow-x-auto rounded-lg border border-neutral-200 dark:border-neutral-800">
-                        <table className="w-full text-sm">
-                            <thead className="bg-neutral-50 dark:bg-neutral-900">
+                        <table className="w-full min-w-[920px] text-left text-sm">
+                            <thead className="bg-neutral-50 text-xs text-neutral-500 dark:bg-neutral-950">
                                 <tr>
-                                    <th className="px-3 py-2 text-left font-medium">SKU</th>
-                                    <th className="px-3 py-2 text-left font-medium">Opción</th>
-                                    <th className="px-3 py-2 text-left font-medium">Precio</th>
-                                    <th className="px-3 py-2 text-left font-medium">Estado</th>
+                                    <th className="px-3 py-3 font-medium">
+                                        Tienda
+                                    </th>
+                                    <th className="px-3 py-3 font-medium">
+                                        Activo
+                                    </th>
+                                    <th className="px-3 py-3 font-medium">
+                                        Precio override
+                                    </th>
+                                    <th className="px-3 py-3 font-medium">
+                                        Especial
+                                    </th>
+                                    <th className="px-3 py-3 font-medium">
+                                        Desde
+                                    </th>
+                                    <th className="px-3 py-3 font-medium">
+                                        Hasta
+                                    </th>
                                 </tr>
                             </thead>
-                            <tbody className="divide-y divide-neutral-200 dark:divide-neutral-800">
-                                {defaults.variants.map((variant) => (
-                                    <tr key={variant.id} className="hover:bg-neutral-50 dark:hover:bg-neutral-900">
-                                        <td className="px-3 py-2 font-mono text-xs">{variant.sku}</td>
-                                        <td className="px-3 py-2">
-                                            {Object.entries(variant.options).map(([code, value]) => (
-                                                <Badge key={code} variant="outline" className="mr-1">
-                                                    {code}: {value}
-                                                </Badge>
-                                            ))}
-                                        </td>
-                                        <td className="px-3 py-2">${variant.price ?? '—'}</td>
-                                        <td className="px-3 py-2">
-                                            <Badge variant={variant.status === 'active' ? 'default' : 'secondary'}>
-                                                {variant.status === 'active' ? 'Activo' : 'Inactivo'}
-                                            </Badge>
-                                        </td>
-                                    </tr>
-                                ))}
+                            <tbody className="divide-y divide-neutral-100 dark:divide-neutral-800">
+                                {stores.map((store, index) => {
+                                    const storeData = storeDefault(store.id);
+
+                                    return (
+                                        <tr key={store.id}>
+                                            <td className="px-3 py-3">
+                                                <input
+                                                    type="hidden"
+                                                    name={`stores[${index}][store_id]`}
+                                                    value={store.id}
+                                                />
+                                                <span className="font-medium">
+                                                    {store.label}
+                                                </span>
+                                            </td>
+                                            <td className="px-3 py-3">
+                                                <label className="inline-flex items-center gap-2">
+                                                    <input
+                                                        type="checkbox"
+                                                        name={`stores[${index}][is_active]`}
+                                                        value="1"
+                                                        defaultChecked={
+                                                            storeData?.is_active ??
+                                                            false
+                                                        }
+                                                        className="size-4 rounded"
+                                                    />
+                                                    <span className="text-xs text-neutral-500">
+                                                        Publicado
+                                                    </span>
+                                                </label>
+                                            </td>
+                                            <td className="px-3 py-3">
+                                                <Input
+                                                    name={`stores[${index}][price]`}
+                                                    type="number"
+                                                    step="0.01"
+                                                    min={0}
+                                                    placeholder="Base"
+                                                    defaultValue={
+                                                        storeData?.price ?? ''
+                                                    }
+                                                />
+                                            </td>
+                                            <td className="px-3 py-3">
+                                                <Input
+                                                    name={`stores[${index}][special_price]`}
+                                                    type="number"
+                                                    step="0.01"
+                                                    min={0}
+                                                    placeholder="-"
+                                                    defaultValue={
+                                                        storeData?.special_price ??
+                                                        ''
+                                                    }
+                                                />
+                                            </td>
+                                            <td className="px-3 py-3">
+                                                <Input
+                                                    name={`stores[${index}][special_price_from]`}
+                                                    type="date"
+                                                    defaultValue={
+                                                        storeData?.special_price_from ??
+                                                        ''
+                                                    }
+                                                />
+                                            </td>
+                                            <td className="px-3 py-3">
+                                                <Input
+                                                    name={`stores[${index}][special_price_to]`}
+                                                    type="date"
+                                                    defaultValue={
+                                                        storeData?.special_price_to ??
+                                                        ''
+                                                    }
+                                                />
+                                            </td>
+                                        </tr>
+                                    );
+                                })}
                             </tbody>
                         </table>
                     </div>
-                </section>
-            )}
+                )}
+            </ProductSection>
 
-            {/* Disponibilidad y precio por tienda */}
-            <section>
-                <h2 className="mb-1 text-sm font-semibold">Disponibilidad por tienda</h2>
-                <p className="mb-3 text-xs text-neutral-500">
-                    Activa el producto por tienda. Deja el precio vacío para usar el precio base.
-                </p>
-                <div className="space-y-3">
-                    {stores.map((store, index) => {
-                        const sd = storeDefault(store.id);
-                        return (
-                            <div key={store.id} className="grid items-end gap-3 rounded-lg border border-neutral-200 p-3 sm:grid-cols-5 dark:border-neutral-800">
-                                <input type="hidden" name={`stores[${index}][store_id]`} value={store.id} />
-                                <label className="flex items-center gap-2 text-sm">
-                                    <input type="checkbox" name={`stores[${index}][is_active]`} value="1" defaultChecked={sd?.is_active ?? false} className="size-4 rounded" />
-                                    {store.label}
-                                </label>
-                                <Input name={`stores[${index}][price]`} type="number" step="0.01" min={0} placeholder="precio override" defaultValue={sd?.price ?? ''} />
-                                <Input name={`stores[${index}][special_price]`} type="number" step="0.01" min={0} placeholder="especial" defaultValue={sd?.special_price ?? ''} />
-                                <Input name={`stores[${index}][special_price_from]`} type="date" defaultValue={sd?.special_price_from ?? ''} />
-                                <Input name={`stores[${index}][special_price_to]`} type="date" defaultValue={sd?.special_price_to ?? ''} />
-                            </div>
-                        );
-                    })}
-                </div>
-            </section>
-
-            {/* Categorías */}
-            <section>
-                <h2 className="mb-1 text-sm font-semibold">Categorías</h2>
-                <p className="mb-3 text-xs text-neutral-500">Asigna el producto a una o más categorías (por website).</p>
+            <ProductSection
+                id="taxonomy"
+                icon={Tags}
+                title="Categorias & labels"
+                description="Clasificacion por website y badges comerciales visibles en catalogo."
+            >
                 {selectedCategories.map((id) => (
-                    <input key={id} type="hidden" name="categories[]" value={id} />
+                    <input
+                        key={id}
+                        type="hidden"
+                        name="categories[]"
+                        value={id}
+                    />
                 ))}
-                <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
-                    {categories.map((category) => (
-                        <label key={category.id} className="flex items-center gap-2 text-sm">
-                            <input
-                                type="checkbox"
-                                checked={selectedCategories.includes(category.id)}
-                                onChange={() => toggleCategory(category.id)}
-                                className="size-4 rounded"
-                            />
-                            {category.label}
-                        </label>
-                    ))}
-                    {categories.length === 0 && (
-                        <p className="text-sm text-neutral-500">No hay categorías. Créalas en la sección Categorías.</p>
-                    )}
-                </div>
-            </section>
-
-            {/* Etiquetas (badges) */}
-            <section>
-                <h2 className="mb-1 text-sm font-semibold">Etiquetas</h2>
-                <p className="mb-3 text-xs text-neutral-500">Resalta el producto con badges del catálogo de etiquetas (por website).</p>
                 {selectedLabels.map((id) => (
                     <input key={id} type="hidden" name="labels[]" value={id} />
                 ))}
-                <div className="flex flex-wrap gap-3">
-                    {(labels ?? []).map((label) => (
-                        <label key={label.id} className="flex items-center gap-2 rounded-lg border border-neutral-200 p-2 text-sm dark:border-neutral-800">
-                            <input
-                                type="checkbox"
-                                checked={selectedLabels.includes(label.id)}
-                                onChange={() => toggleLabel(label.id)}
-                                className="size-4 rounded"
-                            />
-                            <span
-                                className="inline-flex items-center rounded-md border-transparent px-2 py-0.5 text-xs font-medium"
-                                style={{ color: label.text_color, backgroundColor: label.background_color }}
-                            >
-                                {label.text}
-                            </span>
-                            {label.website && <span className="text-xs text-neutral-400">{label.website}</span>}
-                        </label>
-                    ))}
-                    {(labels ?? []).length === 0 && (
-                        <p className="text-sm text-neutral-500">No hay etiquetas. Créalas en la sección Etiquetas.</p>
-                    )}
-                </div>
-            </section>
+                <div className="grid gap-6 xl:grid-cols-2">
+                    <div>
+                        <h3 className="mb-3 text-sm font-semibold">
+                            Categorias
+                        </h3>
+                        {categories.length === 0 ? (
+                            <EmptyState text="No hay categorias. Crealas en Catalogo > Categorias." />
+                        ) : (
+                            <div className="grid gap-2 sm:grid-cols-2">
+                                {categories.map((category) => {
+                                    const checked = selectedCategories.includes(
+                                        category.id,
+                                    );
 
-            {/* Atributos */}
-            {attributes.length > 0 && (
-                <section>
-                    <h2 className="mb-1 text-sm font-semibold">Atributos</h2>
-                    <p className="mb-3 text-xs text-neutral-500">Valores de los atributos reutilizables del catálogo.</p>
-                    <div className="grid gap-4 sm:grid-cols-2">
-                        {attributes.map((attribute) => (
-                            <div key={attribute.id} className="grid gap-2">
-                                <Label htmlFor={`attr-${attribute.id}`}>
-                                    {attribute.name}
-                                    {attribute.is_required && <span className="text-red-500"> *</span>}
-                                </Label>
-                                <AttributeInput attribute={attribute} value={attributeDefault(attribute.id)} />
-                                <InputError message={errors[`attribute_values.${attribute.id}`]} />
+                                    return (
+                                        <button
+                                            key={category.id}
+                                            type="button"
+                                            onClick={() =>
+                                                toggleCategory(category.id)
+                                            }
+                                            className={`flex min-h-11 items-center justify-between rounded-lg border px-3 py-2 text-left text-sm transition ${
+                                                checked
+                                                    ? 'border-red-700 bg-red-50 text-red-900 dark:border-red-800 dark:bg-red-950/30 dark:text-red-100'
+                                                    : 'border-neutral-200 bg-white text-neutral-700 hover:border-neutral-300 dark:border-neutral-800 dark:bg-neutral-950 dark:text-neutral-200'
+                                            }`}
+                                        >
+                                            <span className="truncate">
+                                                {category.label}
+                                            </span>
+                                            {checked && (
+                                                <CheckCircle2 className="size-4 shrink-0" />
+                                            )}
+                                        </button>
+                                    );
+                                })}
                             </div>
+                        )}
+                    </div>
+
+                    <div>
+                        <h3 className="mb-3 text-sm font-semibold">
+                            Etiquetas
+                        </h3>
+                        {(labels ?? []).length === 0 ? (
+                            <EmptyState text="No hay etiquetas. Crealas en Catalogo > Etiquetas." />
+                        ) : (
+                            <div className="flex flex-wrap gap-3">
+                                {(labels ?? []).map((label) => {
+                                    const checked = selectedLabels.includes(
+                                        label.id,
+                                    );
+
+                                    return (
+                                        <button
+                                            key={label.id}
+                                            type="button"
+                                            onClick={() =>
+                                                toggleLabel(label.id)
+                                            }
+                                            className={`flex items-center gap-2 rounded-lg border p-2 text-sm transition ${
+                                                checked
+                                                    ? 'border-red-700 bg-red-50 dark:border-red-800 dark:bg-red-950/30'
+                                                    : 'border-neutral-200 bg-white hover:border-neutral-300 dark:border-neutral-800 dark:bg-neutral-950'
+                                            }`}
+                                        >
+                                            <span
+                                                className="inline-flex items-center rounded-md px-2 py-0.5 text-xs font-medium"
+                                                style={{
+                                                    color: label.text_color,
+                                                    backgroundColor:
+                                                        label.background_color,
+                                                }}
+                                            >
+                                                {label.text}
+                                            </span>
+                                            {label.website && (
+                                                <span className="text-xs text-neutral-400">
+                                                    {label.website}
+                                                </span>
+                                            )}
+                                        </button>
+                                    );
+                                })}
+                            </div>
+                        )}
+                    </div>
+                </div>
+            </ProductSection>
+
+            {attributes.length > 0 && (
+                <ProductSection
+                    id="attributes"
+                    icon={Settings2}
+                    title="Atributos"
+                    description="Valores reutilizables del catalogo. Sirven para filtros, variantes y contenido tecnico."
+                    badge={`${attributes.length} atributos`}
+                >
+                    <div className="grid gap-4 lg:grid-cols-2">
+                        {attributes.map((attribute) => (
+                            <Field
+                                key={attribute.id}
+                                label={attribute.name}
+                                htmlFor={`attr-${attribute.id}`}
+                                required={attribute.is_required}
+                                error={
+                                    errors[`attribute_values.${attribute.id}`]
+                                }
+                            >
+                                <AttributeInput
+                                    attribute={attribute}
+                                    value={attributeDefault(attribute.id)}
+                                />
+                            </Field>
                         ))}
                     </div>
-                </section>
+                </ProductSection>
             )}
 
-            {/* Galería */}
-            <section>
-                <h2 className="mb-1 text-sm font-semibold">Imágenes</h2>
-                <p className="mb-3 text-xs text-neutral-500">
-                    Selecciona imágenes de la biblioteca. La primera seleccionada es la principal.
-                </p>
+            <ProductSection
+                id="media"
+                icon={ImageIcon}
+                title="Media"
+                description="Imagenes desde biblioteca. La primera seleccionada sera principal."
+                badge={`${selected.length} seleccionadas`}
+            >
                 {selected.map((id) => (
                     <input key={id} type="hidden" name="media[]" value={id} />
                 ))}
-                <div className="grid grid-cols-3 gap-3 sm:grid-cols-6">
-                    {availableImages.map((image) => {
-                        const isSelected = selected.includes(image.id);
-                        const order = selected.indexOf(image.id);
-                        return (
-                            <button
-                                type="button"
-                                key={image.id}
-                                onClick={() => toggleImage(image.id)}
-                                className={`relative aspect-square overflow-hidden rounded-md border-2 ${isSelected ? 'border-blue-500' : 'border-transparent'}`}
-                            >
-                                <img src={image.url} alt={image.name} className="h-full w-full object-cover" />
-                                {isSelected && (
-                                    <span className="absolute right-1 top-1 rounded-full bg-blue-500 px-1.5 text-xs text-white">
-                                        {order === 0 ? '★' : order + 1}
+                {availableImages.length === 0 ? (
+                    <EmptyState text="No hay imagenes. Subelas en Biblioteca de medios." />
+                ) : (
+                    <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
+                        {availableImages.map((image) => {
+                            const isSelected = selected.includes(image.id);
+                            const order = selected.indexOf(image.id);
+
+                            return (
+                                <button
+                                    type="button"
+                                    key={image.id}
+                                    onClick={() => toggleImage(image.id)}
+                                    className={`group relative aspect-square overflow-hidden rounded-lg border-2 bg-neutral-100 transition dark:bg-neutral-900 ${
+                                        isSelected
+                                            ? 'border-red-700 shadow-sm'
+                                            : 'border-neutral-200 hover:border-neutral-400 dark:border-neutral-800'
+                                    }`}
+                                    title={image.name}
+                                >
+                                    <img
+                                        src={image.url}
+                                        alt={image.name}
+                                        className="h-full w-full object-cover"
+                                    />
+                                    <span className="absolute inset-x-0 bottom-0 truncate bg-black/60 px-2 py-1 text-xs text-white opacity-0 transition group-hover:opacity-100">
+                                        {image.name}
                                     </span>
-                                )}
-                            </button>
-                        );
-                    })}
-                    {availableImages.length === 0 && (
-                        <p className="col-span-full text-sm text-neutral-500">
-                            No hay imágenes. Súbelas en la Biblioteca de medios.
-                        </p>
+                                    {isSelected && (
+                                        <span className="absolute top-2 right-2 rounded-full bg-red-700 px-2 py-0.5 text-xs font-semibold text-white">
+                                            {order === 0
+                                                ? 'Principal'
+                                                : order + 1}
+                                        </span>
+                                    )}
+                                </button>
+                            );
+                        })}
+                    </div>
+                )}
+            </ProductSection>
+
+            {(productType !== 'simple' ||
+                (defaults?.variants?.length ?? 0) > 0) && (
+                <ProductSection
+                    id="special"
+                    icon={Layers3}
+                    title={specialSectionLabel(productType)}
+                    description="Configuracion especifica segun tipo de producto."
+                >
+                    {productType === 'configurable' && (
+                        <ConfigurableAttributes
+                            attributes={configurableAttributes ?? []}
+                            selectedIds={configurableAttrIds}
+                            onToggle={toggleConfigurableAttr}
+                        />
                     )}
-                </div>
-            </section>
+
+                    {productType === 'bundle' && (
+                        <BundleItems
+                            items={bundleItems}
+                            products={componentProducts ?? []}
+                            errors={errors}
+                            onAdd={addBundleItem}
+                            onSetQuantity={setBundleQty}
+                            onRemove={removeBundleItem}
+                        />
+                    )}
+
+                    {productType === 'downloadable' && (
+                        <DownloadableLinks
+                            links={downloadableLinks}
+                            uploading={uploading}
+                            uploadError={uploadError}
+                            errors={errors}
+                            onUpload={uploadDownloadable}
+                            onSetField={setLinkField}
+                            onRemove={removeDownloadable}
+                        />
+                    )}
+
+                    {defaults?.variants && defaults.variants.length > 0 && (
+                        <VariantsTable variants={defaults.variants} />
+                    )}
+                </ProductSection>
+            )}
         </div>
     );
 }
 
-const fieldClass =
-    'rounded-md border border-neutral-300 bg-white px-3 py-2 text-sm dark:border-neutral-700 dark:bg-neutral-800';
+function ConfigurableAttributes({
+    attributes,
+    selectedIds,
+    onToggle,
+}: {
+    attributes: ConfigurableAttrDef[];
+    selectedIds: number[];
+    onToggle: (id: number) => void;
+}) {
+    if (attributes.length === 0) {
+        return (
+            <EmptyState text="No hay atributos configurables disponibles." />
+        );
+    }
 
-function AttributeInput({ attribute, value }: { attribute: AttributeDef; value: string | string[] | undefined }) {
+    return (
+        <div className="space-y-3">
+            {selectedIds.map((id) => (
+                <input
+                    key={id}
+                    type="hidden"
+                    name="configurable_attributes[]"
+                    value={id}
+                />
+            ))}
+            <div className="grid gap-3 lg:grid-cols-2">
+                {attributes.map((attribute) => {
+                    const checked = selectedIds.includes(attribute.id);
+
+                    return (
+                        <button
+                            key={attribute.id}
+                            type="button"
+                            onClick={() => onToggle(attribute.id)}
+                            className={`rounded-lg border p-4 text-left transition ${
+                                checked
+                                    ? 'border-red-700 bg-red-50 dark:border-red-800 dark:bg-red-950/30'
+                                    : 'border-neutral-200 bg-white hover:border-neutral-300 dark:border-neutral-800 dark:bg-neutral-950'
+                            }`}
+                        >
+                            <div className="flex items-center justify-between gap-3">
+                                <span className="font-medium">
+                                    {attribute.name}
+                                </span>
+                                {checked && (
+                                    <CheckCircle2 className="size-4 text-red-700" />
+                                )}
+                            </div>
+                            <p className="mt-2 line-clamp-2 text-xs text-neutral-500">
+                                {attribute.options
+                                    .map((option) => option.label)
+                                    .join(', ')}
+                            </p>
+                        </button>
+                    );
+                })}
+            </div>
+        </div>
+    );
+}
+
+function BundleItems({
+    items,
+    products,
+    errors,
+    onAdd,
+    onSetQuantity,
+    onRemove,
+}: {
+    items: BundleItemDefault[];
+    products: ComponentProduct[];
+    errors: Record<string, string>;
+    onAdd: (productId: number) => void;
+    onSetQuantity: (productId: number, quantity: number) => void;
+    onRemove: (productId: number) => void;
+}) {
+    return (
+        <div className="space-y-4">
+            {items.map((item, index) => (
+                <div key={item.product_id}>
+                    <input
+                        type="hidden"
+                        name={`bundle_items[${index}][product_id]`}
+                        value={item.product_id}
+                    />
+                    <input
+                        type="hidden"
+                        name={`bundle_items[${index}][quantity]`}
+                        value={item.quantity}
+                    />
+                </div>
+            ))}
+
+            <div className="flex flex-wrap items-center gap-2">
+                <select
+                    value=""
+                    onChange={(event) => {
+                        onAdd(Number(event.target.value));
+                        event.target.value = '';
+                    }}
+                    className={fieldClass}
+                >
+                    <option value="">Agregar producto...</option>
+                    {products
+                        .filter(
+                            (product) =>
+                                !items.some(
+                                    (item) => item.product_id === product.id,
+                                ),
+                        )
+                        .map((product) => (
+                            <option key={product.id} value={product.id}>
+                                {product.name} ({product.sku})
+                            </option>
+                        ))}
+                </select>
+                <Badge variant="outline">{items.length} componentes</Badge>
+            </div>
+            <InputError message={errors.bundle_items} />
+
+            {items.length === 0 ? (
+                <EmptyState text="Aun no hay componentes. Agrega al menos uno." />
+            ) : (
+                <div className="overflow-x-auto rounded-lg border border-neutral-200 dark:border-neutral-800">
+                    <table className="w-full min-w-[560px] text-left text-sm">
+                        <thead className="bg-neutral-50 text-xs text-neutral-500 dark:bg-neutral-950">
+                            <tr>
+                                <th className="px-3 py-3 font-medium">
+                                    Producto
+                                </th>
+                                <th className="px-3 py-3 font-medium">
+                                    Cantidad
+                                </th>
+                                <th className="px-3 py-3 text-right font-medium">
+                                    Accion
+                                </th>
+                            </tr>
+                        </thead>
+                        <tbody className="divide-y divide-neutral-100 dark:divide-neutral-800">
+                            {items.map((item) => (
+                                <tr key={item.product_id}>
+                                    <td className="px-3 py-3">
+                                        <span className="font-medium">
+                                            {item.name ?? `#${item.product_id}`}
+                                        </span>
+                                        {item.sku && (
+                                            <span className="ml-2 font-mono text-xs text-neutral-500">
+                                                {item.sku}
+                                            </span>
+                                        )}
+                                    </td>
+                                    <td className="px-3 py-3">
+                                        <Input
+                                            type="number"
+                                            min={1}
+                                            value={item.quantity}
+                                            onChange={(event) =>
+                                                onSetQuantity(
+                                                    item.product_id,
+                                                    Number(event.target.value),
+                                                )
+                                            }
+                                            className="w-24"
+                                        />
+                                    </td>
+                                    <td className="px-3 py-3 text-right">
+                                        <Button
+                                            type="button"
+                                            variant="ghost"
+                                            size="sm"
+                                            onClick={() =>
+                                                onRemove(item.product_id)
+                                            }
+                                        >
+                                            <Trash2 className="size-4" />
+                                            Quitar
+                                        </Button>
+                                    </td>
+                                </tr>
+                            ))}
+                        </tbody>
+                    </table>
+                </div>
+            )}
+        </div>
+    );
+}
+
+function DownloadableLinks({
+    links,
+    uploading,
+    uploadError,
+    errors,
+    onUpload,
+    onSetField,
+    onRemove,
+}: {
+    links: DownloadableLinkDefault[];
+    uploading: boolean;
+    uploadError: string | null;
+    errors: Record<string, string>;
+    onUpload: (file: File) => void;
+    onSetField: (
+        index: number,
+        field: 'title' | 'max_downloads',
+        value: string,
+    ) => void;
+    onRemove: (index: number) => void;
+}) {
+    return (
+        <div className="space-y-4">
+            {links.map((link, index) => (
+                <div key={`${link.file_path}-${index}`}>
+                    {link.id !== undefined && (
+                        <input
+                            type="hidden"
+                            name={`downloadable_links[${index}][id]`}
+                            value={link.id}
+                        />
+                    )}
+                    <input
+                        type="hidden"
+                        name={`downloadable_links[${index}][file_path]`}
+                        value={link.file_path}
+                    />
+                    <input
+                        type="hidden"
+                        name={`downloadable_links[${index}][original_name]`}
+                        value={link.original_name ?? ''}
+                    />
+                    <input
+                        type="hidden"
+                        name={`downloadable_links[${index}][title]`}
+                        value={link.title}
+                    />
+                    {link.max_downloads != null && (
+                        <input
+                            type="hidden"
+                            name={`downloadable_links[${index}][max_downloads]`}
+                            value={link.max_downloads}
+                        />
+                    )}
+                </div>
+            ))}
+
+            <label className="flex min-h-28 cursor-pointer flex-col items-center justify-center rounded-lg border border-dashed border-neutral-300 bg-neutral-50 text-sm text-neutral-500 transition hover:border-red-300 hover:bg-red-50/40 dark:border-neutral-700 dark:bg-neutral-950 dark:hover:border-red-900">
+                <UploadCloud className="mb-2 size-6" />
+                <span>
+                    {uploading ? 'Subiendo...' : 'Subir archivo descargable'}
+                </span>
+                <input
+                    type="file"
+                    disabled={uploading}
+                    className="sr-only"
+                    onChange={(event) => {
+                        const file = event.target.files?.[0];
+
+                        if (file) {
+                            void onUpload(file);
+                        }
+
+                        event.target.value = '';
+                    }}
+                />
+            </label>
+            {uploadError && (
+                <p className="text-xs text-red-600">{uploadError}</p>
+            )}
+            <InputError message={errors.downloadable_links} />
+
+            {links.length === 0 ? (
+                <EmptyState text="Aun no hay archivos. Sube al menos uno." />
+            ) : (
+                <div className="overflow-x-auto rounded-lg border border-neutral-200 dark:border-neutral-800">
+                    <table className="w-full min-w-[720px] text-left text-sm">
+                        <thead className="bg-neutral-50 text-xs text-neutral-500 dark:bg-neutral-950">
+                            <tr>
+                                <th className="px-3 py-3 font-medium">
+                                    Titulo
+                                </th>
+                                <th className="px-3 py-3 font-medium">
+                                    Archivo
+                                </th>
+                                <th className="px-3 py-3 font-medium">
+                                    Limite
+                                </th>
+                                <th className="px-3 py-3 text-right font-medium">
+                                    Accion
+                                </th>
+                            </tr>
+                        </thead>
+                        <tbody className="divide-y divide-neutral-100 dark:divide-neutral-800">
+                            {links.map((link, index) => (
+                                <tr key={`${link.file_path}-${index}`}>
+                                    <td className="px-3 py-3">
+                                        <Input
+                                            value={link.title}
+                                            onChange={(event) =>
+                                                onSetField(
+                                                    index,
+                                                    'title',
+                                                    event.target.value,
+                                                )
+                                            }
+                                        />
+                                    </td>
+                                    <td className="px-3 py-3 font-mono text-xs text-neutral-500">
+                                        {link.original_name ?? link.file_path}
+                                    </td>
+                                    <td className="px-3 py-3">
+                                        <Input
+                                            type="number"
+                                            min={1}
+                                            placeholder="sin limite"
+                                            value={link.max_downloads ?? ''}
+                                            onChange={(event) =>
+                                                onSetField(
+                                                    index,
+                                                    'max_downloads',
+                                                    event.target.value,
+                                                )
+                                            }
+                                            className="w-32"
+                                        />
+                                    </td>
+                                    <td className="px-3 py-3 text-right">
+                                        <Button
+                                            type="button"
+                                            variant="ghost"
+                                            size="sm"
+                                            onClick={() => onRemove(index)}
+                                        >
+                                            <Trash2 className="size-4" />
+                                            Quitar
+                                        </Button>
+                                    </td>
+                                </tr>
+                            ))}
+                        </tbody>
+                    </table>
+                </div>
+            )}
+        </div>
+    );
+}
+
+function VariantsTable({
+    variants,
+}: {
+    variants: NonNullable<ProductDefaults['variants']>;
+}) {
+    return (
+        <div className="mt-6 space-y-3">
+            <div className="flex items-center justify-between gap-3">
+                <h3 className="text-sm font-semibold">Variantes generadas</h3>
+                <Badge variant="outline">{variants.length} variantes</Badge>
+            </div>
+            <div className="overflow-x-auto rounded-lg border border-neutral-200 dark:border-neutral-800">
+                <table className="w-full min-w-[680px] text-left text-sm">
+                    <thead className="bg-neutral-50 text-xs text-neutral-500 dark:bg-neutral-950">
+                        <tr>
+                            <th className="px-3 py-3 font-medium">SKU</th>
+                            <th className="px-3 py-3 font-medium">Opciones</th>
+                            <th className="px-3 py-3 font-medium">Precio</th>
+                            <th className="px-3 py-3 font-medium">Estado</th>
+                        </tr>
+                    </thead>
+                    <tbody className="divide-y divide-neutral-100 dark:divide-neutral-800">
+                        {variants.map((variant) => (
+                            <tr key={variant.id}>
+                                <td className="px-3 py-3 font-mono text-xs">
+                                    {variant.sku}
+                                </td>
+                                <td className="px-3 py-3">
+                                    {Object.entries(variant.options).map(
+                                        ([code, value]) => (
+                                            <Badge
+                                                key={code}
+                                                variant="outline"
+                                                className="mr-1"
+                                            >
+                                                {code}: {value}
+                                            </Badge>
+                                        ),
+                                    )}
+                                </td>
+                                <td className="px-3 py-3">
+                                    ${variant.price ?? '-'}
+                                </td>
+                                <td className="px-3 py-3">
+                                    <Badge
+                                        variant={
+                                            variant.status === 'active'
+                                                ? 'default'
+                                                : 'outline'
+                                        }
+                                    >
+                                        {variant.status === 'active'
+                                            ? 'Activo'
+                                            : 'Inactivo'}
+                                    </Badge>
+                                </td>
+                            </tr>
+                        ))}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    );
+}
+
+function ProductSection({
+    id,
+    icon: Icon,
+    title,
+    description,
+    badge,
+    aside,
+    children,
+}: {
+    id: string;
+    icon: LucideIcon;
+    title: string;
+    description: string;
+    badge?: string;
+    aside?: ReactNode;
+    children: ReactNode;
+}) {
+    return (
+        <section
+            id={id}
+            className="scroll-mt-32 rounded-lg border border-neutral-200 bg-white shadow-sm dark:border-neutral-800 dark:bg-neutral-900"
+        >
+            <div className="flex flex-wrap items-start justify-between gap-4 border-b border-neutral-200 px-5 py-4 dark:border-neutral-800">
+                <div className="flex gap-3">
+                    <div className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-red-50 text-red-800 dark:bg-red-950/40 dark:text-red-200">
+                        <Icon className="size-4" />
+                    </div>
+                    <div>
+                        <div className="flex flex-wrap items-center gap-2">
+                            <h2 className="font-semibold">{title}</h2>
+                            {badge && <Badge variant="outline">{badge}</Badge>}
+                        </div>
+                        <p className="mt-1 text-sm text-neutral-500 dark:text-neutral-400">
+                            {description}
+                        </p>
+                    </div>
+                </div>
+                {aside && <div className="max-w-sm">{aside}</div>}
+            </div>
+            <div className="space-y-5 p-5">{children}</div>
+        </section>
+    );
+}
+
+function Field({
+    label,
+    htmlFor,
+    required,
+    error,
+    children,
+}: {
+    label: string;
+    htmlFor: string;
+    required?: boolean;
+    error?: string;
+    children: ReactNode;
+}) {
+    return (
+        <div className="grid gap-2">
+            <Label
+                htmlFor={htmlFor}
+                className="text-xs font-medium text-neutral-600 dark:text-neutral-300"
+            >
+                {label}
+                {required && <span className="text-red-600"> *</span>}
+            </Label>
+            {children}
+            <InputError message={error} />
+        </div>
+    );
+}
+
+function EmptyState({ text }: { text: string }) {
+    return (
+        <div className={mutedBoxClass}>
+            <p>{text}</p>
+        </div>
+    );
+}
+
+function AttributeInput({
+    attribute,
+    value,
+}: {
+    attribute: AttributeDef;
+    value: string | string[] | undefined;
+}) {
     const name = `attribute_values[${attribute.id}]`;
     const single = Array.isArray(value) ? '' : (value ?? '');
 
     switch (attribute.type) {
         case 'textarea':
-            return <textarea id={`attr-${attribute.id}`} name={name} rows={3} defaultValue={single} className={fieldClass} />;
+            return (
+                <textarea
+                    id={`attr-${attribute.id}`}
+                    name={name}
+                    rows={4}
+                    defaultValue={single}
+                    className={fieldClass}
+                />
+            );
         case 'number':
-            return <Input id={`attr-${attribute.id}`} name={name} type="number" step="any" defaultValue={single} />;
+            return (
+                <Input
+                    id={`attr-${attribute.id}`}
+                    name={name}
+                    type="number"
+                    step="any"
+                    defaultValue={single}
+                />
+            );
         case 'date':
-            return <Input id={`attr-${attribute.id}`} name={name} type="date" defaultValue={single} />;
+            return (
+                <Input
+                    id={`attr-${attribute.id}`}
+                    name={name}
+                    type="date"
+                    defaultValue={single}
+                />
+            );
         case 'boolean':
             return (
-                <select id={`attr-${attribute.id}`} name={name} defaultValue={single} className={fieldClass}>
-                    <option value="">—</option>
-                    <option value="1">Sí</option>
+                <select
+                    id={`attr-${attribute.id}`}
+                    name={name}
+                    defaultValue={single}
+                    className={fieldClass}
+                >
+                    <option value="">-</option>
+                    <option value="1">Si</option>
                     <option value="0">No</option>
                 </select>
             );
         case 'select':
             return (
-                <select id={`attr-${attribute.id}`} name={name} defaultValue={single} className={fieldClass}>
-                    <option value="">—</option>
+                <select
+                    id={`attr-${attribute.id}`}
+                    name={name}
+                    defaultValue={single}
+                    className={fieldClass}
+                >
+                    <option value="">-</option>
                     {attribute.options.map((option) => (
                         <option key={option.value} value={option.value}>
                             {option.label}
@@ -756,10 +1483,14 @@ function AttributeInput({ attribute, value }: { attribute: AttributeDef; value: 
             );
         case 'multiselect': {
             const selected = Array.isArray(value) ? value : [];
+
             return (
-                <div className="flex flex-wrap gap-3">
+                <div className="flex min-h-10 flex-wrap gap-2 rounded-md border border-neutral-200 bg-white p-2 dark:border-neutral-800 dark:bg-neutral-950">
                     {attribute.options.map((option) => (
-                        <label key={option.value} className="flex items-center gap-1.5 text-sm">
+                        <label
+                            key={option.value}
+                            className="inline-flex items-center gap-1.5 rounded-md border border-neutral-200 px-2 py-1 text-sm dark:border-neutral-800"
+                        >
                             <input
                                 type="checkbox"
                                 name={`${name}[]`}
@@ -774,6 +1505,33 @@ function AttributeInput({ attribute, value }: { attribute: AttributeDef; value: 
             );
         }
         default:
-            return <Input id={`attr-${attribute.id}`} name={name} defaultValue={single} />;
+            return (
+                <Input
+                    id={`attr-${attribute.id}`}
+                    name={name}
+                    defaultValue={single}
+                />
+            );
     }
+}
+
+function specialSectionLabel(productType: string): string {
+    return (
+        {
+            configurable: 'Configurable',
+            bundle: 'Bundle',
+            downloadable: 'Descargable',
+        }[productType] ?? 'Tipo especial'
+    );
+}
+
+function typeLabel(productType: string): string {
+    return (
+        {
+            simple: 'Simple',
+            configurable: 'Configurable',
+            bundle: 'Bundle',
+            downloadable: 'Descargable',
+        }[productType] ?? productType
+    );
 }
