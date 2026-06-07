@@ -61,6 +61,15 @@ class UpdateProductRequest extends FormRequest
             'configurable_attributes' => ['nullable', 'array'],
             'configurable_attributes.*' => ['integer', 'exists:attributes,id'],
 
+            // Ediciones inline de las variantes hijas (precio base, SKU, estado, stock, imagen).
+            'variants' => ['array'],
+            'variants.*.id' => ['required', 'integer', Rule::exists('products', 'id')->where('parent_id', $product instanceof Product ? $product->id : 0)],
+            'variants.*.sku' => ['nullable', 'string', 'max:255'],
+            'variants.*.price' => ['nullable', 'numeric', 'min:0'],
+            'variants.*.status' => ['nullable', 'in:active,inactive'],
+            'variants.*.stock_qty' => ['nullable', 'integer', 'min:0'],
+            'variants.*.media_id' => ['nullable', 'integer', 'exists:media,id'],
+
             'bundle_items' => [$isBundle ? 'required' : 'nullable', 'array'],
             'bundle_items.*.product_id' => ['required', 'integer', 'exists:products,id'],
             'bundle_items.*.quantity' => ['required', 'integer', 'min:1', 'max:999'],

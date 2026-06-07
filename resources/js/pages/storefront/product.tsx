@@ -73,7 +73,7 @@ export default function StorefrontProduct({ product }: { product: ProductDetail 
               effective_price: currentVariant.is_special ? currentVariant.special_price! : currentVariant.price,
               is_special: currentVariant.is_special,
           }
-        : product.price;
+        : (product.price ?? { price: null, special_price: null, effective_price: null, is_special: false });
 
     const inStock = currentVariant ? currentVariant.in_stock : product.in_stock;
     const currentGallery = currentVariant && currentVariant.gallery.length > 0

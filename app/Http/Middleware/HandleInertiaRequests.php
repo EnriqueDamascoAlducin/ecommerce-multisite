@@ -6,6 +6,7 @@ use App\Domain\Cart\CartService;
 use App\Domain\Store\AdminScopeManager;
 use App\Domain\Store\HeaderMenuService;
 use App\Domain\Store\StoreContext;
+use App\Models\Media;
 use App\Models\Store;
 use App\Models\Website;
 use App\Models\WebsiteHeaderSettings;
@@ -86,7 +87,7 @@ class HandleInertiaRequests extends Middleware
     /**
      * Sitio resuelto para el storefront (null en el admin y rutas sin resolver).
      *
-     * @return array{website: array{id: int, code: string, name: string, logo_url: string|null}, store: array{id: int, code: string, name: string}, locale: string|null, pathPrefix: string, menu: list<array<string, mixed>>, header: array<string, mixed>}|null
+     * @return array{website: array{id: int, code: string, name: string, logo_url: string|null, favicon_url: string|null}, store: array{id: int, code: string, name: string}, locale: string|null, pathPrefix: string, menu: list<array<string, mixed>>, header: array<string, mixed>}|null
      */
     private function currentStore(): ?array
     {
@@ -98,13 +99,15 @@ class HandleInertiaRequests extends Middleware
 
         $store = $context->store();
         $website = $context->website();
+        $website->loadMissing('media');
 
         return [
             'website' => [
                 'id' => $website->id,
                 'code' => $website->code,
                 'name' => $website->name,
-                'logo_url' => $website->loadMissing('media')->primaryMedia('logo')?->url,
+                'logo_url' => $this->versionedMediaUrl($website->primaryMedia('logo')),
+                'favicon_url' => $this->versionedMediaUrl($website->primaryMedia('favicon')),
             ],
             'store' => ['id' => $store->id, 'code' => $store->code, 'name' => $store->name],
             'locale' => $context->storeView()?->locale,
@@ -163,5 +166,16 @@ class HandleInertiaRequests extends Middleware
     private function buildMenu(Store $store): array
     {
         return app(HeaderMenuService::class)->buildTree($store);
+    }
+
+    private function versionedMediaUrl(?Media $media): ?string
+    {
+        if (! $media) {
+            return null;
+        }
+
+        $separator = str_contains($media->url, '?') ? '&' : '?';
+
+        return $media->url.$separator.'v='.$media->updated_at?->getTimestamp();
     }
 }

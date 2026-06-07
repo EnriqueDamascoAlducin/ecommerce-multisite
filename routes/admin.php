@@ -4,6 +4,8 @@ use App\Http\Controllers\Admin\AttributeController;
 use App\Http\Controllers\Admin\AuditLogController;
 use App\Http\Controllers\Admin\CatalogRuleController;
 use App\Http\Controllers\Admin\CategoryController;
+use App\Http\Controllers\Admin\CustomerController;
+use App\Http\Controllers\Admin\CustomerGroupController;
 use App\Http\Controllers\Admin\DownloadableController;
 use App\Http\Controllers\Admin\HeaderMenuController;
 use App\Http\Controllers\Admin\HeaderSettingsController;
@@ -16,6 +18,7 @@ use App\Http\Controllers\Admin\PaymentSettingsController;
 use App\Http\Controllers\Admin\PermissionController;
 use App\Http\Controllers\Admin\ProductController;
 use App\Http\Controllers\Admin\ProductLabelController;
+use App\Http\Controllers\Admin\ProductVariantController;
 use App\Http\Controllers\Admin\PromotionController;
 use App\Http\Controllers\Admin\ReportController;
 use App\Http\Controllers\Admin\RoleController;
@@ -81,6 +84,14 @@ Route::middleware(['auth', 'verified'])->prefix('admin')->name('admin.')->group(
         Route::put('products/{product}', [ProductController::class, 'update'])->middleware('permission:catalog.products.edit')->name('products.update');
         Route::delete('products/{product}', [ProductController::class, 'destroy'])->middleware('permission:catalog.products.delete')->name('products.destroy');
 
+        // Variantes: vincular/desvincular productos simple existentes a un configurable.
+        Route::post('products/{product}/variants/attach', [ProductVariantController::class, 'attach'])
+            ->middleware('permission:catalog.products.edit')
+            ->name('products.variants.attach');
+        Route::delete('products/{product}/variants/{variant}/detach', [ProductVariantController::class, 'detach'])
+            ->middleware('permission:catalog.products.edit')
+            ->name('products.variants.detach');
+
         // Subida de archivos descargables (devuelve la ruta para el formulario de producto).
         Route::post('downloadable/upload', [DownloadableController::class, 'upload'])
             ->middleware('permission:catalog.products.create')
@@ -105,6 +116,26 @@ Route::middleware(['auth', 'verified'])->prefix('admin')->name('admin.')->group(
         Route::get('product-labels/{productLabel}/edit', [ProductLabelController::class, 'edit'])->middleware('permission:catalog.labels.edit')->name('product-labels.edit');
         Route::put('product-labels/{productLabel}', [ProductLabelController::class, 'update'])->middleware('permission:catalog.labels.edit')->name('product-labels.update');
         Route::delete('product-labels/{productLabel}', [ProductLabelController::class, 'destroy'])->middleware('permission:catalog.labels.delete')->name('product-labels.destroy');
+    });
+
+    // Clientes
+    Route::middleware('permission:customers.view')->group(function () {
+        Route::get('customers', [CustomerController::class, 'index'])->name('customers.index');
+        Route::get('customers/create', [CustomerController::class, 'create'])->middleware('permission:customers.create')->name('customers.create');
+        Route::post('customers', [CustomerController::class, 'store'])->middleware('permission:customers.create')->name('customers.store');
+        Route::get('customers/{customer}/edit', [CustomerController::class, 'edit'])->middleware('permission:customers.edit')->name('customers.edit');
+        Route::put('customers/{customer}', [CustomerController::class, 'update'])->middleware('permission:customers.edit')->name('customers.update');
+        Route::delete('customers/{customer}', [CustomerController::class, 'destroy'])->middleware('permission:customers.delete')->name('customers.destroy');
+    });
+
+    // Grupos de clientes (segmentación por website)
+    Route::middleware('permission:customer_groups.view')->group(function () {
+        Route::get('customer-groups', [CustomerGroupController::class, 'index'])->name('customer-groups.index');
+        Route::get('customer-groups/create', [CustomerGroupController::class, 'create'])->middleware('permission:customer_groups.create')->name('customer-groups.create');
+        Route::post('customer-groups', [CustomerGroupController::class, 'store'])->middleware('permission:customer_groups.create')->name('customer-groups.store');
+        Route::get('customer-groups/{customerGroup}/edit', [CustomerGroupController::class, 'edit'])->middleware('permission:customer_groups.edit')->name('customer-groups.edit');
+        Route::put('customer-groups/{customerGroup}', [CustomerGroupController::class, 'update'])->middleware('permission:customer_groups.edit')->name('customer-groups.update');
+        Route::delete('customer-groups/{customerGroup}', [CustomerGroupController::class, 'destroy'])->middleware('permission:customer_groups.delete')->name('customer-groups.destroy');
     });
 
     // Catálogo: atributos
@@ -177,6 +208,7 @@ Route::middleware(['auth', 'verified'])->prefix('admin')->name('admin.')->group(
         Route::get('invoices/{invoice}', [InvoiceController::class, 'show'])->name('invoices.show');
         Route::post('invoices', [InvoiceController::class, 'store'])->middleware('permission:sales.invoices.create')->name('invoices.store');
         Route::post('invoices/{invoice}/cancel', [InvoiceController::class, 'cancel'])->middleware('permission:sales.invoices.cancel')->name('invoices.cancel');
+        Route::post('invoices/{invoice}/paid', [InvoiceController::class, 'markAsPaid'])->middleware('permission:sales.invoices.edit')->name('invoices.mark-as-paid');
     });
 
     // Ventas: envíos

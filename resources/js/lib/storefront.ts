@@ -29,6 +29,7 @@ export function useStoreUrls() {
         home: () => prefix || '/',
         category: (slug: string) => `${prefix}/c/${slug}`,
         product: (slug: string) => `${prefix}/p/${slug}`,
+        search: () => `${prefix}/buscar`,
         path: (path: string) => `${prefix}${path.startsWith('/') ? path : `/${path}`}`,
     };
 }

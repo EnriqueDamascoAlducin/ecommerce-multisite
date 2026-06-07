@@ -75,6 +75,7 @@ type ProductRow = {
     name: string;
     status: string;
     visibility: string;
+    parent: { id: number; name: string } | null;
     price: string | number | null;
     thumbnail: string | null;
     labels: ProductLabelData[];
@@ -117,6 +118,7 @@ type Filters = {
     stock: string;
     price_min: string;
     price_max: string;
+    variants: string;
     attrs: Record<string, string | AttributeRangeFilter>;
 };
 
@@ -309,6 +311,18 @@ export default function ProductsIndex({
                                         value={filters.visibility}
                                         options={filterOptions.visibilities}
                                         empty="Todas"
+                                    />
+                                    <SelectFilter
+                                        name="variants"
+                                        label="Variantes"
+                                        value={filters.variants}
+                                        options={[
+                                            {
+                                                value: 'include',
+                                                label: 'Incluir variantes',
+                                            },
+                                        ]}
+                                        empty="Ocultar variantes"
                                     />
                                     <SelectFilter
                                         name="stock"
@@ -716,6 +730,11 @@ function ProductCell({
                     value={product.name}
                     className="font-medium text-neutral-900 dark:text-neutral-100"
                 />
+                {product.parent && (
+                    <Badge variant="outline" className="text-[10px]">
+                        Variante de {product.parent.name}
+                    </Badge>
+                )}
                 <ProductLabels labels={product.labels} />
             </div>
         );

@@ -44,7 +44,13 @@ declare module '@inertiajs/core' {
                 error: string | null;
             };
             store: {
-                website: { id: number; code: string; name: string; logo_url?: string | null };
+                website: {
+                    id: number;
+                    code: string;
+                    name: string;
+                    logo_url?: string | null;
+                    favicon_url?: string | null;
+                };
                 store: { id: number; code: string; name: string };
                 locale: string | null;
                 pathPrefix: string;

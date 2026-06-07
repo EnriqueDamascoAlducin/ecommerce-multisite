@@ -114,4 +114,17 @@ class InvoiceController extends Controller
 
         return back()->with('success', 'Factura cancelada.');
     }
+
+    public function markAsPaid(Invoice $invoice): RedirectResponse
+    {
+        if ($invoice->status !== Invoice::STATUS_PENDING) {
+            return back()->with('error', 'Solo se pueden marcar como pagadas facturas pendientes.');
+        }
+
+        $invoice->update(['status' => Invoice::STATUS_PAID]);
+
+        $this->auditLogger->log('invoice.paid', $invoice, "Factura {$invoice->number} marcada como pagada");
+
+        return back()->with('success', 'Factura marcada como pagada.');
+    }
 }

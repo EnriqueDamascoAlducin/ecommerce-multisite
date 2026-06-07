@@ -1,10 +1,13 @@
+import { router } from '@inertiajs/react';
 import {
     BadgeDollarSign,
     CheckCircle2,
     FileText,
     ImageIcon,
     Layers3,
+    Link2,
     Package,
+    Pencil,
     Settings2,
     Store,
     Tags,
@@ -15,6 +18,7 @@ import type { LucideIcon } from 'lucide-react';
 import type { ReactNode } from 'react';
 import { useState } from 'react';
 import DownloadableController from '@/actions/App/Http/Controllers/Admin/DownloadableController';
+import ProductVariantController from '@/actions/App/Http/Controllers/Admin/ProductVariantController';
 import InputError from '@/components/input-error';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -101,14 +105,27 @@ export type ProductDefaults = {
     price_type?: string | null;
     bundle_items?: BundleItemDefault[];
     downloadable_links?: DownloadableLinkDefault[];
-    variants?: {
-        id: number;
-        sku: string;
-        name: string;
-        status: string;
-        price: string | null;
-        options: Record<string, string>;
-    }[];
+    variants?: VariantEditable[];
+    variant_candidates?: VariantCandidate[];
+};
+
+type VariantEditable = {
+    id: number;
+    sku: string;
+    name: string;
+    status: string;
+    price: string | null;
+    stock_qty: number;
+    media_id: number | null;
+    edit_url: string;
+    options: Record<string, string>;
+};
+
+type VariantCandidate = {
+    id: number;
+    sku: string;
+    name: string;
+    options: Record<string, string>;
 };
 
 const fieldClass =
@@ -158,8 +175,23 @@ export function ProductFields({
     const [downloadableLinks, setDownloadableLinks] = useState<
         DownloadableLinkDefault[]
     >(defaults?.downloadable_links ?? []);
+    const [variants, setVariants] = useState<VariantEditable[]>(
+        defaults?.variants ?? [],
+    );
     const [uploading, setUploading] = useState(false);
     const [uploadError, setUploadError] = useState<string | null>(null);
+
+    const patchVariant = (
+        id: number,
+        field: keyof VariantEditable,
+        value: string | number | null,
+    ) => {
+        setVariants((current) =>
+            current.map((variant) =>
+                variant.id === id ? { ...variant, [field]: value } : variant,
+            ),
+        );
+    };
 
     const addBundleItem = (productId: number) => {
         if (
@@ -377,24 +409,31 @@ export function ProductFields({
             >
                 <div className="grid gap-4 lg:grid-cols-4">
                     <Field label="Tipo de producto" htmlFor="type">
-                        <select
-                            id="type"
-                            name="type"
-                            value={productType}
-                            onChange={(event) =>
-                                setProductType(event.target.value)
-                            }
-                            className={fieldClass}
-                        >
-                            <option value="simple">Producto simple</option>
-                            <option value="configurable">
-                                Producto configurable
-                            </option>
-                            <option value="bundle">Paquete (bundle)</option>
-                            <option value="downloadable">
-                                Descargable (digital)
-                            </option>
-                        </select>
+                        {defaults?.id ? (
+                            <div className="flex h-10 items-center rounded-md border border-neutral-200 bg-neutral-100 px-3 text-sm text-neutral-600 dark:border-neutral-700 dark:bg-neutral-800 dark:text-neutral-400">
+                                <input type="hidden" name="type" value={productType} />
+                                {typeLabel(productType)}
+                            </div>
+                        ) : (
+                            <select
+                                id="type"
+                                name="type"
+                                value={productType}
+                                onChange={(event) =>
+                                    setProductType(event.target.value)
+                                }
+                                className={fieldClass}
+                            >
+                                <option value="simple">Producto simple</option>
+                                <option value="configurable">
+                                    Producto configurable
+                                </option>
+                                <option value="bundle">Paquete (bundle)</option>
+                                <option value="downloadable">
+                                    Descargable (digital)
+                                </option>
+                            </select>
+                        )}
                     </Field>
                     {productType === 'bundle' && (
                         <Field label="Precio del paquete" htmlFor="price_type">
@@ -912,8 +951,15 @@ export function ProductFields({
                         />
                     )}
 
-                    {defaults?.variants && defaults.variants.length > 0 && (
-                        <VariantsTable variants={defaults.variants} />
+                    {productType === 'configurable' && defaults?.id && (
+                        <VariantsManager
+                            productId={defaults.id}
+                            variants={variants}
+                            candidates={defaults.variant_candidates ?? []}
+                            images={availableImages}
+                            errors={errors}
+                            onPatch={patchVariant}
+                        />
                     )}
                 </ProductSection>
             )}
@@ -1267,67 +1313,292 @@ function DownloadableLinks({
     );
 }
 
-function VariantsTable({
+function VariantsManager({
+    productId,
     variants,
+    candidates,
+    images,
+    errors,
+    onPatch,
 }: {
-    variants: NonNullable<ProductDefaults['variants']>;
+    productId: number;
+    variants: VariantEditable[];
+    candidates: VariantCandidate[];
+    images: ImageOption[];
+    errors: Record<string, string>;
+    onPatch: (
+        id: number,
+        field: keyof VariantEditable,
+        value: string | number | null,
+    ) => void;
 }) {
+    const [candidateId, setCandidateId] = useState(0);
+
+    const attach = () => {
+        if (candidateId === 0) {
+            return;
+        }
+
+        router.post(
+            ProductVariantController.attach.url({ product: productId }),
+            { product_id: candidateId },
+            { preserveScroll: true },
+        );
+    };
+
+    const detach = (variantId: number) => {
+        if (
+            !window.confirm(
+                '¿Desvincular esta variante? Volverá a ser un producto simple independiente.',
+            )
+        ) {
+            return;
+        }
+
+        router.delete(
+            ProductVariantController.detach.url({
+                product: productId,
+                variant: variantId,
+            }),
+            { preserveScroll: true },
+        );
+    };
+
+    const optionsLabel = (options: Record<string, string>) =>
+        Object.entries(options)
+            .map(([code, value]) => `${code}: ${value}`)
+            .join(', ');
+
     return (
-        <div className="mt-6 space-y-3">
+        <div className="mt-6 space-y-4">
             <div className="flex items-center justify-between gap-3">
-                <h3 className="text-sm font-semibold">Variantes generadas</h3>
+                <h3 className="text-sm font-semibold">Variantes</h3>
                 <Badge variant="outline">{variants.length} variantes</Badge>
             </div>
-            <div className="overflow-x-auto rounded-lg border border-neutral-200 dark:border-neutral-800">
-                <table className="w-full min-w-[680px] text-left text-sm">
-                    <thead className="bg-neutral-50 text-xs text-neutral-500 dark:bg-neutral-950">
-                        <tr>
-                            <th className="px-3 py-3 font-medium">SKU</th>
-                            <th className="px-3 py-3 font-medium">Opciones</th>
-                            <th className="px-3 py-3 font-medium">Precio</th>
-                            <th className="px-3 py-3 font-medium">Estado</th>
-                        </tr>
-                    </thead>
-                    <tbody className="divide-y divide-neutral-100 dark:divide-neutral-800">
-                        {variants.map((variant) => (
-                            <tr key={variant.id}>
-                                <td className="px-3 py-3 font-mono text-xs">
-                                    {variant.sku}
-                                </td>
-                                <td className="px-3 py-3">
-                                    {Object.entries(variant.options).map(
-                                        ([code, value]) => (
-                                            <Badge
-                                                key={code}
-                                                variant="outline"
-                                                className="mr-1"
-                                            >
-                                                {code}: {value}
-                                            </Badge>
-                                        ),
-                                    )}
-                                </td>
-                                <td className="px-3 py-3">
-                                    ${variant.price ?? '-'}
-                                </td>
-                                <td className="px-3 py-3">
-                                    <Badge
-                                        variant={
-                                            variant.status === 'active'
-                                                ? 'default'
-                                                : 'outline'
-                                        }
-                                    >
-                                        {variant.status === 'active'
-                                            ? 'Activo'
-                                            : 'Inactivo'}
-                                    </Badge>
-                                </td>
-                            </tr>
-                        ))}
-                    </tbody>
-                </table>
+
+            <div className="rounded-lg border border-dashed border-neutral-300 p-4 dark:border-neutral-700">
+                <Label className="text-xs font-medium text-neutral-500">
+                    Vincular producto existente
+                </Label>
+                {candidates.length === 0 ? (
+                    <p className="mt-2 text-xs text-neutral-500">
+                        No hay productos simple elegibles (mismo sitio, con todos
+                        los atributos configurables y una combinación todavía
+                        libre).
+                    </p>
+                ) : (
+                    <div className="mt-2 flex flex-wrap items-center gap-2">
+                        <select
+                            className={fieldClass}
+                            value={candidateId}
+                            onChange={(event) =>
+                                setCandidateId(Number(event.target.value))
+                            }
+                        >
+                            <option value={0}>Selecciona un producto…</option>
+                            {candidates.map((candidate) => (
+                                <option key={candidate.id} value={candidate.id}>
+                                    {candidate.sku} — {candidate.name} (
+                                    {optionsLabel(candidate.options)})
+                                </option>
+                            ))}
+                        </select>
+                        <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={attach}
+                            disabled={candidateId === 0}
+                        >
+                            <Link2 className="size-4" />
+                            Vincular
+                        </Button>
+                    </div>
+                )}
+                <InputError message={errors.product_id} className="mt-2" />
             </div>
+
+            {variants.length === 0 ? (
+                <EmptyState text="Aún no hay variantes. Selecciona atributos configurables y guarda para generarlas, o vincula un producto existente." />
+            ) : (
+                <div className="overflow-x-auto rounded-lg border border-neutral-200 dark:border-neutral-800">
+                    <table className="w-full min-w-[880px] text-left text-sm">
+                        <thead className="bg-neutral-50 text-xs text-neutral-500 dark:bg-neutral-950">
+                            <tr>
+                                <th className="px-3 py-3 font-medium">
+                                    Opciones
+                                </th>
+                                <th className="px-3 py-3 font-medium">SKU</th>
+                                <th className="px-3 py-3 font-medium">Precio</th>
+                                <th className="px-3 py-3 font-medium">Stock</th>
+                                <th className="px-3 py-3 font-medium">Imagen</th>
+                                <th className="px-3 py-3 font-medium">Estado</th>
+                                <th className="px-3 py-3 text-right font-medium">
+                                    Acciones
+                                </th>
+                            </tr>
+                        </thead>
+                        <tbody className="divide-y divide-neutral-100 dark:divide-neutral-800">
+                            {variants.map((variant, index) => (
+                                <tr key={variant.id}>
+                                    <td className="px-3 py-3">
+                                        <input
+                                            type="hidden"
+                                            name={`variants[${index}][id]`}
+                                            value={variant.id}
+                                        />
+                                        {Object.entries(variant.options).map(
+                                            ([code, value]) => (
+                                                <Badge
+                                                    key={code}
+                                                    variant="outline"
+                                                    className="mr-1"
+                                                >
+                                                    {code}: {value}
+                                                </Badge>
+                                            ),
+                                        )}
+                                    </td>
+                                    <td className="px-3 py-3">
+                                        <Input
+                                            name={`variants[${index}][sku]`}
+                                            value={variant.sku}
+                                            onChange={(event) =>
+                                                onPatch(
+                                                    variant.id,
+                                                    'sku',
+                                                    event.target.value,
+                                                )
+                                            }
+                                            className="min-w-[160px] font-mono text-xs"
+                                        />
+                                    </td>
+                                    <td className="px-3 py-3">
+                                        <Input
+                                            type="number"
+                                            step="0.01"
+                                            min="0"
+                                            name={`variants[${index}][price]`}
+                                            value={variant.price ?? ''}
+                                            onChange={(event) =>
+                                                onPatch(
+                                                    variant.id,
+                                                    'price',
+                                                    event.target.value,
+                                                )
+                                            }
+                                            className="w-28"
+                                        />
+                                    </td>
+                                    <td className="px-3 py-3">
+                                        <Input
+                                            type="number"
+                                            min="0"
+                                            name={`variants[${index}][stock_qty]`}
+                                            value={variant.stock_qty}
+                                            onChange={(event) =>
+                                                onPatch(
+                                                    variant.id,
+                                                    'stock_qty',
+                                                    Number(event.target.value),
+                                                )
+                                            }
+                                            className="w-24"
+                                        />
+                                    </td>
+                                    <td className="px-3 py-3">
+                                        <div className="flex items-center gap-2">
+                                            {variant.media_id != null && (
+                                                <img
+                                                    src={
+                                                        images.find(
+                                                            (image) =>
+                                                                image.id ===
+                                                                variant.media_id,
+                                                        )?.url
+                                                    }
+                                                    alt=""
+                                                    className="size-9 rounded border border-neutral-200 object-cover dark:border-neutral-800"
+                                                />
+                                            )}
+                                            <select
+                                                className={fieldClass}
+                                                name={`variants[${index}][media_id]`}
+                                                value={variant.media_id ?? ''}
+                                                onChange={(event) =>
+                                                    onPatch(
+                                                        variant.id,
+                                                        'media_id',
+                                                        event.target.value === ''
+                                                            ? null
+                                                            : Number(
+                                                                  event.target
+                                                                      .value,
+                                                              ),
+                                                    )
+                                                }
+                                            >
+                                                <option value="">
+                                                    Sin imagen
+                                                </option>
+                                                {images.map((image) => (
+                                                    <option
+                                                        key={image.id}
+                                                        value={image.id}
+                                                    >
+                                                        {image.name}
+                                                    </option>
+                                                ))}
+                                            </select>
+                                        </div>
+                                    </td>
+                                    <td className="px-3 py-3">
+                                        <select
+                                            className={fieldClass}
+                                            name={`variants[${index}][status]`}
+                                            value={variant.status}
+                                            onChange={(event) =>
+                                                onPatch(
+                                                    variant.id,
+                                                    'status',
+                                                    event.target.value,
+                                                )
+                                            }
+                                        >
+                                            <option value="active">Activo</option>
+                                            <option value="inactive">
+                                                Inactivo
+                                            </option>
+                                        </select>
+                                    </td>
+                                    <td className="px-3 py-3">
+                                        <div className="flex items-center justify-end gap-1">
+                                            <a
+                                                href={variant.edit_url}
+                                                className="inline-flex items-center gap-1 rounded-md border border-neutral-200 px-2 py-1 text-xs hover:bg-neutral-50 dark:border-neutral-800 dark:hover:bg-neutral-900"
+                                            >
+                                                <Pencil className="size-3.5" />
+                                                Editar
+                                            </a>
+                                            <Button
+                                                type="button"
+                                                variant="ghost"
+                                                size="sm"
+                                                onClick={() =>
+                                                    detach(variant.id)
+                                                }
+                                            >
+                                                <Trash2 className="size-4" />
+                                                Desvincular
+                                            </Button>
+                                        </div>
+                                    </td>
+                                </tr>
+                            ))}
+                        </tbody>
+                    </table>
+                </div>
+            )}
         </div>
     );
 }

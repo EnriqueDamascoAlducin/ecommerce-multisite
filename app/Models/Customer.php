@@ -17,7 +17,7 @@ class Customer extends Authenticatable
     use HasApiTokens, HasFactory, Notifiable;
 
     /** @var list<string> */
-    protected $fillable = ['website_id', 'name', 'email', 'phone', 'password'];
+    protected $fillable = ['website_id', 'group_id', 'name', 'email', 'phone', 'password'];
 
     /** @var list<string> */
     protected $hidden = ['password', 'remember_token'];
@@ -39,6 +39,14 @@ class Customer extends Authenticatable
     public function website(): BelongsTo
     {
         return $this->belongsTo(Website::class);
+    }
+
+    /**
+     * @return BelongsTo<CustomerGroup, $this>
+     */
+    public function group(): BelongsTo
+    {
+        return $this->belongsTo(CustomerGroup::class, 'group_id');
     }
 
     /**

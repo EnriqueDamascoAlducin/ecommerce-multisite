@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Admin;
 use App\Domain\Catalog\BundleService;
 use App\Domain\Catalog\ConfigurableProductService;
 use App\Domain\Catalog\ProductPricingService;
+use App\Domain\Inventory\StockService;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Admin\StoreProductRequest;
 use App\Http\Requests\Admin\UpdateProductRequest;
@@ -30,6 +31,7 @@ class ProductController extends Controller
         private readonly ProductPricingService $pricing,
         private readonly ConfigurableProductService $configurable,
         private readonly BundleService $bundles,
+        private readonly StockService $stock,
         private readonly AuditLogger $auditLogger,
     ) {}
 
@@ -46,6 +48,7 @@ class ProductController extends Controller
             'stock' => $request->string('stock')->toString(),
             'price_min' => $request->string('price_min')->toString(),
             'price_max' => $request->string('price_max')->toString(),
+            'variants' => $request->string('variants')->toString(),
             'attrs' => $request->input('attrs', []),
         ];
 
@@ -61,11 +64,12 @@ class ProductController extends Controller
             ->get(['id', 'code', 'name', 'type']);
 
         $query = Product::query()
-            ->whereNull('parent_id')
+            ->when($filters['variants'] !== 'include', fn ($query) => $query->whereNull('parent_id'))
             ->with([
                 'prices',
                 'media',
                 'labels',
+                'parent:id,name',
                 'categories:id,name',
                 'storeLinks.store:id,name,code',
                 'inventoryStocks',
@@ -200,7 +204,7 @@ class ProductController extends Controller
             $data['configurable_attributes'] = $product->configurableAttributes->pluck('id');
 
             $data['variants'] = $product->variants()
-                ->with(['prices', 'attributeValues.attribute'])
+                ->with(['prices', 'media', 'inventoryStocks', 'attributeValues.attribute'])
                 ->get()
                 ->map(fn (Product $variant) => [
                     'id' => $variant->id,
@@ -208,10 +212,15 @@ class ProductController extends Controller
                     'name' => $variant->name,
                     'status' => $variant->status,
                     'price' => $variant->basePrice()?->price,
+                    'stock_qty' => $variant->inventoryStocks->sum('physical_qty'),
+                    'media_id' => $variant->primaryMedia('gallery')?->id,
+                    'edit_url' => route('admin.products.edit', $variant),
                     'options' => $variant->attributeValues->mapWithKeys(fn ($av) => [
                         $av->attribute?->code => $av->value,
                     ]),
                 ]);
+
+            $data['variant_candidates'] = $this->configurable->eligibleVariantCandidates($product);
         } elseif ($product->isBundle()) {
             $data['bundle_items'] = $product->bundleItems->map(fn ($item) => [
                 'product_id' => $item->product_id,
@@ -274,6 +283,8 @@ class ProductController extends Controller
                 if (! empty($attributeIds)) {
                     $this->configurable->generateVariants($product, $attributeIds);
                 }
+
+                $this->configurable->applyVariantEdits($product, $data['variants'] ?? [], $request->user());
             }
         });
 
@@ -549,6 +560,7 @@ class ProductController extends Controller
             'name' => $product->name,
             'status' => $product->status,
             'visibility' => $product->visibility,
+            'parent' => $product->parent ? ['id' => $product->parent->id, 'name' => $product->parent->name] : null,
             'price' => match (true) {
                 $product->isConfigurable() => $this->configurable->lowestVariantBasePrice($product),
                 $product->isBundle() => $this->bundles->priceFor($product)['effective_price'],

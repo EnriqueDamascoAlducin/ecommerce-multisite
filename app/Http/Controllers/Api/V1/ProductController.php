@@ -128,7 +128,7 @@ class ProductController extends ApiController
         return $product->variants()
             ->where('status', Product::STATUS_ACTIVE)
             ->whereHas('storeLinks', fn (Builder $q) => $q->where('store_id', $store->id)->where('is_active', true))
-            ->with(['prices' => fn ($q) => $q->where('store_id', $store->id), 'inventoryStocks'])
+            ->with(['prices' => fn ($q) => $q->where('store_id', $store->id), 'inventoryStocks', 'attributeValues.attribute'])
             ->get()
             ->map(fn (Product $variant) => [
                 'id' => $variant->id,
@@ -146,7 +146,7 @@ class ProductController extends ApiController
         return $product->variants()
             ->where('status', Product::STATUS_ACTIVE)
             ->whereHas('storeLinks', fn (Builder $q) => $q->where('store_id', $store->id)->where('is_active', true))
-            ->whereHas('inventoryStocks', fn (Builder $q) => $q->where('available_qty', '>', 0))
+            ->whereHas('inventoryStocks', fn (Builder $q) => $q->whereRaw('(physical_qty - reserved_qty) > 0'))
             ->exists();
     }
 

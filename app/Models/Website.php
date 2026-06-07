@@ -44,6 +44,14 @@ class Website extends Model
         return $this->hasOne(WebsiteHeaderSettings::class);
     }
 
+    /**
+     * @return HasMany<CustomerGroup, $this>
+     */
+    public function customerGroups(): HasMany
+    {
+        return $this->hasMany(CustomerGroup::class);
+    }
+
     public function defaultStore(): ?Store
     {
         return $this->stores()->where('is_default', true)->first()

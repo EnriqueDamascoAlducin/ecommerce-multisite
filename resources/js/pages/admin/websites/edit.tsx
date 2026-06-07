@@ -11,6 +11,7 @@ type EditableWebsite = {
     is_default: boolean;
     sort_order: number;
     logo: { id: number; url: string } | null;
+    favicon: { id: number; url: string } | null;
 };
 
 export default function WebsitesEdit({
@@ -31,7 +32,10 @@ export default function WebsitesEdit({
                 </Button>
             </div>
 
-            <Form {...WebsiteController.update.form(website.id)} className="max-w-xl">
+            <Form
+                {...WebsiteController.update.form(website.id)}
+                className="max-w-xl"
+            >
                 {({ processing, errors }) => (
                     <div className="space-y-6">
                         <WebsiteFields
@@ -43,6 +47,7 @@ export default function WebsitesEdit({
                                 is_default: website.is_default,
                                 sort_order: website.sort_order,
                                 logo: website.logo,
+                                favicon: website.favicon,
                             }}
                         />
                         <Button disabled={processing}>Guardar cambios</Button>

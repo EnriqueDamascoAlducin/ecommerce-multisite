@@ -2,14 +2,20 @@
 
 namespace App\Domain\Catalog;
 
+use App\Domain\Inventory\StockService;
 use App\Models\Attribute;
 use App\Models\AttributeOption;
 use App\Models\Product;
+use App\Models\User;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Str;
 
 class ConfigurableProductService
 {
+    public function __construct(
+        private readonly StockService $stock,
+    ) {}
+
     /**
      * Genera variantes hijas para cada combinación de opciones de los atributos
      * configurables. Omite combinaciones que ya existen (misma firma).
@@ -40,7 +46,7 @@ class ConfigurableProductService
         foreach ($combinations as $combination) {
             $variantSkus = [];
             $variantLabels = [];
-            $variantKeyParts = [];
+            $codeValueMap = [];
 
             foreach ($combination as $option) {
                 if ($option === null) {
@@ -51,7 +57,7 @@ class ConfigurableProductService
 
                 $attr = $attributes->firstWhere('id', $option->attribute_id);
                 if ($attr) {
-                    $variantKeyParts[] = "{$attr->code}:{$option->value}";
+                    $codeValueMap[$attr->code] = $option->value;
                 }
             }
 
@@ -62,9 +68,14 @@ class ConfigurableProductService
                 : $product->name.' '.implode(' ', $variantLabels);
 
             $variantSku = $product->sku.'-'.implode('-', $variantSkus);
-            $variantKey = implode('|', $variantKeyParts);
+            $variantKey = $this->variantKeyFor($codeValueMap);
 
-            if ($product->children()->where('sku', $variantSku)->exists()) {
+            // Saltar si ya existe un hijo con el mismo SKU o la misma combinación
+            // (esta última puede provenir de un producto simple vinculado a mano).
+            if (
+                $product->children()->where('sku', $variantSku)->exists()
+                || $product->children()->where('attributes->_variant_key', $variantKey)->exists()
+            ) {
                 continue;
             }
 
@@ -97,15 +108,192 @@ class ConfigurableProductService
      */
     public function resolveVariant(Product $product, array $selectedOptions): ?Product
     {
-        $keyParts = [];
-        foreach ($selectedOptions as $code => $value) {
-            $keyParts[] = "{$code}:{$value}";
-        }
-        $variantKey = implode('|', $keyParts);
-
         return $product->children()
-            ->where('attributes->_variant_key', $variantKey)
+            ->where('attributes->_variant_key', $this->variantKeyFor($selectedOptions))
             ->first();
+    }
+
+    /**
+     * Firma canónica de una variante a partir de un mapa código=>valor.
+     * Se ordena por código para que la clave sea estable sin importar el
+     * orden de entrada (autogeneración, vinculación o selección en el PDP).
+     *
+     * @param  array<string, string>  $codeValueMap  ej. ['color' => 'rojo', 'talla' => 'm']
+     */
+    public function variantKeyFor(array $codeValueMap): string
+    {
+        ksort($codeValueMap);
+
+        return collect($codeValueMap)
+            ->map(fn (string $value, string $code) => "{$code}:{$value}")
+            ->implode('|');
+    }
+
+    /**
+     * Aplica ediciones inline a las variantes hijas (precio base, SKU, estado,
+     * imagen y stock). Solo afecta hijos del producto dado.
+     *
+     * @param  list<array{id?: int|string, sku?: ?string, price?: int|string|null, status?: ?string, stock_qty?: int|string|null, media_id?: int|string|null}>  $edits
+     */
+    public function applyVariantEdits(Product $product, array $edits, ?User $user = null): void
+    {
+        foreach ($edits as $edit) {
+            $variantId = (int) ($edit['id'] ?? 0);
+
+            if ($variantId === 0) {
+                continue;
+            }
+
+            $variant = $product->children()->whereKey($variantId)->first();
+
+            if (! $variant) {
+                continue;
+            }
+
+            $attributes = [];
+
+            if (isset($edit['sku']) && $edit['sku'] !== '') {
+                $attributes['sku'] = $edit['sku'];
+            }
+
+            if (! empty($edit['status'])) {
+                $attributes['status'] = $edit['status'];
+            }
+
+            if ($attributes !== []) {
+                $variant->update($attributes);
+            }
+
+            if (array_key_exists('price', $edit) && $edit['price'] !== null && $edit['price'] !== '') {
+                $variant->prices()->updateOrCreate(['store_id' => null], ['price' => $edit['price']]);
+            }
+
+            if (array_key_exists('media_id', $edit)) {
+                $mediaId = $edit['media_id'];
+                $variant->syncMediaCollection(($mediaId === null || $mediaId === '') ? [] : [(int) $mediaId], 'gallery');
+            }
+
+            if (array_key_exists('stock_qty', $edit) && $edit['stock_qty'] !== null && $edit['stock_qty'] !== '') {
+                $this->stock->setPhysical($variant, (int) $edit['stock_qty'], null, 'Ajuste desde variante', $user);
+            }
+        }
+    }
+
+    /**
+     * Productos simple que pueden vincularse como variantes del configurable:
+     * simples sin padre, del mismo website, con valor en cada atributo
+     * configurable y cuya combinación de opciones aún no exista.
+     *
+     * @return Collection<int, array{id: int, sku: string, name: string, options: array<string, string>}>
+     */
+    public function eligibleVariantCandidates(Product $product): Collection
+    {
+        $product->loadMissing(['configurableAttributes', 'storeLinks.store', 'children']);
+
+        $configAttributes = $product->configurableAttributes;
+
+        if ($configAttributes->isEmpty()) {
+            return collect();
+        }
+
+        $websiteIds = $product->storeLinks
+            ->map(fn ($link) => $link->store?->website_id)
+            ->filter()
+            ->unique()
+            ->values();
+
+        $query = Product::query()
+            ->where('type', Product::TYPE_SIMPLE)
+            ->whereNull('parent_id')
+            ->whereKeyNot($product->id)
+            ->with(['attributeValues']);
+
+        foreach ($configAttributes as $attribute) {
+            $query->whereHas('attributeValues', fn ($q) => $q->where('attribute_id', $attribute->id));
+        }
+
+        if ($websiteIds->isNotEmpty()) {
+            $query->whereHas('storeLinks.store', fn ($q) => $q->whereIn('website_id', $websiteIds));
+        }
+
+        $existingKeys = $product->children
+            ->map(fn (Product $child) => $child->attributes['_variant_key'] ?? null)
+            ->filter()
+            ->values()
+            ->all();
+
+        return $query->orderBy('name')->limit(300)->get()
+            ->map(function (Product $candidate) use ($configAttributes) {
+                $options = [];
+
+                foreach ($configAttributes as $attribute) {
+                    $value = $candidate->attributeValues->firstWhere('attribute_id', $attribute->id)?->value;
+
+                    if ($value === null) {
+                        return null;
+                    }
+
+                    $options[$attribute->code] = $value;
+                }
+
+                return [
+                    'product' => $candidate,
+                    'key' => $this->variantKeyFor($options),
+                    'options' => $options,
+                ];
+            })
+            ->filter()
+            ->reject(fn (array $row) => in_array($row['key'], $existingKeys, true))
+            ->map(fn (array $row) => [
+                'id' => $row['product']->id,
+                'sku' => $row['product']->sku,
+                'name' => $row['product']->name,
+                'options' => $row['options'],
+            ])
+            ->values();
+    }
+
+    /**
+     * Vincula un producto simple existente como variante del configurable.
+     * Conserva SKU, precio, media y stock propios del hijo.
+     */
+    public function attachExistingVariant(Product $product, Product $child): void
+    {
+        $product->loadMissing('configurableAttributes');
+        $child->loadMissing('attributeValues');
+
+        $options = [];
+
+        foreach ($product->configurableAttributes as $attribute) {
+            $value = $child->attributeValues->firstWhere('attribute_id', $attribute->id)?->value;
+
+            if ($value !== null) {
+                $options[$attribute->code] = $value;
+            }
+        }
+
+        $attributes = $child->attributes ?? [];
+        $attributes['_variant_key'] = $this->variantKeyFor($options);
+
+        $child->update([
+            'parent_id' => $product->id,
+            'attributes' => $attributes,
+        ]);
+    }
+
+    /**
+     * Desvincula una variante: vuelve a ser un producto simple independiente
+     * (sin borrar sus datos).
+     */
+    public function detachVariant(Product $child): void
+    {
+        $attributes = $child->attributes ?? [];
+        unset($attributes['_variant_key']);
+
+        $child->update([
+            'parent_id' => null,
+            'attributes' => $attributes,
+        ]);
     }
 
     /**
@@ -141,15 +329,22 @@ class ConfigurableProductService
         $variants = $product->variants()
             ->where('status', Product::STATUS_ACTIVE)
             ->whereHas('storeLinks', fn ($q) => $q->where('store_id', $storeId)->where('is_active', true))
-            ->with(['prices' => fn ($q) => $q->where('store_id', $storeId)])
+            ->with(['prices' => fn ($q) => $q->whereIn('store_id', [$storeId, null])])
             ->get();
 
         if ($variants->isEmpty()) {
             return null;
         }
 
-        $cheapest = $variants->sortBy(fn (Product $v) => (float) ($v->prices->first()?->price ?? 0))->first();
-        $priceRow = $cheapest?->prices->first();
+        $cheapest = $variants->sortBy(function (Product $v) use ($storeId): float {
+            $storePrice = $v->prices->firstWhere('store_id', $storeId);
+            $priceRow = $storePrice ?? $v->prices->firstWhere('store_id', null);
+
+            return (float) ($priceRow?->effectivePrice() ?? 0);
+        })->first();
+
+        $storePrice = $cheapest->prices->firstWhere('store_id', $storeId);
+        $priceRow = $storePrice ?? $cheapest->prices->firstWhere('store_id', null);
 
         if (! $priceRow) {
             return null;

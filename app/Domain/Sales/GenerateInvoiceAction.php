@@ -26,6 +26,7 @@ class GenerateInvoiceAction
                 'store_id' => $order->store_id,
                 'order_id' => $order->id,
                 'number' => $number,
+                'status' => Invoice::STATUS_PAID,
                 'currency' => $order->currency,
                 'subtotal' => $order->subtotal,
                 'discount' => $order->discount,

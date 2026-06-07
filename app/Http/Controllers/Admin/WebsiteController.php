@@ -52,6 +52,7 @@ class WebsiteController extends Controller
         $website = Website::create($request->safe()->only(['code', 'name', 'is_default', 'sort_order']));
 
         $this->persistLogo($website, $request);
+        $this->persistFavicon($website, $request);
 
         $this->auditLogger->log('website.created', $website, "Website {$website->code} creado");
 
@@ -60,12 +61,15 @@ class WebsiteController extends Controller
 
     public function edit(Website $website): Response
     {
-        $logo = $website->loadMissing('media')->primaryMedia('logo');
+        $website->loadMissing('media');
+        $logo = $website->primaryMedia('logo');
+        $favicon = $website->primaryMedia('favicon');
 
         return Inertia::render('admin/websites/edit', [
             'website' => [
                 ...$website->only(['id', 'code', 'name', 'is_default', 'sort_order']),
                 'logo' => $logo ? ['id' => $logo->id, 'url' => $logo->url] : null,
+                'favicon' => $favicon ? ['id' => $favicon->id, 'url' => $favicon->url] : null,
             ],
             'availableImages' => $this->availableImages(),
         ]);
@@ -76,6 +80,7 @@ class WebsiteController extends Controller
         $website->update($request->safe()->only(['code', 'name', 'is_default', 'sort_order']));
 
         $this->persistLogo($website, $request);
+        $this->persistFavicon($website, $request);
 
         $this->auditLogger->log('website.updated', $website, "Website {$website->code} actualizado");
 
@@ -102,27 +107,43 @@ class WebsiteController extends Controller
      */
     private function persistLogo(Website $website, FormRequest $request): void
     {
-        if ($request->hasFile('logo_file')) {
+        $this->persistSingleMedia($website, $request, 'logo', 'logo_file', 'logo_media_id', 'remove_logo');
+    }
+
+    private function persistFavicon(Website $website, FormRequest $request): void
+    {
+        $this->persistSingleMedia($website, $request, 'favicon', 'favicon_file', 'favicon_media_id', 'remove_favicon');
+    }
+
+    private function persistSingleMedia(
+        Website $website,
+        FormRequest $request,
+        string $collection,
+        string $fileInput,
+        string $mediaInput,
+        string $removeInput,
+    ): void {
+        if ($request->hasFile($fileInput)) {
             $media = $this->mediaService->store(
-                $request->file('logo_file'),
-                'logo',
+                $request->file($fileInput),
+                $collection,
                 Media::VISIBILITY_PUBLIC,
                 $request->user()?->id,
             );
             $this->auditLogger->log('media.uploaded', $media, "Archivo {$media->name} subido");
-            $website->syncMediaCollection([$media->id], 'logo');
+            $website->syncMediaCollection([$media->id], $collection);
 
             return;
         }
 
-        if ($request->filled('logo_media_id')) {
-            $website->syncMediaCollection([(int) $request->input('logo_media_id')], 'logo');
+        if ($request->filled($mediaInput)) {
+            $website->syncMediaCollection([(int) $request->input($mediaInput)], $collection);
 
             return;
         }
 
-        if ($request->boolean('remove_logo')) {
-            $website->syncMediaCollection([], 'logo');
+        if ($request->boolean($removeInput)) {
+            $website->syncMediaCollection([], $collection);
         }
     }
 

@@ -31,6 +31,8 @@ class RolesAndPermissionsSeeder extends Seeder
         'reports' => ['view'],
         'audit' => ['view'],
         'promotions' => ['view', 'create', 'edit', 'delete'],
+        'customers' => ['view', 'create', 'edit', 'delete'],
+        'customer_groups' => ['view', 'create', 'edit', 'delete'],
         'settings' => ['payments', 'shipping', 'stores', 'storefront'],
     ];
 
@@ -50,7 +52,7 @@ class RolesAndPermissionsSeeder extends Seeder
                 $this->filter($permissions, fn (string $p) => str_starts_with($p, 'promotions.')),
                 ['catalog.products.view', 'media.view', 'media.upload'],
             ),
-            'Soporte' => ['sales.orders.view', 'admin.users.view', 'reports.view'],
+            'Soporte' => ['sales.orders.view', 'admin.users.view', 'reports.view', 'customers.view', 'customer_groups.view'],
             'Solo lectura' => $this->filter($permissions, fn (string $p) => str_ends_with($p, '.view')),
         ];
 

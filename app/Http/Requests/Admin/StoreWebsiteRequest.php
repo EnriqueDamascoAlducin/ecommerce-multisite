@@ -24,6 +24,9 @@ class StoreWebsiteRequest extends FormRequest
             'logo_file' => ['nullable', 'image', 'mimes:png,jpg,jpeg,webp,svg', 'max:2048'],
             'logo_media_id' => ['nullable', 'integer', 'exists:media,id'],
             'remove_logo' => ['nullable', 'boolean'],
+            'favicon_file' => ['nullable', 'file', 'mimes:png,jpg,jpeg,webp,svg,ico', 'max:1024'],
+            'favicon_media_id' => ['nullable', 'integer', 'exists:media,id'],
+            'remove_favicon' => ['nullable', 'boolean'],
         ];
     }
 }

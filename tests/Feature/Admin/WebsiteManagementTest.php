@@ -46,6 +46,25 @@ test('choosing an existing media from the library sets it as the logo', function
     expect($website->fresh()->primaryMedia('logo')?->id)->toBe($media->id);
 });
 
+test('choosing an existing media from the library sets it as the favicon', function () {
+    $website = Website::factory()->create();
+    $media = Media::factory()->create([
+        'filename' => 'favicon.png',
+        'name' => 'favicon.png',
+        'mime_type' => 'image/png',
+        'extension' => 'png',
+    ]);
+
+    $this->put(route('admin.websites.update', $website), [
+        'code' => $website->code,
+        'name' => $website->name,
+        'sort_order' => $website->sort_order,
+        'favicon_media_id' => $media->id,
+    ])->assertRedirect();
+
+    expect($website->fresh()->primaryMedia('favicon')?->id)->toBe($media->id);
+});
+
 test('removing the logo empties the logo collection', function () {
     $website = Website::factory()->create();
     $media = Media::factory()->create();
@@ -93,5 +112,52 @@ test('the storefront shares the website logo url', function () {
     $this->get(route('home'))
         ->assertOk()
         ->assertInertia(fn ($page) => $page
-            ->where('store.website.logo_url', $media->fresh()->url));
+            ->where('store.website.logo_url', $media->fresh()->url.'?v='.$media->fresh()->updated_at?->getTimestamp()));
+});
+
+test('the storefront shares the website favicon url', function () {
+    $website = Website::factory()->create(['is_default' => true]);
+    Store::factory()->create([
+        'website_id' => $website->id,
+        'is_default' => true,
+        'is_active' => true,
+    ]);
+    $media = Media::factory()->create([
+        'filename' => 'favicon.png',
+        'name' => 'favicon.png',
+        'mime_type' => 'image/png',
+        'extension' => 'png',
+    ]);
+    $website->syncMediaCollection([$media->id], 'favicon');
+
+    $this->get(route('home'))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->where('store.website.favicon_url', $media->fresh()->url.'?v='.$media->fresh()->updated_at?->getTimestamp()));
+});
+
+test('the pwa manifest uses the website favicon as app icon', function () {
+    $website = Website::factory()->create(['is_default' => true, 'name' => 'Equipos Interferenciales']);
+    Store::factory()->create([
+        'website_id' => $website->id,
+        'is_default' => true,
+        'is_active' => true,
+        'name' => 'Tienda Principal',
+    ]);
+    $media = Media::factory()->create([
+        'filename' => 'favicon.png',
+        'name' => 'favicon.png',
+        'mime_type' => 'image/png',
+        'extension' => 'png',
+    ]);
+    $website->syncMediaCollection([$media->id], 'favicon');
+
+    $this->get(route('storefront.pwa.manifest'))
+        ->assertOk()
+        ->assertHeader('Content-Type', 'application/manifest+json')
+        ->assertJsonPath('name', 'Equipos Interferenciales')
+        ->assertJsonPath('short_name', 'Tienda Principal')
+        ->assertJsonPath('icons.0.src', url($media->fresh()->url.'?v='.$media->fresh()->updated_at?->getTimestamp()))
+        ->assertJsonPath('icons.0.type', 'image/png')
+        ->assertJsonPath('display', 'standalone');
 });

@@ -60,6 +60,8 @@ import audit from '@/routes/admin/audit';
 import catalogRules from '@/routes/admin/catalog-rules';
 import categories from '@/routes/admin/categories';
 import configuration from '@/routes/admin/configuration';
+import customerGroups from '@/routes/admin/customer-groups';
+import customers from '@/routes/admin/customers';
 import headerMenu from '@/routes/admin/header-menu';
 import headerSettings from '@/routes/admin/header-settings';
 import inventory from '@/routes/admin/inventory';
@@ -79,6 +81,9 @@ import storefrontPages from '@/routes/admin/storefront/pages';
 import stores from '@/routes/admin/stores';
 import users from '@/routes/admin/users';
 import websites from '@/routes/admin/websites';
+import { edit as editProfile } from '@/routes/profile';
+import { edit as editSecurity } from '@/routes/security';
+import { edit as editAppearance } from '@/routes/appearance';
 
 type AdminNavItem = {
     title: string;
@@ -186,6 +191,24 @@ const navGroups: AdminNavGroup[] = [
         ],
     },
     {
+        title: 'Clientes',
+        icon: Users,
+        items: [
+            {
+                title: 'Clientes',
+                href: customers.index(),
+                icon: Users,
+                permission: 'customers.view',
+            },
+            {
+                title: 'Grupos de clientes',
+                href: customerGroups.index(),
+                icon: Tags,
+                permission: 'customer_groups.view',
+            },
+        ],
+    },
+    {
         title: 'Contenido',
         icon: Image,
         items: [
@@ -254,6 +277,27 @@ const navGroups: AdminNavGroup[] = [
                 href: storefrontPages.index(),
                 icon: LayoutDashboard,
                 permission: 'settings.storefront',
+            },
+        ],
+    },
+    {
+        title: 'Cuenta',
+        icon: Users,
+        items: [
+            {
+                title: 'Perfil',
+                href: editProfile(),
+                icon: Users,
+            },
+            {
+                title: 'Seguridad',
+                href: editSecurity(),
+                icon: ShieldCheck,
+            },
+            {
+                title: 'Apariencia',
+                href: editAppearance(),
+                icon: LayoutDashboard,
             },
         ],
     },
