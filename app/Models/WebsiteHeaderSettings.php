@@ -40,6 +40,7 @@ class WebsiteHeaderSettings extends Model
         'header_background_color',
         'menu_text_color',
         'menu_background_color',
+        'footer_settings',
     ];
 
     /**
@@ -51,6 +52,7 @@ class WebsiteHeaderSettings extends Model
             'cintillo_enabled' => 'boolean',
             'cintillo_show_on_mobile' => 'boolean',
             'cintillo_blocks' => 'array',
+            'footer_settings' => 'array',
         ];
     }
 

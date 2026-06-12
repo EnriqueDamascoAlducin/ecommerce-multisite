@@ -157,7 +157,7 @@ class ProductController extends Controller
 
     public function edit(Product $product): Response
     {
-        $product->load(['prices', 'storeLinks', 'media', 'categories', 'labels', 'attributeValues', 'parent', 'configurableAttributes', 'bundleItems.product', 'downloadableLinks']);
+        $product->load(['prices', 'storeLinks', 'media', 'categories', 'labels', 'upsellProducts', 'crossSellProducts', 'attributeValues', 'parent', 'configurableAttributes', 'bundleItems.product', 'downloadableLinks']);
 
         $base = $product->basePrice();
 
@@ -193,6 +193,8 @@ class ProductController extends Controller
             'media' => $product->mediaInCollection('gallery')->pluck('id'),
             'categories' => $product->categories->pluck('id'),
             'labels' => $product->labels->pluck('id'),
+            'upsell_products' => $product->upsellProducts->pluck('id'),
+            'cross_sell_products' => $product->crossSellProducts->pluck('id'),
             'attribute_values' => $product->attributeValues->mapWithKeys(function ($value) {
                 $decoded = json_decode((string) $value->value, true);
 
@@ -337,7 +339,39 @@ class ProductController extends Controller
 
         $product->labels()->sync(array_map('intval', $data['labels'] ?? []));
 
+        $this->persistProductLinks($product, Product::LINK_TYPE_UPSELL, $data['upsell_products'] ?? []);
+        $this->persistProductLinks($product, Product::LINK_TYPE_CROSS_SELL, $data['cross_sell_products'] ?? []);
+
         $this->persistAttributeValues($product, $data['attribute_values'] ?? []);
+    }
+
+    /**
+     * @param  list<int|string>  $productIds
+     */
+    private function persistProductLinks(Product $product, string $type, array $productIds): void
+    {
+        $sync = [];
+
+        foreach (array_values($productIds) as $sortOrder => $productId) {
+            $linkedProductId = (int) $productId;
+
+            if ($linkedProductId === 0 || $linkedProductId === $product->id) {
+                continue;
+            }
+
+            $sync[$linkedProductId] = [
+                'type' => $type,
+                'sort_order' => $sortOrder,
+            ];
+        }
+
+        if ($type === Product::LINK_TYPE_UPSELL) {
+            $product->upsellProducts()->sync($sync);
+
+            return;
+        }
+
+        $product->crossSellProducts()->sync($sync);
     }
 
     /**
@@ -737,6 +771,18 @@ class ProductController extends Controller
                     'text_color' => $label->text_color,
                     'background_color' => $label->background_color,
                     'website' => $label->website?->name,
+                ]),
+            'relatedProducts' => Product::query()
+                ->whereNull('parent_id')
+                ->orderBy('name')
+                ->limit(500)
+                ->get(['id', 'sku', 'name', 'status', 'type'])
+                ->map(fn (Product $product) => [
+                    'id' => $product->id,
+                    'sku' => $product->sku,
+                    'name' => $product->name,
+                    'status' => $product->status,
+                    'type' => $product->type,
                 ]),
             'attributes' => Attribute::with('options')->orderBy('sort_order')->orderBy('name')->get()
                 ->map(fn (Attribute $attribute) => [

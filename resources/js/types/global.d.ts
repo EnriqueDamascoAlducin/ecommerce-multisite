@@ -34,6 +34,20 @@ interface StoreMenuItem {
     products: StoreMenuProduct[];
 }
 
+interface StoreFooter {
+    enabled: boolean;
+    description: string;
+    copyright: string;
+    background_color: string | null;
+    text_color: string | null;
+    columns: {
+        title: string;
+        links: { label: string; url: string }[];
+    }[];
+    contact: { label: string; value: string }[];
+    social: { platform: string; url: string }[];
+}
+
 declare module '@inertiajs/core' {
     export interface InertiaConfig {
         sharedPageProps: {
@@ -63,6 +77,7 @@ declare module '@inertiajs/core' {
                         menu_text_color: string | null;
                         menu_background_color: string | null;
                     };
+                    footer: StoreFooter;
                 };
             } | null;
             customer: { id: number; name: string; email: string } | null;

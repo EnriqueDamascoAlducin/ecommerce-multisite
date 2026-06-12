@@ -32,6 +32,37 @@ type SettingsBlock = {
     link?: string | null;
 };
 
+type FooterLink = {
+    label: string;
+    url: string;
+};
+
+type FooterColumn = {
+    title: string;
+    links: FooterLink[];
+};
+
+type FooterContact = {
+    label: string;
+    value: string;
+};
+
+type FooterSocial = {
+    platform: string;
+    url: string;
+};
+
+type FooterSettings = {
+    enabled: boolean;
+    description: string;
+    copyright: string;
+    background_color: string | null;
+    text_color: string | null;
+    columns: FooterColumn[];
+    contact: FooterContact[];
+    social: FooterSocial[];
+};
+
 type Settings = {
     cintillo_enabled: boolean;
     cintillo_show_on_mobile: boolean;
@@ -42,6 +73,7 @@ type Settings = {
     header_background_color: string | null;
     menu_text_color: string | null;
     menu_background_color: string | null;
+    footer: FooterSettings;
 };
 
 type CintilloForm = {
@@ -55,10 +87,14 @@ type CintilloForm = {
     header_background_color: string | null;
     menu_text_color: string | null;
     menu_background_color: string | null;
+    footer: FooterSettings;
 };
 
 const fieldClass =
     'rounded-md border border-neutral-300 bg-white px-3 py-2 text-sm dark:border-neutral-700 dark:bg-neutral-800';
+
+const textareaClass =
+    'min-h-24 rounded-md border border-neutral-300 bg-white px-3 py-2 text-sm dark:border-neutral-700 dark:bg-neutral-800';
 
 export default function HeaderSettingsPage({
     websites,
@@ -81,13 +117,13 @@ export default function HeaderSettingsPage({
 
     return (
         <>
-            <Head title="Cintillo del encabezado" />
+            <Head title="Header y footer" />
 
             <div className="mb-6 flex flex-wrap items-center justify-between gap-4">
                 <div>
-                    <h1 className="text-2xl font-semibold">Cintillo del encabezado</h1>
+                    <h1 className="text-2xl font-semibold">Header y footer</h1>
                     <p className="text-sm text-neutral-500">
-                        Franja superior con bloques de texto o redes (máx 3). Se aplica a todas las tiendas del sitio.
+                        Configura cintillo, colores del encabezado, menú y pie de página por website.
                     </p>
                 </div>
 
@@ -154,6 +190,7 @@ function CintilloForm({
         header_background_color: settings.header_background_color,
         menu_text_color: settings.menu_text_color,
         menu_background_color: settings.menu_background_color,
+        footer: normalizeFooter(settings.footer),
     });
 
     const blocks = data.cintillo_blocks;
@@ -222,6 +259,7 @@ function CintilloForm({
 
     const headerCustom = data.header_text_color !== null;
     const menuCustom = data.menu_text_color !== null;
+    const footerCustom = data.footer.background_color !== null;
 
     const setHeaderCustom = (on: boolean) => {
         setData('header_text_color', on ? '#111827' : null);
@@ -232,6 +270,72 @@ function CintilloForm({
         setData('menu_text_color', on ? '#525252' : null);
         setData('menu_background_color', on ? '#ffffff' : null);
     };
+
+    const setFooter = (footer: FooterSettings) => setData('footer', footer);
+    const patchFooter = (patch: Partial<FooterSettings>) => setFooter({ ...data.footer, ...patch });
+
+    const setFooterCustom = (on: boolean) => {
+        patchFooter({
+            background_color: on ? '#f5f5f5' : null,
+            text_color: on ? '#404040' : null,
+        });
+    };
+
+    const addFooterColumn = () =>
+        patchFooter({
+            columns: [...data.footer.columns, { title: 'Nueva columna', links: [{ label: '', url: '' }] }],
+        });
+
+    const updateFooterColumn = (index: number, patch: Partial<FooterColumn>) =>
+        patchFooter({
+            columns: data.footer.columns.map((column, i) => (i === index ? { ...column, ...patch } : column)),
+        });
+
+    const removeFooterColumn = (index: number) =>
+        patchFooter({ columns: data.footer.columns.filter((_, i) => i !== index) });
+
+    const addFooterLink = (columnIndex: number) =>
+        updateFooterColumn(columnIndex, {
+            links: [...data.footer.columns[columnIndex].links, { label: '', url: '' }],
+        });
+
+    const updateFooterLink = (columnIndex: number, linkIndex: number, patch: Partial<FooterLink>) =>
+        updateFooterColumn(columnIndex, {
+            links: data.footer.columns[columnIndex].links.map((link, i) =>
+                i === linkIndex ? { ...link, ...patch } : link,
+            ),
+        });
+
+    const removeFooterLink = (columnIndex: number, linkIndex: number) =>
+        updateFooterColumn(columnIndex, {
+            links: data.footer.columns[columnIndex].links.filter((_, i) => i !== linkIndex),
+        });
+
+    const addFooterContact = () =>
+        patchFooter({ contact: [...data.footer.contact, { label: '', value: '' }] });
+
+    const updateFooterContact = (index: number, patch: Partial<FooterContact>) =>
+        patchFooter({
+            contact: data.footer.contact.map((row, i) => (i === index ? { ...row, ...patch } : row)),
+        });
+
+    const removeFooterContact = (index: number) =>
+        patchFooter({ contact: data.footer.contact.filter((_, i) => i !== index) });
+
+    const addFooterSocial = () => {
+        const used = data.footer.social.map((social) => social.platform);
+        const platform = platforms.find((candidate) => !used.includes(candidate)) ?? platforms[0];
+
+        patchFooter({ social: [...data.footer.social, { platform, url: '' }] });
+    };
+
+    const updateFooterSocial = (index: number, patch: Partial<FooterSocial>) =>
+        patchFooter({
+            social: data.footer.social.map((social, i) => (i === index ? { ...social, ...patch } : social)),
+        });
+
+    const removeFooterSocial = (index: number) =>
+        patchFooter({ social: data.footer.social.filter((_, i) => i !== index) });
 
     const submit = () => put(headerSettings.update().url);
 
@@ -480,6 +584,211 @@ function CintilloForm({
                 )}
             </div>
 
+            <div className="grid gap-5 border-t border-neutral-200 pt-6 dark:border-neutral-800">
+                <div>
+                    <h2 className="text-sm font-semibold">Información del footer</h2>
+                    <p className="text-xs text-neutral-500">
+                        Edita el texto, columnas de enlaces, contacto, redes y colores del pie de página.
+                    </p>
+                </div>
+
+                <label className="flex items-center gap-2 text-sm font-medium">
+                    <input
+                        type="checkbox"
+                        checked={data.footer.enabled}
+                        onChange={(e) => patchFooter({ enabled: e.target.checked })}
+                        className="size-4 rounded"
+                    />
+                    Mostrar footer personalizado
+                </label>
+
+                <div className="grid gap-4">
+                    <div className="grid gap-2">
+                        <Label>Descripción</Label>
+                        <textarea
+                            value={data.footer.description}
+                            maxLength={500}
+                            onChange={(e) => patchFooter({ description: e.target.value })}
+                            placeholder="Breve descripción de la tienda o empresa"
+                            className={textareaClass}
+                        />
+                        <InputError message={(errors as Record<string, string>)['footer.description']} />
+                    </div>
+
+                    <div className="grid gap-2">
+                        <Label>Copyright</Label>
+                        <Input
+                            value={data.footer.copyright}
+                            maxLength={255}
+                            onChange={(e) => patchFooter({ copyright: e.target.value })}
+                            placeholder="© {year} Mi empresa. Todos los derechos reservados."
+                        />
+                        <p className="text-xs text-neutral-500">Usa {'{year}'} para mostrar el año actual.</p>
+                        <InputError message={(errors as Record<string, string>)['footer.copyright']} />
+                    </div>
+                </div>
+
+                <label className="flex items-center gap-2 text-sm">
+                    <input
+                        type="checkbox"
+                        checked={footerCustom}
+                        onChange={(e) => setFooterCustom(e.target.checked)}
+                        className="size-4 rounded"
+                    />
+                    Personalizar colores del footer
+                </label>
+                {footerCustom && (
+                    <div className="grid gap-4 sm:grid-cols-2">
+                        <ColorField
+                            label="Fondo del footer"
+                            value={data.footer.background_color ?? '#f5f5f5'}
+                            onChange={(value) => patchFooter({ background_color: value })}
+                            error={(errors as Record<string, string>)['footer.background_color']}
+                        />
+                        <ColorField
+                            label="Texto del footer"
+                            value={data.footer.text_color ?? '#404040'}
+                            onChange={(value) => patchFooter({ text_color: value })}
+                            error={(errors as Record<string, string>)['footer.text_color']}
+                        />
+                    </div>
+                )}
+
+                <FooterListHeader
+                    title="Columnas de enlaces"
+                    actionLabel="Agregar columna"
+                    disabled={data.footer.columns.length >= 4}
+                    onAdd={addFooterColumn}
+                />
+                <div className="grid gap-3">
+                    {data.footer.columns.length === 0 && (
+                        <p className="text-sm text-neutral-500">Sin columnas. Puedes agregar hasta 4 grupos de links.</p>
+                    )}
+                    {data.footer.columns.map((column, columnIndex) => (
+                        <div
+                            key={columnIndex}
+                            className="grid gap-3 rounded-md border border-neutral-200 p-4 dark:border-neutral-800"
+                        >
+                            <div className="flex items-center gap-2">
+                                <span className="text-xs font-medium text-neutral-500">
+                                    Columna {columnIndex + 1}
+                                </span>
+                                <Button
+                                    type="button"
+                                    variant="ghost"
+                                    size="icon"
+                                    className="ml-auto"
+                                    onClick={() => removeFooterColumn(columnIndex)}
+                                >
+                                    <Trash2 className="size-4" />
+                                </Button>
+                            </div>
+                            <Input
+                                value={column.title}
+                                maxLength={80}
+                                onChange={(e) => updateFooterColumn(columnIndex, { title: e.target.value })}
+                                placeholder="Compañía"
+                            />
+                            <div className="grid gap-2">
+                                {column.links.map((link, linkIndex) => (
+                                    <div key={linkIndex} className="grid gap-2 sm:grid-cols-[1fr_1fr_auto]">
+                                        <Input
+                                            value={link.label}
+                                            maxLength={80}
+                                            onChange={(e) =>
+                                                updateFooterLink(columnIndex, linkIndex, { label: e.target.value })
+                                            }
+                                            placeholder="Etiqueta"
+                                        />
+                                        <Input
+                                            value={link.url}
+                                            onChange={(e) =>
+                                                updateFooterLink(columnIndex, linkIndex, { url: e.target.value })
+                                            }
+                                            placeholder="/nosotros o https://..."
+                                        />
+                                        <Button
+                                            type="button"
+                                            variant="ghost"
+                                            size="icon"
+                                            onClick={() => removeFooterLink(columnIndex, linkIndex)}
+                                        >
+                                            <Trash2 className="size-4" />
+                                        </Button>
+                                    </div>
+                                ))}
+                                <Button
+                                    type="button"
+                                    variant="outline"
+                                    size="sm"
+                                    className="w-fit"
+                                    onClick={() => addFooterLink(columnIndex)}
+                                    disabled={column.links.length >= 8}
+                                >
+                                    <Plus className="size-4" /> Agregar link
+                                </Button>
+                            </div>
+                        </div>
+                    ))}
+                </div>
+
+                <FooterListHeader title="Contacto" actionLabel="Agregar dato" onAdd={addFooterContact} />
+                <div className="grid gap-2">
+                    {data.footer.contact.map((row, index) => (
+                        <div key={index} className="grid gap-2 sm:grid-cols-[1fr_1fr_auto]">
+                            <Input
+                                value={row.label}
+                                maxLength={80}
+                                onChange={(e) => updateFooterContact(index, { label: e.target.value })}
+                                placeholder="Teléfono"
+                            />
+                            <Input
+                                value={row.value}
+                                maxLength={160}
+                                onChange={(e) => updateFooterContact(index, { value: e.target.value })}
+                                placeholder="+52 55 1234 5678"
+                            />
+                            <Button type="button" variant="ghost" size="icon" onClick={() => removeFooterContact(index)}>
+                                <Trash2 className="size-4" />
+                            </Button>
+                        </div>
+                    ))}
+                    {data.footer.contact.length === 0 && (
+                        <p className="text-sm text-neutral-500">Sin datos de contacto visibles.</p>
+                    )}
+                </div>
+
+                <FooterListHeader title="Redes sociales" actionLabel="Agregar red" onAdd={addFooterSocial} />
+                <div className="grid gap-2">
+                    {data.footer.social.map((social, index) => (
+                        <div key={index} className="grid gap-2 sm:grid-cols-[10rem_1fr_auto]">
+                            <select
+                                value={social.platform}
+                                onChange={(e) => updateFooterSocial(index, { platform: e.target.value })}
+                                className={`${fieldClass} capitalize`}
+                            >
+                                {platforms.map((platform) => (
+                                    <option key={platform} value={platform} className="capitalize">
+                                        {platform}
+                                    </option>
+                                ))}
+                            </select>
+                            <Input
+                                value={social.url}
+                                onChange={(e) => updateFooterSocial(index, { url: e.target.value })}
+                                placeholder="https://..."
+                            />
+                            <Button type="button" variant="ghost" size="icon" onClick={() => removeFooterSocial(index)}>
+                                <Trash2 className="size-4" />
+                            </Button>
+                        </div>
+                    ))}
+                    {data.footer.social.length === 0 && (
+                        <p className="text-sm text-neutral-500">Sin redes sociales visibles en el footer.</p>
+                    )}
+                </div>
+            </div>
+
             <div className="flex justify-end">
                 <Button onClick={submit} disabled={processing}>
                     Guardar
@@ -515,4 +824,50 @@ function ColorField({
             <InputError message={error} />
         </div>
     );
+}
+
+function FooterListHeader({
+    title,
+    actionLabel,
+    disabled = false,
+    onAdd,
+}: {
+    title: string;
+    actionLabel: string;
+    disabled?: boolean;
+    onAdd: () => void;
+}) {
+    return (
+        <div className="flex items-center justify-between gap-3">
+            <Label>{title}</Label>
+            <Button type="button" variant="outline" size="sm" onClick={onAdd} disabled={disabled}>
+                <Plus className="size-4" /> {actionLabel}
+            </Button>
+        </div>
+    );
+}
+
+function normalizeFooter(footer?: FooterSettings | null): FooterSettings {
+    return {
+        enabled: footer?.enabled ?? true,
+        description: footer?.description ?? '',
+        copyright: footer?.copyright ?? '© {year} Mi tienda. Todos los derechos reservados.',
+        background_color: footer?.background_color ?? null,
+        text_color: footer?.text_color ?? null,
+        columns: (footer?.columns ?? []).map((column) => ({
+            title: column.title ?? '',
+            links: (column.links ?? []).map((link) => ({
+                label: link.label ?? '',
+                url: link.url ?? '',
+            })),
+        })),
+        contact: (footer?.contact ?? []).map((row) => ({
+            label: row.label ?? '',
+            value: row.value ?? '',
+        })),
+        social: (footer?.social ?? []).map((social) => ({
+            platform: social.platform ?? 'facebook',
+            url: social.url ?? '',
+        })),
+    };
 }

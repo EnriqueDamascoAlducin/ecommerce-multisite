@@ -121,7 +121,7 @@ class HandleInertiaRequests extends Middleware
      * Configuración del encabezado por website (cintillo). Se consulta directo
      * para no disparar lazy loading sobre la relación del website.
      *
-     * @return array{cintillo: array{enabled: bool, show_on_mobile: bool, blocks: list<array<string, mixed>>, text_color: string, background_color: string}, colors: array{header_text_color: string|null, header_background_color: string|null, menu_text_color: string|null, menu_background_color: string|null}}
+     * @return array{cintillo: array{enabled: bool, show_on_mobile: bool, blocks: list<array<string, mixed>>, text_color: string, background_color: string}, colors: array{header_text_color: string|null, header_background_color: string|null, menu_text_color: string|null, menu_background_color: string|null}, footer: array<string, mixed>}
      */
     private function headerConfig(Website $website): array
     {
@@ -141,6 +141,37 @@ class HandleInertiaRequests extends Middleware
                 'menu_text_color' => $settings?->menu_text_color,
                 'menu_background_color' => $settings?->menu_background_color,
             ],
+            'footer' => $this->footerConfig($settings?->footer_settings, $website),
+        ];
+    }
+
+    /**
+     * @param  array<string, mixed>|null  $footer
+     * @return array{enabled: bool, description: string, copyright: string, background_color: string|null, text_color: string|null, columns: list<array<string, mixed>>, contact: list<array<string, string>>, social: list<array<string, string>>}
+     */
+    private function footerConfig(?array $footer, Website $website): array
+    {
+        $footer = [
+            'enabled' => true,
+            'description' => '',
+            'copyright' => '© {year} '.$website->name.'. Todos los derechos reservados.',
+            'background_color' => null,
+            'text_color' => null,
+            'columns' => [],
+            'contact' => [],
+            'social' => [],
+            ...($footer ?? []),
+        ];
+
+        return [
+            'enabled' => (bool) $footer['enabled'],
+            'description' => (string) $footer['description'],
+            'copyright' => (string) $footer['copyright'],
+            'background_color' => $footer['background_color'],
+            'text_color' => $footer['text_color'],
+            'columns' => is_array($footer['columns']) ? $footer['columns'] : [],
+            'contact' => is_array($footer['contact']) ? $footer['contact'] : [],
+            'social' => is_array($footer['social']) ? $footer['social'] : [],
         ];
     }
 

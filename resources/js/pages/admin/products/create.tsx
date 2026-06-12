@@ -30,6 +30,7 @@ export default function ProductsCreate({
     attributes,
     configurableAttributes,
     componentProducts,
+    relatedProducts,
     labels,
 }: {
     stores: { id: number; label: string }[];
@@ -38,6 +39,13 @@ export default function ProductsCreate({
     attributes: AttributeDef[];
     configurableAttributes?: ConfigurableAttrDef[];
     componentProducts?: { id: number; sku: string; name: string }[];
+    relatedProducts?: {
+        id: number;
+        sku: string;
+        name: string;
+        status: string;
+        type: string;
+    }[];
     labels?: {
         id: number;
         text: string;
@@ -104,6 +112,7 @@ export default function ProductsCreate({
                             attributes={attributes}
                             configurableAttributes={configurableAttributes}
                             componentProducts={componentProducts}
+                            relatedProducts={relatedProducts}
                             labels={labels}
                         />
                     </div>

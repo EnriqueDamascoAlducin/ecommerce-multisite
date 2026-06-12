@@ -173,6 +173,53 @@ test('an admin can save custom header and menu colors', function () {
     ]);
 });
 
+test('an admin can save footer information', function () {
+    $this->put(route('admin.header-settings.update'), headerPayload([
+        'website_id' => $this->website->id,
+        'footer' => [
+            'enabled' => true,
+            'description' => 'Equipo medico profesional para clinicas.',
+            'copyright' => '© {year} Equipos Interferenciales.',
+            'background_color' => '#f5f5f5',
+            'text_color' => '#404040',
+            'columns' => [
+                [
+                    'title' => 'Compañía',
+                    'links' => [
+                        ['label' => 'Nosotros', 'url' => '/nosotros'],
+                        ['label' => '', 'url' => '/vacio'],
+                    ],
+                ],
+            ],
+            'contact' => [
+                ['label' => 'Ventas', 'value' => 'ventas@example.com'],
+                ['label' => 'Vacío', 'value' => ''],
+            ],
+            'social' => [
+                ['platform' => 'facebook', 'url' => 'https://facebook.com/equipos'],
+            ],
+        ],
+    ]))->assertRedirect();
+
+    $settings = WebsiteHeaderSettings::firstWhere('website_id', $this->website->id);
+
+    expect($settings->footer_settings['description'])->toBe('Equipo medico profesional para clinicas.')
+        ->and($settings->footer_settings['background_color'])->toBe('#f5f5f5')
+        ->and($settings->footer_settings['columns'][0]['title'])->toBe('Compañía')
+        ->and($settings->footer_settings['columns'][0]['links'])->toHaveCount(1)
+        ->and($settings->footer_settings['contact'])->toHaveCount(1)
+        ->and($settings->footer_settings['social'][0]['platform'])->toBe('facebook');
+});
+
+test('an invalid footer color is rejected', function () {
+    $this->put(route('admin.header-settings.update'), headerPayload([
+        'website_id' => $this->website->id,
+        'footer' => [
+            'background_color' => 'gray',
+        ],
+    ]))->assertSessionHasErrors('footer.background_color');
+});
+
 test('an invalid header color is rejected', function () {
     $this->put(route('admin.header-settings.update'), headerPayload([
         'website_id' => $this->website->id,

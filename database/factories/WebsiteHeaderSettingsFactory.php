@@ -25,6 +25,16 @@ class WebsiteHeaderSettingsFactory extends Factory
             ],
             'cintillo_text_color' => '#ffffff',
             'cintillo_background_color' => '#111827',
+            'footer_settings' => [
+                'enabled' => true,
+                'description' => 'Tienda en línea con atención personalizada.',
+                'copyright' => '© {year} Mi tienda. Todos los derechos reservados.',
+                'background_color' => null,
+                'text_color' => null,
+                'columns' => [],
+                'contact' => [],
+                'social' => [],
+            ],
         ];
     }
 

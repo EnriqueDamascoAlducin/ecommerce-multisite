@@ -82,6 +82,34 @@ test('categoryProducts returns products for a category', function () {
     expect($products[0]['name'])->toBe($product->name);
 });
 
+test('categoryProducts marks products without managed stock as in stock', function () {
+    $store = Store::factory()->create();
+    $category = Category::factory()->create(['website_id' => $store->website_id]);
+    $product = Product::factory()->create();
+    $product->categories()->attach($category->id);
+    $product->storeLinks()->create(['store_id' => $store->id, 'is_active' => true]);
+
+    $products = $this->service->categoryProducts($category->id, $store);
+
+    expect($products)->toHaveCount(1);
+    expect($products[0]['in_stock'])->toBeTrue();
+});
+
+test('categoryProducts falls back to base price when no store price exists', function () {
+    $store = Store::factory()->create();
+    $category = Category::factory()->create(['website_id' => $store->website_id]);
+    $product = Product::factory()->create();
+    $product->categories()->attach($category->id);
+    $product->storeLinks()->create(['store_id' => $store->id, 'is_active' => true]);
+    $product->prices()->create(['store_id' => null, 'price' => 250]);
+
+    $products = $this->service->categoryProducts($category->id, $store);
+
+    expect($products)->toHaveCount(1);
+    expect($products[0]['price']['price'])->toBe('250.00');
+    expect($products[0]['price']['effective_price'])->toBe('250.00');
+});
+
 test('buildTree resolves page menu item urls', function () {
     $store = Store::factory()->create();
     $page = StorefrontPage::factory()->create([

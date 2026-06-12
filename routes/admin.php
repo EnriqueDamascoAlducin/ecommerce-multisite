@@ -253,10 +253,6 @@ Route::middleware(['auth', 'verified'])->prefix('admin')->name('admin.')->group(
         Route::get('storefront/pages/{page}/edit', [StorefrontPageController::class, 'edit'])->name('storefront.pages.edit');
         Route::put('storefront/pages/{page}', [StorefrontPageController::class, 'update'])->name('storefront.pages.update');
         Route::delete('storefront/pages/{page}', [StorefrontPageController::class, 'destroy'])->name('storefront.pages.destroy');
-        Route::post('storefront/pages/{page}/sections', [StorefrontPageController::class, 'storeSection'])->name('storefront.pages.sections.store');
-        Route::put('storefront/pages/{page}/sections/{section}', [StorefrontPageController::class, 'updateSection'])->name('storefront.pages.sections.update');
-        Route::delete('storefront/pages/{page}/sections/{section}', [StorefrontPageController::class, 'destroySection'])->name('storefront.pages.sections.destroy');
-        Route::post('storefront/pages/{page}/sections/reorder', [StorefrontPageController::class, 'reorderSections'])->name('storefront.pages.sections.reorder');
     });
 
     // Biblioteca de medios

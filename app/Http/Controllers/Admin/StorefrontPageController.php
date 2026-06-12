@@ -2,19 +2,20 @@
 
 namespace App\Http\Controllers\Admin;
 
+use App\Domain\Storefront\StorefrontHomeTemplate;
 use App\Domain\Storefront\StorefrontPagePresenter;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Admin\StorefrontPageRequest;
-use App\Http\Requests\Admin\StorefrontPageSectionRequest;
 use App\Models\Media;
 use App\Models\Product;
 use App\Models\Store;
 use App\Models\StorefrontPage;
 use App\Models\StorefrontPageSection;
 use App\Services\AuditLogger;
-use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Validation\Rule;
+use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -61,6 +62,8 @@ class StorefrontPageController extends Controller
             'is_published' => $validated['is_published'] ?? false,
         ]);
 
+        $this->seedFromTemplate($page);
+
         $this->auditLogger->log('storefront_page.created', $page, "Pagina {$page->title} creada");
 
         return to_route('admin.storefront.pages.edit', $page)
@@ -69,19 +72,22 @@ class StorefrontPageController extends Controller
 
     public function edit(StorefrontPage $page): Response
     {
+        if ($page->slug === StorefrontPage::HOME) {
+            $this->ensureTemplateSections($page);
+        }
+
         $page->load('store.website', 'sections');
 
         return Inertia::render('admin/storefront/pages/edit', [
             'stores' => $this->storeOptions(),
             'currentStoreId' => $page->store_id,
             'page' => [
-                ...$this->presenter->present($page, false),
+                ...$this->presenter->present($page),
                 'store_id' => $page->store_id,
                 'is_published' => $page->is_published,
             ],
-            'sectionTypes' => StorefrontPageSection::TYPES,
             'media' => $this->mediaOptions(),
-            'productOptions' => $this->productOptions($page->store_id),
+            'products' => $this->productOptions($page->store),
             'publicUrl' => $this->publicUrl($page),
             'isHome' => $page->slug === StorefrontPage::HOME,
         ]);
@@ -90,6 +96,9 @@ class StorefrontPageController extends Controller
     public function update(StorefrontPageRequest $request, StorefrontPage $page): RedirectResponse
     {
         $validated = $request->validated();
+        $sections = $request->has('sections')
+            ? $this->validateSections($request, $page)
+            : [];
 
         $payload = [
             'title' => $validated['title'],
@@ -101,6 +110,16 @@ class StorefrontPageController extends Controller
         }
 
         $page->update($payload);
+
+        if ($page->slug === StorefrontPage::HOME) {
+            $this->persistHomeSections($page, $sections);
+        } else {
+            foreach ($sections as $data) {
+                $page->sections()
+                    ->whereKey($data['id'])
+                    ->update(['settings' => $data['settings'] ?? []]);
+            }
+        }
 
         $this->auditLogger->log('storefront_page.updated', $page, "Pagina {$page->title} actualizada");
 
@@ -147,70 +166,6 @@ class StorefrontPageController extends Controller
         return back()->with('success', 'Home actualizado.');
     }
 
-    public function storeSection(StorefrontPageSectionRequest $request, StorefrontPage $page): RedirectResponse
-    {
-        $validated = $request->validated();
-        abort_unless((int) $validated['store_id'] === $page->store_id, 404);
-
-        $section = $page->sections()->create([
-            'type' => $validated['type'],
-            'is_active' => $validated['is_active'] ?? true,
-            'settings' => $validated['settings'] ?? [],
-            'sort_order' => (int) ($page->sections()->max('sort_order') ?? -1) + 1,
-        ]);
-
-        $this->auditLogger->log('storefront_section.created', $section, "Seccion {$section->type} creada");
-
-        return back()->with('success', 'Seccion creada.');
-    }
-
-    public function updateSection(StorefrontPageSectionRequest $request, StorefrontPage $page, StorefrontPageSection $section): RedirectResponse
-    {
-        abort_unless($section->storefront_page_id === $page->id, 404);
-
-        $validated = $request->validated();
-        abort_unless((int) $validated['store_id'] === $page->store_id, 404);
-
-        $section->update([
-            'type' => $validated['type'],
-            'is_active' => $validated['is_active'] ?? false,
-            'settings' => $validated['settings'] ?? [],
-        ]);
-
-        $this->auditLogger->log('storefront_section.updated', $section, "Seccion {$section->type} actualizada");
-
-        return back()->with('success', 'Seccion actualizada.');
-    }
-
-    public function destroySection(StorefrontPage $page, StorefrontPageSection $section): RedirectResponse
-    {
-        abort_unless($section->storefront_page_id === $page->id, 404);
-
-        $section->delete();
-
-        $this->auditLogger->log('storefront_section.deleted', null, "Seccion {$section->type} eliminada");
-
-        return back()->with('success', 'Seccion eliminada.');
-    }
-
-    public function reorderSections(Request $request, StorefrontPage $page): RedirectResponse
-    {
-        $validated = $request->validate([
-            'sections' => ['required', 'array'],
-            'sections.*.id' => ['required', 'integer', 'exists:storefront_page_sections,id'],
-            'sections.*.sort_order' => ['required', 'integer', 'min:0'],
-        ]);
-
-        foreach ($validated['sections'] as $row) {
-            StorefrontPageSection::query()
-                ->where('storefront_page_id', $page->id)
-                ->whereKey($row['id'])
-                ->update(['sort_order' => $row['sort_order']]);
-        }
-
-        return back()->with('success', 'Secciones reordenadas.');
-    }
-
     private function resolveStore(int $storeId): Store
     {
         return ($storeId ? Store::find($storeId) : null)
@@ -219,10 +174,269 @@ class StorefrontPageController extends Controller
 
     private function homePage(Store $store): StorefrontPage
     {
-        return StorefrontPage::firstOrCreate(
+        $page = StorefrontPage::firstOrCreate(
             ['store_id' => $store->id, 'slug' => StorefrontPage::HOME],
             ['title' => 'Home', 'is_published' => true],
-        )->load('sections');
+        );
+
+        $this->ensureTemplateSections($page);
+
+        return $page->load('sections');
+    }
+
+    /**
+     * @return list<array{id?: int, type?: string, settings?: array<string, mixed>}>
+     */
+    private function validateSections(Request $request, StorefrontPage $page): array
+    {
+        $validated = $request->validate([
+            'sections' => ['required', 'array'],
+            'sections.*.id' => [
+                'nullable',
+                'integer',
+                Rule::exists('storefront_page_sections', 'id')
+                    ->where('storefront_page_id', $page->id),
+            ],
+            'sections.*.type' => [
+                'required_without:sections.*.id',
+                'nullable',
+                'string',
+                Rule::in($page->slug === StorefrontPage::HOME
+                    ? StorefrontPageSection::TYPES
+                    : StorefrontPageSection::EXTRA_TYPES),
+            ],
+            'sections.*.settings' => ['nullable', 'array'],
+            'sections.*.settings.background_color' => ['nullable', 'hex_color'],
+            'sections.*.settings.content_width' => ['nullable', Rule::in(['container', 'full'])],
+            'sections.*.settings.eyebrow' => ['nullable', 'string', 'max:255'],
+            'sections.*.settings.title' => ['nullable', 'string', 'max:255'],
+            'sections.*.settings.subtitle' => ['nullable', 'string'],
+            'sections.*.settings.text' => ['nullable', 'string'],
+            'sections.*.settings.phone' => ['nullable', 'string', 'max:50'],
+            'sections.*.settings.email' => ['nullable', 'email', 'max:255'],
+            'sections.*.settings.media_id' => ['nullable', 'integer', 'exists:media,id'],
+            'sections.*.settings.slides' => ['nullable', 'array', 'max:5'],
+            'sections.*.settings.slides.*.media_id' => ['nullable', 'integer', 'exists:media,id'],
+            'sections.*.settings.slides.*.eyebrow' => ['nullable', 'string', 'max:255'],
+            'sections.*.settings.slides.*.title' => ['nullable', 'string', 'max:255'],
+            'sections.*.settings.slides.*.subtitle' => ['nullable', 'string'],
+            'sections.*.settings.slides.*.buttons' => ['nullable', 'array', 'max:2'],
+            'sections.*.settings.slides.*.buttons.*.label' => ['nullable', 'string', 'max:255'],
+            'sections.*.settings.slides.*.buttons.*.url' => ['nullable', 'string', 'max:255'],
+            'sections.*.settings.items' => ['nullable', 'array'],
+            'sections.*.settings.items.*.title' => ['nullable', 'string', 'max:255'],
+            'sections.*.settings.items.*.text' => ['nullable', 'string'],
+            'sections.*.settings.items.*.icon' => ['nullable', 'string', 'max:50'],
+            'sections.*.settings.items.*.link' => ['nullable', 'string', 'max:255'],
+            'sections.*.settings.items.*.highlighted' => ['boolean'],
+            'sections.*.settings.items.*.wide' => ['boolean'],
+            'sections.*.settings.items.*.media_id' => ['nullable', 'integer', 'exists:media,id'],
+            'sections.*.settings.items.*.cta_label' => ['nullable', 'string', 'max:255'],
+            'sections.*.settings.items.*.cta_url' => ['nullable', 'string', 'max:255'],
+            'sections.*.settings.buttons' => ['nullable', 'array'],
+            'sections.*.settings.buttons.*.label' => ['nullable', 'string', 'max:255'],
+            'sections.*.settings.buttons.*.url' => ['nullable', 'string', 'max:255'],
+            'sections.*.settings.brands' => ['nullable', 'array'],
+            'sections.*.settings.brands.*' => ['nullable', 'string', 'max:255'],
+            'sections.*.settings.interest_areas' => ['nullable', 'array'],
+            'sections.*.settings.interest_areas.*' => ['nullable', 'string', 'max:255'],
+            'sections.*.settings.button_label' => ['nullable', 'string', 'max:255'],
+            'sections.*.settings.button_url' => ['nullable', 'string', 'max:255'],
+            'sections.*.settings.image_position' => ['nullable', Rule::in(['left', 'right', 'background'])],
+            'sections.*.settings.product_ids' => ['nullable', 'array', 'max:12'],
+            'sections.*.settings.product_ids.*' => ['integer', 'distinct:strict'],
+            'sections.*.settings.display_type' => ['nullable', Rule::in(['grid', 'carousel'])],
+            'sections.*.settings.columns' => ['nullable', Rule::in([3, 4, '3', '4'])],
+        ]);
+
+        if ($page->slug !== StorefrontPage::HOME) {
+            return $validated['sections'];
+        }
+
+        $this->validateHomeSections($page, $validated['sections']);
+
+        return collect($validated['sections'])
+            ->values()
+            ->map(fn (array $section, int $index) => [
+                ...$section,
+                'settings' => [
+                    ...($section['settings'] ?? []),
+                    'display_order' => $index,
+                ],
+            ])
+            ->all();
+    }
+
+    /**
+     * @param  list<array{id?: int, type?: string, settings?: array<string, mixed>}>  $sections
+     */
+    private function validateHomeSections(StorefrontPage $page, array $sections): void
+    {
+        $existingSections = $page->sections()->get()->keyBy('id');
+        $submittedExistingIds = collect($sections)
+            ->pluck('id')
+            ->filter()
+            ->map(fn (mixed $id) => (int) $id)
+            ->values();
+
+        if ($submittedExistingIds->duplicates()->isNotEmpty()) {
+            throw ValidationException::withMessages([
+                'sections.1.id' => 'La seccion esta duplicada.',
+            ]);
+        }
+
+        $submittedFixedTypes = collect($sections)
+            ->map(function (array $section) use ($existingSections): ?string {
+                if (isset($section['id'])) {
+                    return $existingSections->get($section['id'])?->type;
+                }
+
+                return $section['type'] ?? null;
+            })
+            ->filter(fn (?string $type) => in_array($type, StorefrontPageSection::FIXED_TYPES, true))
+            ->values();
+
+        foreach ($sections as $sectionIndex => $section) {
+            if (! isset($section['id']) && in_array($section['type'] ?? null, StorefrontPageSection::FIXED_TYPES, true)) {
+                throw ValidationException::withMessages([
+                    "sections.{$sectionIndex}.type" => 'Las secciones fijas no se pueden crear manualmente.',
+                ]);
+            }
+        }
+
+        foreach (StorefrontPageSection::FIXED_TYPES as $fixedType) {
+            if (! $submittedFixedTypes->contains($fixedType)) {
+                throw ValidationException::withMessages([
+                    'sections' => "La seccion fija {$fixedType} no se puede eliminar.",
+                ]);
+            }
+        }
+
+        foreach ($sections as $sectionIndex => $section) {
+            $type = isset($section['id'])
+                ? $existingSections->get($section['id'])?->type
+                : ($section['type'] ?? null);
+
+            if (! in_array($type, StorefrontPageSection::EXTRA_TYPES, true)) {
+                continue;
+            }
+
+            if ($type === StorefrontPageSection::TYPE_RECOMMENDED_PRODUCTS) {
+                $this->validateRecommendedProducts($page, $section, $sectionIndex);
+            }
+        }
+    }
+
+    /**
+     * @param  array{id?: int, type?: string, settings?: array<string, mixed>}  $section
+     */
+    private function validateRecommendedProducts(StorefrontPage $page, array $section, int $sectionIndex): void
+    {
+        $productIds = collect($section['settings']['product_ids'] ?? [])
+            ->filter(fn (mixed $id) => is_numeric($id))
+            ->map(fn (mixed $id) => (int) $id)
+            ->values();
+
+        if ($productIds->isEmpty()) {
+            return;
+        }
+
+        $validCount = Product::query()
+            ->whereIn('id', $productIds)
+            ->where('status', Product::STATUS_ACTIVE)
+            ->whereIn('visibility', ['both', 'catalog'])
+            ->whereHas('storeLinks', fn ($query) => $query
+                ->where('store_id', $page->store_id)
+                ->where('is_active', true))
+            ->count();
+
+        if ($validCount !== $productIds->count()) {
+            throw ValidationException::withMessages([
+                "sections.{$sectionIndex}.settings.product_ids" => 'Selecciona solo productos activos de esta tienda.',
+            ]);
+        }
+    }
+
+    /**
+     * @param  list<array{id?: int, type?: string, settings?: array<string, mixed>}>  $sections
+     */
+    private function persistHomeSections(StorefrontPage $page, array $sections): void
+    {
+        $existingSections = $page->sections()->get()->keyBy('id');
+        $submittedExistingIds = collect($sections)
+            ->pluck('id')
+            ->filter()
+            ->map(fn (mixed $id) => (int) $id);
+
+        $page->sections()
+            ->whereIn('type', StorefrontPageSection::EXTRA_TYPES)
+            ->whereNotIn('id', $submittedExistingIds)
+            ->delete();
+
+        foreach ($sections as $data) {
+            if (isset($data['id'])) {
+                $section = $existingSections->get($data['id']);
+
+                if (! $section) {
+                    continue;
+                }
+
+                $section->update(['settings' => $data['settings'] ?? []]);
+
+                continue;
+            }
+
+            $type = $data['type'] ?? null;
+
+            if (! in_array($type, StorefrontPageSection::EXTRA_TYPES, true)) {
+                continue;
+            }
+
+            $page->sections()->create([
+                'type' => $type,
+                'settings' => $data['settings'] ?? [],
+            ]);
+        }
+    }
+
+    private function seedFromTemplate(StorefrontPage $page): void
+    {
+        if ($page->sections()->exists()) {
+            return;
+        }
+
+        $this->ensureTemplateSections($page);
+    }
+
+    private function ensureTemplateSections(StorefrontPage $page): void
+    {
+        $template = $this->resolveTemplate($page->slug);
+        if ($template === null) {
+            return;
+        }
+
+        $existingTypes = $page->sections()->pluck('type')->all();
+
+        foreach ($template::sections() as $section) {
+            if (in_array($section['type'], $existingTypes, true)) {
+                continue;
+            }
+
+            $page->sections()->create([
+                'type' => $section['type'],
+                'settings' => $section['settings'] ?? [],
+            ]);
+
+            $existingTypes[] = $section['type'];
+        }
+    }
+
+    private function resolveTemplate(string $slug): ?string
+    {
+        return match ($slug) {
+            StorefrontPage::HOME => StorefrontHomeTemplate::class,
+            default => null,
+        };
     }
 
     private function publicUrl(StorefrontPage $page): string
@@ -247,27 +461,6 @@ class StorefrontPageController extends Controller
     }
 
     /**
-     * @return list<array{id: int, label: string}>
-     */
-    private function productOptions(int $storeId): array
-    {
-        return Product::query()
-            ->active()
-            ->whereIn('visibility', ['both', 'catalog'])
-            ->whereHas('storeLinks', fn (Builder $q) => $q
-                ->where('store_id', $storeId)
-                ->where('is_active', true))
-            ->orderBy('name')
-            ->limit(200)
-            ->get()
-            ->map(fn (Product $product) => [
-                'id' => $product->id,
-                'label' => "{$product->name} ({$product->sku})",
-            ])
-            ->all();
-    }
-
-    /**
      * @return list<array{id: int, label: string, url: string}>
      */
     private function mediaOptions(): array
@@ -282,6 +475,27 @@ class StorefrontPageController extends Controller
                 'id' => $media->id,
                 'label' => $media->title ?: $media->name,
                 'url' => $media->url,
+            ])
+            ->all();
+    }
+
+    /**
+     * @return list<array{id: int, label: string, sku: string}>
+     */
+    private function productOptions(Store $store): array
+    {
+        return Product::query()
+            ->active()
+            ->whereIn('visibility', ['both', 'catalog'])
+            ->whereHas('storeLinks', fn ($query) => $query
+                ->where('store_id', $store->id)
+                ->where('is_active', true))
+            ->orderBy('name')
+            ->get(['id', 'name', 'sku'])
+            ->map(fn (Product $product) => [
+                'id' => $product->id,
+                'label' => $product->name,
+                'sku' => $product->sku,
             ])
             ->all();
     }

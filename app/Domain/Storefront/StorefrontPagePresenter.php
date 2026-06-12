@@ -2,6 +2,10 @@
 
 namespace App\Domain\Storefront;
 
+use App\Domain\Catalog\BundleService;
+use App\Domain\Catalog\ConfigurableProductService;
+use App\Domain\Catalog\ProductPricingService;
+use App\Domain\Inventory\StockAvailabilityChecker;
 use App\Models\Media;
 use App\Models\Product;
 use App\Models\StorefrontPage;
@@ -10,47 +14,145 @@ use Illuminate\Support\Collection;
 
 class StorefrontPagePresenter
 {
+    public function __construct(
+        private readonly ProductPricingService $pricing,
+        private readonly ConfigurableProductService $configurable,
+        private readonly BundleService $bundles,
+        private readonly StockAvailabilityChecker $availability,
+    ) {}
+
     /**
      * @return array{id: int, title: string, slug: string, sections: list<array<string, mixed>>}
      */
-    public function present(StorefrontPage $page, bool $activeOnly = true): array
+    public function present(StorefrontPage $page): array
     {
-        $sections = $page->sections;
-
-        if ($activeOnly) {
-            $sections = $sections->where('is_active', true);
-        }
-
         return [
             'id' => $page->id,
             'title' => $page->title,
             'slug' => $page->slug,
-            'sections' => $sections
-                ->sortBy('sort_order')
+            'sections' => $page->sections
+                ->whereIn('type', StorefrontPageSection::TYPES)
+                ->sortBy(fn (StorefrontPageSection $section) => $this->sectionOrder($section))
                 ->values()
-                ->map(fn (StorefrontPageSection $section) => $this->presentSection($section))
+                ->map(fn (StorefrontPageSection $section) => $this->presentSection($section, $page))
                 ->all(),
         ];
+    }
+
+    private function sectionOrder(StorefrontPageSection $section): int
+    {
+        $settings = $section->settings ?? [];
+        $displayOrder = $settings['display_order'] ?? null;
+
+        if (is_numeric($displayOrder)) {
+            return (int) $displayOrder;
+        }
+
+        $templateOrder = array_search($section->type, StorefrontPageSection::TYPES, true);
+
+        return $templateOrder === false ? PHP_INT_MAX : $templateOrder;
     }
 
     /**
      * @return array<string, mixed>
      */
-    public function presentSection(StorefrontPageSection $section): array
+    public function presentSection(StorefrontPageSection $section, ?StorefrontPage $page = null): array
     {
         $settings = $this->resolveMedia($section->settings ?? []);
 
-        if ($section->type === StorefrontPageSection::TYPE_FEATURED_PRODUCTS) {
-            $settings = $this->resolveProducts($settings);
+        if ($section->type === StorefrontPageSection::TYPE_RECOMMENDED_PRODUCTS && $page) {
+            $settings['products'] = $this->recommendedProducts($settings, $page);
         }
 
         return [
             'id' => $section->id,
             'type' => $section->type,
-            'sort_order' => $section->sort_order,
-            'is_active' => $section->is_active,
             'settings' => $settings,
         ];
+    }
+
+    /**
+     * @param  array<string, mixed>  $settings
+     * @return list<array<string, mixed>>
+     */
+    private function recommendedProducts(array $settings, StorefrontPage $page): array
+    {
+        $productIds = collect($settings['product_ids'] ?? [])
+            ->filter(fn (mixed $id) => is_numeric($id))
+            ->map(fn (mixed $id) => (int) $id)
+            ->unique()
+            ->take(12)
+            ->values();
+
+        if ($productIds->isEmpty()) {
+            return [];
+        }
+
+        $websiteId = $page->store?->website_id ?? $page->store()->value('website_id');
+
+        $products = Product::query()
+            ->with(['prices', 'media', 'inventoryStocks', 'labels', 'bundleItems.product.prices', 'bundleItems.product.inventoryStocks'])
+            ->whereIn('id', $productIds)
+            ->where('status', Product::STATUS_ACTIVE)
+            ->whereIn('visibility', ['both', 'catalog'])
+            ->whereHas('storeLinks', fn ($query) => $query
+                ->where('store_id', $page->store_id)
+                ->where('is_active', true))
+            ->get()
+            ->keyBy('id');
+
+        return $productIds
+            ->map(fn (int $productId) => $products->get($productId))
+            ->filter()
+            ->map(fn (Product $product) => $this->productCard($product, $page->store_id, $websiteId))
+            ->values()
+            ->all();
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function productCard(Product $product, int $storeId, ?int $websiteId): array
+    {
+        return [
+            'sku' => $product->sku,
+            'name' => $product->name,
+            'slug' => $product->slug,
+            'price' => match (true) {
+                $product->isConfigurable() => $this->configurable->priceForConfigurable($product, $storeId)
+                    ?? ['price' => null, 'special_price' => null, 'effective_price' => null, 'is_special' => false],
+                $product->isBundle() => $this->bundles->priceFor($product, $storeId),
+                default => $this->pricing->priceFor($product, $storeId),
+            },
+            'thumbnail' => $product->primaryMedia('gallery')?->url,
+            'in_stock' => match (true) {
+                $product->isBundle() => $this->bundles->canFulfill($product, 1),
+                default => $this->availability->canFulfill($product, 1),
+            },
+            'labels' => $this->labelsFor($product, $websiteId),
+        ];
+    }
+
+    /**
+     * @return list<array{text: string, text_color: string, background_color: string}>
+     */
+    private function labelsFor(Product $product, ?int $websiteId): array
+    {
+        $labels = $product->labels->where('is_active', true);
+
+        if ($websiteId) {
+            $labels = $labels->where('website_id', $websiteId);
+        }
+
+        return $labels
+            ->sortBy('sort_order')
+            ->map(fn ($label) => [
+                'text' => $label->text,
+                'text_color' => $label->text_color,
+                'background_color' => $label->background_color,
+            ])
+            ->values()
+            ->all();
     }
 
     /**
@@ -121,49 +223,6 @@ class StorefrontPagePresenter
             'id' => $media->id,
             'url' => $media->url,
             'alt' => $media->alt,
-        ];
-    }
-
-    /**
-     * @param  array<string, mixed>  $settings
-     * @return array<string, mixed>
-     */
-    private function resolveProducts(array $settings): array
-    {
-        $ids = $settings['product_ids'] ?? [];
-
-        if (empty($ids) || ! is_array($ids)) {
-            return $settings;
-        }
-
-        $products = Product::query()
-            ->active()
-            ->with('media')
-            ->whereIn('id', $ids)
-            ->get()
-            ->keyBy('id');
-
-        $settings['products'] = array_values(
-            array_filter(array_map(fn (int $id) => $this->productPayload($products->get($id)), $ids)),
-        );
-
-        return $settings;
-    }
-
-    /**
-     * @return array{id: int, name: string, sku: string, thumbnail: string|null}|null
-     */
-    private function productPayload(?Product $product): ?array
-    {
-        if (! $product) {
-            return null;
-        }
-
-        return [
-            'id' => $product->id,
-            'name' => $product->name,
-            'sku' => $product->sku,
-            'thumbnail' => $product->primaryMedia('gallery')?->url,
         ];
     }
 }

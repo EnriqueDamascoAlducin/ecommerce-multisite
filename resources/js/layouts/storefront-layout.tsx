@@ -14,6 +14,10 @@ export default function StorefrontLayout({
     const { store, customer, cart, flash } = usePage().props;
     const urls = useStoreUrls();
     const colors = store?.header.colors;
+    const hasCustomHeaderTextColor = Boolean(colors?.header_text_color);
+    const headerActionClassName = hasCustomHeaderTextColor
+        ? 'transition hover:opacity-80'
+        : 'text-neutral-600 transition hover:text-neutral-900 dark:text-neutral-400 dark:hover:text-neutral-100';
     const [searchQuery, setSearchQuery] = useState('');
     const pwaBase = store?.pathPrefix ? `/${store.pathPrefix}` : '';
     const manifestUrl = `${pwaBase}/manifest.webmanifest`;
@@ -123,12 +127,12 @@ export default function StorefrontLayout({
                         </form>
                     </div>
 
-                    <div className="flex shrink-0 items-center gap-4 text-sm text-neutral-600 dark:text-neutral-400">
+                    <div className="flex shrink-0 items-center gap-4 text-sm">
                         {customer ? (
                             <>
                                 <Link
                                     href="/cuenta"
-                                    className="hover:text-neutral-900 dark:hover:text-neutral-100"
+                                    className={headerActionClassName}
                                 >
                                     Hola, {customer.name.split(' ')[0]}
                                 </Link>
@@ -136,7 +140,7 @@ export default function StorefrontLayout({
                                     href="/cuenta/logout"
                                     method="post"
                                     as="button"
-                                    className="hover:text-neutral-900 dark:hover:text-neutral-100"
+                                    className={headerActionClassName}
                                 >
                                     Salir
                                 </Link>
@@ -145,13 +149,13 @@ export default function StorefrontLayout({
                             <>
                                 <Link
                                     href="/cuenta/login"
-                                    className="hover:text-neutral-900 dark:hover:text-neutral-100"
+                                    className={headerActionClassName}
                                 >
                                     Iniciar sesión
                                 </Link>
                                 <Link
                                     href="/cuenta/registro"
-                                    className="hover:text-neutral-900 dark:hover:text-neutral-100"
+                                    className={headerActionClassName}
                                 >
                                     Registrarse
                                 </Link>
@@ -160,7 +164,7 @@ export default function StorefrontLayout({
 
                         <Link
                             href="/carrito"
-                            className="relative flex items-center gap-1 hover:text-neutral-900 dark:hover:text-neutral-100"
+                            className={`relative flex items-center gap-1 ${headerActionClassName}`}
                         >
                             <ShoppingCart className="size-5" />
                             {cart && cart.count > 0 && (
@@ -207,10 +211,164 @@ export default function StorefrontLayout({
                 {children}
             </main>
 
-            <footer className="border-t border-neutral-200 py-6 text-center text-sm text-neutral-500 dark:border-neutral-800">
-                &copy; {new Date().getFullYear()}{' '}
-                {store?.website.name ?? 'Ecommerce Multisitio'}
-            </footer>
+            <StorefrontFooter
+                websiteName={store?.website.name ?? 'Ecommerce Multisitio'}
+                footer={store?.header.footer}
+            />
         </div>
+    );
+}
+
+type FooterConfig = {
+    enabled: boolean;
+    description: string;
+    copyright: string;
+    background_color: string | null;
+    text_color: string | null;
+    columns: {
+        title: string;
+        links: { label: string; url: string }[];
+    }[];
+    contact: { label: string; value: string }[];
+    social: { platform: string; url: string }[];
+};
+
+function StorefrontFooter({
+    websiteName,
+    footer,
+}: {
+    websiteName: string;
+    footer?: FooterConfig;
+}) {
+    const fallbackCopyright = `© ${new Date().getFullYear()} ${websiteName}`;
+
+    if (footer?.enabled === false) {
+        return (
+            <footer className="border-t border-neutral-200 py-6 text-center text-sm text-neutral-500 dark:border-neutral-800">
+                {fallbackCopyright}
+            </footer>
+        );
+    }
+
+    const copyright = (footer?.copyright || fallbackCopyright).replace(
+        '{year}',
+        String(new Date().getFullYear()),
+    );
+    const hasRichContent = Boolean(
+        footer?.description ||
+            footer?.columns.length ||
+            footer?.contact.length ||
+            footer?.social.length,
+    );
+
+    if (!hasRichContent) {
+        return (
+            <footer className="border-t border-neutral-200 py-6 text-center text-sm text-neutral-500 dark:border-neutral-800">
+                {copyright}
+            </footer>
+        );
+    }
+
+    return (
+        <footer
+            className="border-t border-neutral-200 bg-neutral-100 text-neutral-700 dark:border-neutral-800 dark:bg-neutral-900 dark:text-neutral-300"
+            style={{
+                backgroundColor: footer?.background_color ?? undefined,
+                color: footer?.text_color ?? undefined,
+            }}
+        >
+            <div className="mx-auto grid w-full max-w-6xl gap-10 px-4 py-12 lg:grid-cols-[1.2fr_2fr]">
+                <div className="grid content-start gap-4">
+                    <div className="text-base font-semibold text-neutral-950 dark:text-white" style={{ color: 'inherit' }}>
+                        {websiteName}
+                    </div>
+                    {footer?.description && (
+                        <p className="max-w-sm text-sm leading-6 opacity-80">
+                            {footer.description}
+                        </p>
+                    )}
+                    {footer?.contact.length ? (
+                        <div className="grid gap-2 text-sm">
+                            {footer.contact.map((row, index) => (
+                                <div key={`${row.label}-${index}`}>
+                                    <span className="font-medium">{row.label}: </span>
+                                    <span className="opacity-80">{row.value}</span>
+                                </div>
+                            ))}
+                        </div>
+                    ) : null}
+                    {footer?.social.length ? (
+                        <div className="flex flex-wrap gap-2 pt-1">
+                            {footer.social.map((social, index) => (
+                                <FooterLink
+                                    key={`${social.platform}-${index}`}
+                                    href={social.url}
+                                    className="rounded-full border border-current px-3 py-1 text-xs font-semibold uppercase tracking-[0.18em] opacity-80 transition hover:opacity-100"
+                                >
+                                    {social.platform}
+                                </FooterLink>
+                            ))}
+                        </div>
+                    ) : null}
+                </div>
+
+                {footer?.columns.length ? (
+                    <div className="grid gap-8 sm:grid-cols-2 lg:grid-cols-3">
+                        {footer.columns.map((column, index) => (
+                            <div key={`${column.title}-${index}`} className="grid content-start gap-3">
+                                {column.title && (
+                                    <h2 className="text-xs font-semibold uppercase tracking-[0.22em] text-red-700 dark:text-red-400">
+                                        {column.title}
+                                    </h2>
+                                )}
+                                <div className="grid gap-2 text-sm">
+                                    {column.links.map((link, linkIndex) => (
+                                        <FooterLink
+                                            key={`${link.label}-${linkIndex}`}
+                                            href={link.url}
+                                            className="opacity-75 transition hover:opacity-100"
+                                        >
+                                            {link.label}
+                                        </FooterLink>
+                                    ))}
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                ) : null}
+            </div>
+
+            <div className="border-t border-current/10 py-5 text-center text-xs opacity-70">
+                {copyright}
+            </div>
+        </footer>
+    );
+}
+
+function FooterLink({
+    href,
+    className,
+    children,
+}: {
+    href: string;
+    className: string;
+    children: React.ReactNode;
+}) {
+    if (!href) {
+        return <span className={className}>{children}</span>;
+    }
+
+    if (/^(https?:|mailto:|tel:)/.test(href)) {
+        return (
+            <a href={href} className={className} target="_blank" rel="noreferrer">
+                {children}
+            </a>
+        );
+    }
+
+    return (
+        <Link href={href} className={className}>
+            {children}
+        </Link>
     );
 }

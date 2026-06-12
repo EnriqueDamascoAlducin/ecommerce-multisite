@@ -8,6 +8,7 @@ use App\Http\Requests\Admin\UpdateMediaRequest;
 use App\Models\Media;
 use App\Services\AuditLogger;
 use App\Services\MediaService;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Support\Facades\Storage;
 use Inertia\Inertia;
@@ -33,15 +34,26 @@ class MediaController extends Controller
         ]);
     }
 
-    public function store(StoreMediaRequest $request): RedirectResponse
+    public function store(StoreMediaRequest $request): RedirectResponse|JsonResponse
     {
         $validated = $request->validated();
         $collection = $validated['collection'] ?? 'default';
         $visibility = $validated['visibility'] ?? Media::VISIBILITY_PUBLIC;
 
+        $uploaded = [];
+
         foreach ($request->file('files') as $file) {
             $media = $this->mediaService->store($file, $collection, $visibility, $request->user()?->id);
             $this->auditLogger->log('media.uploaded', $media, "Archivo {$media->name} subido");
+            $uploaded[] = $media;
+        }
+
+        if ($request->wantsJson()) {
+            $first = $uploaded[0] ?? null;
+
+            return response()->json(
+                $first ? $this->present($first) : ['id' => null],
+            );
         }
 
         return back()->with('success', 'Archivos subidos.');

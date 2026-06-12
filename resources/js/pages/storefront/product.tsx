@@ -2,10 +2,12 @@ import { Form, Head, Link } from '@inertiajs/react';
 import { ImageIcon } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { ProductLabels, type ProductLabelData } from '@/components/product-labels';
+import { ProductCarousel } from '@/components/storefront/product-carousel';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { formatPrice, type Price, useStoreUrls } from '@/lib/storefront';
+import type { ProductCardData } from './product-card';
 
 type VariantInfo = {
     id: number;
@@ -40,6 +42,8 @@ type ProductDetail = {
     variants?: VariantInfo[];
     bundle_items?: { name: string; sku: string; quantity: number }[];
     labels?: ProductLabelData[];
+    upsell_products?: ProductCardData[];
+    cross_sell_products?: ProductCardData[];
 };
 
 export default function StorefrontProduct({ product }: { product: ProductDetail }) {
@@ -238,6 +242,26 @@ export default function StorefrontProduct({ product }: { product: ProductDetail 
                     <h2 className="mb-2 text-lg font-semibold">Descripción</h2>
                     <p className="whitespace-pre-line text-neutral-600 dark:text-neutral-400">{product.description}</p>
                 </section>
+            )}
+
+            {(product.upsell_products?.length ?? 0) > 0 && (
+                <ProductCarousel
+                    products={product.upsell_products ?? []}
+                    eyebrow="Recomendados"
+                    title="También te puede interesar"
+                    subtitle="Opciones seleccionadas para comparar o subir de nivel tu compra."
+                    compactHeading
+                />
+            )}
+
+            {(product.cross_sell_products?.length ?? 0) > 0 && (
+                <ProductCarousel
+                    products={product.cross_sell_products ?? []}
+                    eyebrow="Complementos"
+                    title="Complementa tu compra"
+                    subtitle="Productos que funcionan bien junto con este artículo."
+                    compactHeading
+                />
             )}
         </>
     );

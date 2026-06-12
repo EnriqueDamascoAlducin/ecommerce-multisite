@@ -329,7 +329,7 @@ class ConfigurableProductService
         $variants = $product->variants()
             ->where('status', Product::STATUS_ACTIVE)
             ->whereHas('storeLinks', fn ($q) => $q->where('store_id', $storeId)->where('is_active', true))
-            ->with(['prices' => fn ($q) => $q->whereIn('store_id', [$storeId, null])])
+            ->with(['prices' => fn ($q) => $q->where(fn ($query) => $query->where('store_id', $storeId)->orWhereNull('store_id'))])
             ->get();
 
         if ($variants->isEmpty()) {

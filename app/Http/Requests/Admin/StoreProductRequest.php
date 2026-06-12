@@ -51,6 +51,11 @@ class StoreProductRequest extends FormRequest
             'labels' => ['array'],
             'labels.*' => ['integer', 'exists:product_labels,id'],
 
+            'upsell_products' => ['array'],
+            'upsell_products.*' => ['integer', 'distinct', 'exists:products,id'],
+            'cross_sell_products' => ['array'],
+            'cross_sell_products.*' => ['integer', 'distinct', 'exists:products,id'],
+
             'attribute_values' => ['array'],
 
             'configurable_attributes' => ['nullable', 'array'],

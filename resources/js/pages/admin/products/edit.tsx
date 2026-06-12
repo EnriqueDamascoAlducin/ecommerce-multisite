@@ -34,6 +34,7 @@ export default function ProductsEdit({
     attributes,
     configurableAttributes,
     componentProducts,
+    relatedProducts,
     labels,
 }: {
     product: EditableProduct;
@@ -43,6 +44,13 @@ export default function ProductsEdit({
     attributes: AttributeDef[];
     configurableAttributes?: ConfigurableAttrDef[];
     componentProducts?: { id: number; sku: string; name: string }[];
+    relatedProducts?: {
+        id: number;
+        sku: string;
+        name: string;
+        status: string;
+        type: string;
+    }[];
     labels?: {
         id: number;
         text: string;
@@ -109,6 +117,7 @@ export default function ProductsEdit({
                             attributes={attributes}
                             configurableAttributes={configurableAttributes}
                             componentProducts={componentProducts}
+                            relatedProducts={relatedProducts}
                             labels={labels}
                             defaults={product}
                         />

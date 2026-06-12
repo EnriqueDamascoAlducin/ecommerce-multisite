@@ -238,6 +238,104 @@ test('product grid filters by filterable attributes and exposes visible columns'
         );
 });
 
+test('a product can store upsell and cross sell products in order', function () {
+    $product = Product::factory()->create(['sku' => 'BASE-REL']);
+    $upsellA = Product::factory()->create(['sku' => 'UP-A']);
+    $upsellB = Product::factory()->create(['sku' => 'UP-B']);
+    $crossSell = Product::factory()->create(['sku' => 'CS-A']);
+
+    $this->put(route('admin.products.update', $product), [
+        'sku' => $product->sku,
+        'name' => $product->name,
+        'status' => 'active',
+        'visibility' => 'both',
+        'price' => '50',
+        'upsell_products' => [$upsellB->id, $upsellA->id],
+        'cross_sell_products' => [$crossSell->id],
+    ])->assertRedirect(route('admin.products.index'));
+
+    $this->assertDatabaseHas('product_links', [
+        'product_id' => $product->id,
+        'linked_product_id' => $upsellB->id,
+        'type' => Product::LINK_TYPE_UPSELL,
+        'sort_order' => 0,
+    ]);
+    $this->assertDatabaseHas('product_links', [
+        'product_id' => $product->id,
+        'linked_product_id' => $upsellA->id,
+        'type' => Product::LINK_TYPE_UPSELL,
+        'sort_order' => 1,
+    ]);
+    $this->assertDatabaseHas('product_links', [
+        'product_id' => $product->id,
+        'linked_product_id' => $crossSell->id,
+        'type' => Product::LINK_TYPE_CROSS_SELL,
+        'sort_order' => 0,
+    ]);
+});
+
+test('updating related products removes omitted links', function () {
+    $product = Product::factory()->create();
+    $keep = Product::factory()->create();
+    $remove = Product::factory()->create();
+
+    $product->upsellProducts()->attach($keep->id, [
+        'type' => Product::LINK_TYPE_UPSELL,
+        'sort_order' => 0,
+    ]);
+    $product->upsellProducts()->attach($remove->id, [
+        'type' => Product::LINK_TYPE_UPSELL,
+        'sort_order' => 1,
+    ]);
+
+    $this->put(route('admin.products.update', $product), [
+        'sku' => $product->sku,
+        'name' => $product->name,
+        'status' => 'active',
+        'visibility' => 'both',
+        'price' => '50',
+        'upsell_products' => [$keep->id],
+    ])->assertRedirect();
+
+    $this->assertDatabaseHas('product_links', [
+        'product_id' => $product->id,
+        'linked_product_id' => $keep->id,
+        'type' => Product::LINK_TYPE_UPSELL,
+    ]);
+    $this->assertDatabaseMissing('product_links', [
+        'product_id' => $product->id,
+        'linked_product_id' => $remove->id,
+        'type' => Product::LINK_TYPE_UPSELL,
+    ]);
+});
+
+test('related product ids must be distinct', function () {
+    $product = Product::factory()->create();
+    $related = Product::factory()->create();
+
+    $this->put(route('admin.products.update', $product), [
+        'sku' => $product->sku,
+        'name' => $product->name,
+        'status' => 'active',
+        'visibility' => 'both',
+        'price' => '50',
+        'upsell_products' => [$related->id, $related->id],
+    ])->assertSessionHasErrors('upsell_products.1');
+});
+
+test('a product cannot be linked to itself', function () {
+    $product = Product::factory()->create();
+
+    $this->put(route('admin.products.update', $product), [
+        'sku' => $product->sku,
+        'name' => $product->name,
+        'status' => 'active',
+        'visibility' => 'both',
+        'price' => '50',
+        'cross_sell_products' => [$product->id],
+    ])->assertSessionHasErrors('cross_sell_products');
+});
+
 test('a user without catalog permission is forbidden', function () {
     $this->actingAs(User::factory()->create());
 

@@ -153,12 +153,6 @@ const navGroups: AdminNavGroup[] = [
                 permission: 'catalog.attributes.view',
             },
             {
-                title: 'Etiquetas',
-                href: productLabels.index(),
-                icon: Tag,
-                permission: 'catalog.labels.view',
-            },
-            {
                 title: 'Inventario',
                 href: inventory.index(),
                 icon: Boxes,
@@ -169,24 +163,6 @@ const navGroups: AdminNavGroup[] = [
                 href: inventorySources.index(),
                 icon: Warehouse,
                 permission: 'inventory.view',
-            },
-        ],
-    },
-    {
-        title: 'Marketing',
-        icon: Ticket,
-        items: [
-            {
-                title: 'Promociones',
-                href: promotions.index(),
-                icon: Ticket,
-                permission: 'promotions.view',
-            },
-            {
-                title: 'Reglas de catálogo',
-                href: catalogRules.index(),
-                icon: Percent,
-                permission: 'promotions.view',
             },
         ],
     },
@@ -209,23 +185,41 @@ const navGroups: AdminNavGroup[] = [
         ],
     },
     {
-        title: 'Contenido',
-        icon: Image,
+        title: 'Marketing',
+        icon: Ticket,
         items: [
             {
-                title: 'Medios',
-                href: media.index(),
-                icon: Image,
-                permission: 'media.view',
+                title: 'Promociones',
+                href: promotions.index(),
+                icon: Ticket,
+                permission: 'promotions.view',
+            },
+            {
+                title: 'Reglas de catálogo',
+                href: catalogRules.index(),
+                icon: Percent,
+                permission: 'promotions.view',
+            },
+            {
+                title: 'Etiquetas',
+                href: productLabels.index(),
+                icon: Tag,
+                permission: 'catalog.labels.view',
             },
         ],
     },
     {
-        title: 'Encabezado',
+        title: 'Contenido',
         icon: PanelTop,
         items: [
             {
-                title: 'Cintillo',
+                title: 'Páginas',
+                href: storefrontPages.index(),
+                icon: LayoutDashboard,
+                permission: 'settings.storefront',
+            },
+            {
+                title: 'Header y footer',
                 href: headerSettings.edit(),
                 icon: Megaphone,
                 permission: 'settings.storefront',
@@ -235,6 +229,12 @@ const navGroups: AdminNavGroup[] = [
                 href: headerMenu.index(),
                 icon: Menu,
                 permission: 'settings.storefront',
+            },
+            {
+                title: 'Medios',
+                href: media.index(),
+                icon: Image,
+                permission: 'media.view',
             },
         ],
     },
@@ -272,33 +272,6 @@ const navGroups: AdminNavGroup[] = [
                 icon: CreditCard,
                 permission: 'settings.payments',
             },
-            {
-                title: 'Páginas',
-                href: storefrontPages.index(),
-                icon: LayoutDashboard,
-                permission: 'settings.storefront',
-            },
-        ],
-    },
-    {
-        title: 'Cuenta',
-        icon: Users,
-        items: [
-            {
-                title: 'Perfil',
-                href: editProfile(),
-                icon: Users,
-            },
-            {
-                title: 'Seguridad',
-                href: editSecurity(),
-                icon: ShieldCheck,
-            },
-            {
-                title: 'Apariencia',
-                href: editAppearance(),
-                icon: LayoutDashboard,
-            },
         ],
     },
     {
@@ -328,6 +301,27 @@ const navGroups: AdminNavGroup[] = [
                 href: audit.index(),
                 icon: ScrollText,
                 permission: 'audit.view',
+            },
+        ],
+    },
+    {
+        title: 'Cuenta',
+        icon: Users,
+        items: [
+            {
+                title: 'Perfil',
+                href: editProfile(),
+                icon: Users,
+            },
+            {
+                title: 'Seguridad',
+                href: editSecurity(),
+                icon: ShieldCheck,
+            },
+            {
+                title: 'Apariencia',
+                href: editAppearance(),
+                icon: LayoutDashboard,
             },
         ],
     },

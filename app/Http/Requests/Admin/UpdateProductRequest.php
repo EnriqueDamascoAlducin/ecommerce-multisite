@@ -5,6 +5,7 @@ namespace App\Http\Requests\Admin;
 use App\Models\Product;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\Validator;
 
 class UpdateProductRequest extends FormRequest
 {
@@ -56,6 +57,11 @@ class UpdateProductRequest extends FormRequest
             'labels' => ['array'],
             'labels.*' => ['integer', 'exists:product_labels,id'],
 
+            'upsell_products' => ['array'],
+            'upsell_products.*' => ['integer', 'distinct', 'exists:products,id'],
+            'cross_sell_products' => ['array'],
+            'cross_sell_products.*' => ['integer', 'distinct', 'exists:products,id'],
+
             'attribute_values' => ['array'],
 
             'configurable_attributes' => ['nullable', 'array'],
@@ -80,6 +86,34 @@ class UpdateProductRequest extends FormRequest
             'downloadable_links.*.file_path' => ['required', 'string', 'max:2048'],
             'downloadable_links.*.original_name' => ['nullable', 'string', 'max:255'],
             'downloadable_links.*.max_downloads' => ['nullable', 'integer', 'min:1'],
+        ];
+    }
+
+    /**
+     * @return list<callable(Validator): void>
+     */
+    public function after(): array
+    {
+        return [
+            function (Validator $validator): void {
+                $product = $this->route('product');
+
+                if (! $product instanceof Product) {
+                    return;
+                }
+
+                foreach (['upsell_products', 'cross_sell_products'] as $field) {
+                    $productIds = $this->input($field, []);
+
+                    if (! is_array($productIds)) {
+                        continue;
+                    }
+
+                    if (in_array($product->id, array_map('intval', $productIds), true)) {
+                        $validator->errors()->add($field, 'El producto no puede relacionarse consigo mismo.');
+                    }
+                }
+            },
         ];
     }
 }

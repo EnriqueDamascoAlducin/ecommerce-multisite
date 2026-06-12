@@ -2,6 +2,8 @@ import { router } from '@inertiajs/react';
 import {
     BadgeDollarSign,
     CheckCircle2,
+    ChevronDown,
+    ChevronUp,
     FileText,
     ImageIcon,
     Layers3,
@@ -48,6 +50,13 @@ type ConfigurableAttrDef = {
 };
 
 type ComponentProduct = { id: number; sku: string; name: string };
+type RelatedProduct = {
+    id: number;
+    sku: string;
+    name: string;
+    status: string;
+    type: string;
+};
 
 type LabelOption = {
     id: number;
@@ -100,6 +109,8 @@ export type ProductDefaults = {
     media: number[];
     categories: number[];
     labels?: number[];
+    upsell_products?: number[];
+    cross_sell_products?: number[];
     attribute_values: Record<number, string | string[]>;
     configurable_attributes?: number[];
     price_type?: string | null;
@@ -142,6 +153,7 @@ export function ProductFields({
     attributes,
     configurableAttributes,
     componentProducts,
+    relatedProducts,
     labels,
     defaults,
 }: {
@@ -152,6 +164,7 @@ export function ProductFields({
     attributes: AttributeDef[];
     configurableAttributes?: ConfigurableAttrDef[];
     componentProducts?: ComponentProduct[];
+    relatedProducts?: RelatedProduct[];
     labels?: LabelOption[];
     defaults?: ProductDefaults;
 }) {
@@ -161,6 +174,12 @@ export function ProductFields({
     );
     const [selectedLabels, setSelectedLabels] = useState<number[]>(
         defaults?.labels ?? [],
+    );
+    const [upsellProducts, setUpsellProducts] = useState<number[]>(
+        defaults?.upsell_products ?? [],
+    );
+    const [crossSellProducts, setCrossSellProducts] = useState<number[]>(
+        defaults?.cross_sell_products ?? [],
     );
     const [productType, setProductType] = useState(defaults?.type ?? 'simple');
     const [configurableAttrIds, setConfigurableAttrIds] = useState<number[]>(
@@ -230,6 +249,45 @@ export function ProductFields({
         setBundleItems((current) =>
             current.filter((item) => item.product_id !== productId),
         );
+    };
+
+    const addRelatedProduct = (
+        setter: (value: (current: number[]) => number[]) => void,
+        productId: number,
+    ) => {
+        if (productId === 0 || productId === defaults?.id) {
+            return;
+        }
+
+        setter((current) =>
+            current.includes(productId) ? current : [...current, productId],
+        );
+    };
+
+    const removeRelatedProduct = (
+        setter: (value: (current: number[]) => number[]) => void,
+        productId: number,
+    ) => {
+        setter((current) => current.filter((id) => id !== productId));
+    };
+
+    const moveRelatedProduct = (
+        setter: (value: (current: number[]) => number[]) => void,
+        index: number,
+        direction: -1 | 1,
+    ) => {
+        setter((current) => {
+            const nextIndex = index + direction;
+
+            if (nextIndex < 0 || nextIndex >= current.length) {
+                return current;
+            }
+
+            const next = [...current];
+            [next[index], next[nextIndex]] = [next[nextIndex], next[index]];
+
+            return next;
+        });
     };
 
     const uploadDownloadable = async (file: File) => {
@@ -351,6 +409,7 @@ export function ProductFields({
         { id: 'pricing', label: 'Precios', icon: BadgeDollarSign },
         { id: 'stores', label: 'Tiendas', icon: Store },
         { id: 'taxonomy', label: 'Categorias & labels', icon: Tags },
+        { id: 'related', label: 'Venta relacionada', icon: Link2 },
         ...(attributes.length > 0
             ? [{ id: 'attributes', label: 'Atributos', icon: Settings2 }]
             : []),
@@ -831,6 +890,67 @@ export function ProductFields({
                 </div>
             </ProductSection>
 
+            <ProductSection
+                id="related"
+                icon={Link2}
+                title="Venta relacionada"
+                description="Selecciona productos para carruseles del PDP. El orden se respeta en storefront."
+                badge={`${upsellProducts.length + crossSellProducts.length} productos`}
+            >
+                <div className="grid gap-5 xl:grid-cols-2">
+                    <ProductRelationSelector
+                        name="upsell_products"
+                        title="Upsell"
+                        description="Alternativas o productos superiores para aumentar ticket."
+                        products={relatedProducts ?? []}
+                        currentProductId={defaults?.id}
+                        selectedIds={upsellProducts}
+                        error={errors.upsell_products}
+                        onAdd={(productId) =>
+                            addRelatedProduct(setUpsellProducts, productId)
+                        }
+                        onMove={(index, direction) =>
+                            moveRelatedProduct(
+                                setUpsellProducts,
+                                index,
+                                direction,
+                            )
+                        }
+                        onRemove={(productId) =>
+                            removeRelatedProduct(
+                                setUpsellProducts,
+                                productId,
+                            )
+                        }
+                    />
+                    <ProductRelationSelector
+                        name="cross_sell_products"
+                        title="Cross-sell"
+                        description="Complementos que ayudan a completar la compra."
+                        products={relatedProducts ?? []}
+                        currentProductId={defaults?.id}
+                        selectedIds={crossSellProducts}
+                        error={errors.cross_sell_products}
+                        onAdd={(productId) =>
+                            addRelatedProduct(setCrossSellProducts, productId)
+                        }
+                        onMove={(index, direction) =>
+                            moveRelatedProduct(
+                                setCrossSellProducts,
+                                index,
+                                direction,
+                            )
+                        }
+                        onRemove={(productId) =>
+                            removeRelatedProduct(
+                                setCrossSellProducts,
+                                productId,
+                            )
+                        }
+                    />
+                </div>
+            </ProductSection>
+
             {attributes.length > 0 && (
                 <ProductSection
                     id="attributes"
@@ -1024,6 +1144,137 @@ function ConfigurableAttributes({
                     );
                 })}
             </div>
+        </div>
+    );
+}
+
+function ProductRelationSelector({
+    name,
+    title,
+    description,
+    products,
+    currentProductId,
+    selectedIds,
+    error,
+    onAdd,
+    onMove,
+    onRemove,
+}: {
+    name: string;
+    title: string;
+    description: string;
+    products: RelatedProduct[];
+    currentProductId?: number;
+    selectedIds: number[];
+    error?: string;
+    onAdd: (productId: number) => void;
+    onMove: (index: number, direction: -1 | 1) => void;
+    onRemove: (productId: number) => void;
+}) {
+    const selectedProducts = selectedIds
+        .map((id) => products.find((product) => product.id === id))
+        .filter((product): product is RelatedProduct => Boolean(product));
+    const availableProducts = products.filter(
+        (product) =>
+            product.id !== currentProductId && !selectedIds.includes(product.id),
+    );
+
+    return (
+        <div className="rounded-lg border border-neutral-200 bg-white p-4 dark:border-neutral-800 dark:bg-neutral-950">
+            {selectedIds.map((id) => (
+                <input key={id} type="hidden" name={`${name}[]`} value={id} />
+            ))}
+
+            <div className="flex items-start justify-between gap-3">
+                <div>
+                    <h3 className="text-sm font-semibold">{title}</h3>
+                    <p className="mt-1 text-xs leading-5 text-neutral-500">
+                        {description}
+                    </p>
+                </div>
+                <Badge variant="outline">{selectedProducts.length}</Badge>
+            </div>
+
+            <div className="mt-4 flex flex-wrap items-center gap-2">
+                <select
+                    value=""
+                    onChange={(event) => {
+                        onAdd(Number(event.target.value));
+                        event.target.value = '';
+                    }}
+                    className={fieldClass}
+                >
+                    <option value="">Agregar producto...</option>
+                    {availableProducts.map((product) => (
+                        <option key={product.id} value={product.id}>
+                            {product.name} ({product.sku})
+                        </option>
+                    ))}
+                </select>
+            </div>
+            <InputError message={error} className="mt-2" />
+
+            {selectedProducts.length === 0 ? (
+                <div className="mt-4 rounded-lg border border-dashed border-neutral-300 bg-neutral-50 p-4 text-sm text-neutral-500 dark:border-neutral-700 dark:bg-neutral-900/50">
+                    No hay productos seleccionados.
+                </div>
+            ) : (
+                <div className="mt-4 space-y-2">
+                    {selectedProducts.map((product, index) => (
+                        <div
+                            key={product.id}
+                            className="flex items-center justify-between gap-3 rounded-lg border border-neutral-200 bg-neutral-50/70 p-3 dark:border-neutral-800 dark:bg-neutral-900/60"
+                        >
+                            <div className="min-w-0">
+                                <div className="flex flex-wrap items-center gap-2">
+                                    <span className="truncate text-sm font-medium">
+                                        {product.name}
+                                    </span>
+                                    <Badge variant="outline">
+                                        {typeLabel(product.type)}
+                                    </Badge>
+                                    {product.status !== 'active' && (
+                                        <Badge variant="secondary">
+                                            Inactivo
+                                        </Badge>
+                                    )}
+                                </div>
+                                <p className="mt-1 font-mono text-xs text-neutral-500">
+                                    {product.sku}
+                                </p>
+                            </div>
+                            <div className="flex shrink-0 items-center gap-1">
+                                <Button
+                                    type="button"
+                                    variant="ghost"
+                                    size="icon"
+                                    disabled={index === 0}
+                                    onClick={() => onMove(index, -1)}
+                                >
+                                    <ChevronUp className="size-4" />
+                                </Button>
+                                <Button
+                                    type="button"
+                                    variant="ghost"
+                                    size="icon"
+                                    disabled={index === selectedProducts.length - 1}
+                                    onClick={() => onMove(index, 1)}
+                                >
+                                    <ChevronDown className="size-4" />
+                                </Button>
+                                <Button
+                                    type="button"
+                                    variant="ghost"
+                                    size="icon"
+                                    onClick={() => onRemove(product.id)}
+                                >
+                                    <Trash2 className="size-4" />
+                                </Button>
+                            </div>
+                        </div>
+                    ))}
+                </div>
+            )}
         </div>
     );
 }

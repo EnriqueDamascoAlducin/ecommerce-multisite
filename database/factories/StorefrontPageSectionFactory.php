@@ -21,8 +21,6 @@ class StorefrontPageSectionFactory extends Factory
         return [
             'storefront_page_id' => StorefrontPage::factory(),
             'type' => StorefrontPageSection::TYPE_HERO,
-            'sort_order' => 0,
-            'is_active' => true,
             'settings' => [
                 'eyebrow' => 'Campaign Launch',
                 'title' => 'Hot Days 2024',

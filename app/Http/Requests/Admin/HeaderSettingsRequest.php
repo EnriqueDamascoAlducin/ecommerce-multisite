@@ -38,6 +38,23 @@ class HeaderSettingsRequest extends FormRequest
             'header_background_color' => ['nullable', 'string', 'regex:/^#[0-9a-fA-F]{6}$/'],
             'menu_text_color' => ['nullable', 'string', 'regex:/^#[0-9a-fA-F]{6}$/'],
             'menu_background_color' => ['nullable', 'string', 'regex:/^#[0-9a-fA-F]{6}$/'],
+            'footer' => ['nullable', 'array'],
+            'footer.enabled' => ['boolean'],
+            'footer.description' => ['nullable', 'string', 'max:500'],
+            'footer.copyright' => ['nullable', 'string', 'max:255'],
+            'footer.background_color' => ['nullable', 'string', 'regex:/^#[0-9a-fA-F]{6}$/'],
+            'footer.text_color' => ['nullable', 'string', 'regex:/^#[0-9a-fA-F]{6}$/'],
+            'footer.columns' => ['nullable', 'array', 'max:4'],
+            'footer.columns.*.title' => ['nullable', 'string', 'max:80'],
+            'footer.columns.*.links' => ['nullable', 'array', 'max:8'],
+            'footer.columns.*.links.*.label' => ['nullable', 'string', 'max:80'],
+            'footer.columns.*.links.*.url' => ['nullable', 'string', 'max:2048'],
+            'footer.contact' => ['nullable', 'array', 'max:6'],
+            'footer.contact.*.label' => ['nullable', 'string', 'max:80'],
+            'footer.contact.*.value' => ['nullable', 'string', 'max:160'],
+            'footer.social' => ['nullable', 'array', 'max:5'],
+            'footer.social.*.platform' => ['required', 'string', Rule::in(WebsiteHeaderSettings::SOCIAL_PLATFORMS)],
+            'footer.social.*.url' => ['nullable', 'url', 'max:2048'],
         ];
     }
 }

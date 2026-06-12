@@ -1,6 +1,11 @@
 <?php
 
+use App\Domain\Storefront\StorefrontHomeTemplate;
 use App\Models\InventorySource;
+use App\Models\Media;
+use App\Models\Product;
+use App\Models\ProductPrice;
+use App\Models\ProductStore;
 use App\Models\Store;
 use App\Models\StorefrontPage;
 use App\Models\StorefrontPageSection;
@@ -15,19 +20,95 @@ beforeEach(function () {
     ]);
 });
 
-test('home renders published cms sections for the resolved store', function () {
-    $page = StorefrontPage::factory()->create(['store_id' => $this->store->id]);
-    StorefrontPageSection::factory()->create([
-        'storefront_page_id' => $page->id,
-        'type' => StorefrontPageSection::TYPE_HERO,
-        'settings' => ['title' => 'Hot Days 2024'],
+test('home renders published template sections for the resolved store', function () {
+    $page = StorefrontPage::factory()->create([
+        'store_id' => $this->store->id,
+        'slug' => StorefrontPage::HOME,
+        'is_published' => true,
     ]);
+
+    foreach (StorefrontHomeTemplate::sections() as $section) {
+        StorefrontPageSection::factory()->create([
+            'storefront_page_id' => $page->id,
+            'type' => $section['type'],
+            'settings' => $section['settings'],
+        ]);
+    }
 
     $this->get(route('home'))
         ->assertOk()
-        ->assertInertia(fn ($page) => $page
+        ->assertInertia(fn ($inertia) => $inertia
             ->component('storefront/home')
-            ->where('contentPage.sections.0.settings.title', 'Hot Days 2024'));
+            ->has('contentPage.sections', 5)
+            ->where('contentPage.sections.0.type', StorefrontPageSection::TYPE_HERO)
+            ->where('contentPage.sections.1.type', StorefrontPageSection::TYPE_SPECIALTY_GRID)
+            ->where('contentPage.sections.2.type', StorefrontPageSection::TYPE_FEATURE_CARDS)
+            ->where('contentPage.sections.3.type', StorefrontPageSection::TYPE_BRAND_STRIP)
+            ->where('contentPage.sections.4.type', StorefrontPageSection::TYPE_INQUIRY_FORM));
+});
+
+test('home renders template sections using saved display order', function () {
+    $page = StorefrontPage::factory()->create([
+        'store_id' => $this->store->id,
+        'slug' => StorefrontPage::HOME,
+        'is_published' => true,
+    ]);
+
+    $displayOrderByType = [
+        StorefrontPageSection::TYPE_INQUIRY_FORM => 0,
+        StorefrontPageSection::TYPE_BRAND_STRIP => 1,
+        StorefrontPageSection::TYPE_HERO => 2,
+        StorefrontPageSection::TYPE_FEATURE_CARDS => 3,
+        StorefrontPageSection::TYPE_SPECIALTY_GRID => 4,
+    ];
+
+    foreach (StorefrontHomeTemplate::sections() as $section) {
+        StorefrontPageSection::factory()->create([
+            'storefront_page_id' => $page->id,
+            'type' => $section['type'],
+            'settings' => [
+                ...$section['settings'],
+                'display_order' => $displayOrderByType[$section['type']],
+            ],
+        ]);
+    }
+
+    $this->get(route('home'))
+        ->assertOk()
+        ->assertInertia(fn ($inertia) => $inertia
+            ->where('contentPage.sections.0.type', StorefrontPageSection::TYPE_INQUIRY_FORM)
+            ->where('contentPage.sections.1.type', StorefrontPageSection::TYPE_BRAND_STRIP)
+            ->where('contentPage.sections.2.type', StorefrontPageSection::TYPE_HERO)
+            ->where('contentPage.sections.3.type', StorefrontPageSection::TYPE_FEATURE_CARDS)
+            ->where('contentPage.sections.4.type', StorefrontPageSection::TYPE_SPECIALTY_GRID));
+});
+
+test('home sections without display order fall back to template order', function () {
+    $page = StorefrontPage::factory()->create([
+        'store_id' => $this->store->id,
+        'slug' => StorefrontPage::HOME,
+        'is_published' => true,
+    ]);
+
+    foreach (array_reverse(StorefrontHomeTemplate::sections()) as $section) {
+        $settings = $section['settings'];
+        unset($settings['display_order']);
+
+        StorefrontPageSection::factory()->create([
+            'storefront_page_id' => $page->id,
+            'type' => $section['type'],
+            'settings' => $settings,
+        ]);
+    }
+
+    $this->get(route('home'))
+        ->assertOk()
+        ->assertInertia(fn ($inertia) => $inertia
+            ->where('contentPage.sections.0.type', StorefrontPageSection::TYPE_HERO)
+            ->where('contentPage.sections.1.type', StorefrontPageSection::TYPE_SPECIALTY_GRID)
+            ->where('contentPage.sections.2.type', StorefrontPageSection::TYPE_FEATURE_CARDS)
+            ->where('contentPage.sections.3.type', StorefrontPageSection::TYPE_BRAND_STRIP)
+            ->where('contentPage.sections.4.type', StorefrontPageSection::TYPE_INQUIRY_FORM));
 });
 
 test('home falls back when no cms page exists', function () {
@@ -38,20 +119,240 @@ test('home falls back when no cms page exists', function () {
             ->where('contentPage', null));
 });
 
-test('inactive sections are not rendered', function () {
-    $page = StorefrontPage::factory()->create(['store_id' => $this->store->id]);
+test('media ids are resolved in template section settings', function () {
+    $media = Media::factory()->create();
+    $page = StorefrontPage::factory()->create([
+        'store_id' => $this->store->id,
+        'slug' => StorefrontPage::HOME,
+        'is_published' => true,
+    ]);
+
     StorefrontPageSection::factory()->create([
         'storefront_page_id' => $page->id,
-        'is_active' => false,
-        'settings' => ['title' => 'Hidden'],
+        'type' => StorefrontPageSection::TYPE_SPECIALTY_GRID,
+        'settings' => [
+            'title' => 'Especialidades',
+            'items' => [
+                [
+                    'title' => 'Hidroterapia',
+                    'media_id' => $media->id,
+                ],
+            ],
+        ],
     ]);
 
     $this->get(route('home'))
         ->assertOk()
-        ->assertInertia(fn ($page) => $page->has('contentPage.sections', 0));
+        ->assertInertia(fn ($inertia) => $inertia
+            ->where('contentPage.sections.0.settings.items.0.media.id', $media->id)
+            ->where('contentPage.sections.0.settings.items.0.media.url', $media->url));
 });
 
-test('published cms page renders by slug', function () {
+test('hero slides expose resolved media for each slide', function () {
+    $first = Media::factory()->create();
+    $second = Media::factory()->create();
+    $page = StorefrontPage::factory()->create([
+        'store_id' => $this->store->id,
+        'slug' => StorefrontPage::HOME,
+        'is_published' => true,
+    ]);
+
+    StorefrontPageSection::factory()->create([
+        'storefront_page_id' => $page->id,
+        'type' => StorefrontPageSection::TYPE_HERO,
+        'settings' => [
+            'slides' => [
+                [
+                    'eyebrow' => 'Campaña',
+                    'title' => 'Primer slide',
+                    'media_id' => $first->id,
+                    'buttons' => [['label' => 'Ver', 'url' => '/uno']],
+                ],
+                [
+                    'title' => 'Segundo slide',
+                    'media_id' => $second->id,
+                ],
+            ],
+        ],
+    ]);
+
+    $this->get(route('home'))
+        ->assertOk()
+        ->assertInertia(fn ($inertia) => $inertia
+            ->where('contentPage.sections.0.type', StorefrontPageSection::TYPE_HERO)
+            ->has('contentPage.sections.0.settings.slides', 2)
+            ->where('contentPage.sections.0.settings.slides.0.title', 'Primer slide')
+            ->where('contentPage.sections.0.settings.slides.0.media.id', $first->id)
+            ->where('contentPage.sections.0.settings.slides.0.media.url', $first->url)
+            ->where('contentPage.sections.0.settings.slides.1.media.id', $second->id));
+});
+
+test('legacy hero without slides still resolves its background media', function () {
+    $media = Media::factory()->create();
+    $page = StorefrontPage::factory()->create([
+        'store_id' => $this->store->id,
+        'slug' => StorefrontPage::HOME,
+        'is_published' => true,
+    ]);
+
+    StorefrontPageSection::factory()->create([
+        'storefront_page_id' => $page->id,
+        'type' => StorefrontPageSection::TYPE_HERO,
+        'settings' => [
+            'title' => 'Hero antiguo',
+            'media_id' => $media->id,
+        ],
+    ]);
+
+    $this->get(route('home'))
+        ->assertOk()
+        ->assertInertia(fn ($inertia) => $inertia
+            ->where('contentPage.sections.0.type', StorefrontPageSection::TYPE_HERO)
+            ->where('contentPage.sections.0.settings.title', 'Hero antiguo')
+            ->where('contentPage.sections.0.settings.media.id', $media->id));
+});
+
+test('home renders controlled extra blocks in saved order', function () {
+    $media = Media::factory()->create();
+    $page = StorefrontPage::factory()->create([
+        'store_id' => $this->store->id,
+        'slug' => StorefrontPage::HOME,
+        'is_published' => true,
+    ]);
+
+    StorefrontPageSection::factory()->create([
+        'storefront_page_id' => $page->id,
+        'type' => StorefrontPageSection::TYPE_IMAGE_BANNER,
+        'settings' => [
+            'display_order' => 0,
+            'title' => 'Banner nuevo',
+            'media_id' => $media->id,
+            'image_position' => 'right',
+        ],
+    ]);
+
+    foreach (StorefrontHomeTemplate::sections() as $index => $section) {
+        StorefrontPageSection::factory()->create([
+            'storefront_page_id' => $page->id,
+            'type' => $section['type'],
+            'settings' => [
+                ...$section['settings'],
+                'display_order' => $index + 1,
+            ],
+        ]);
+    }
+
+    $this->get(route('home'))
+        ->assertOk()
+        ->assertInertia(fn ($inertia) => $inertia
+            ->has('contentPage.sections', 6)
+            ->where('contentPage.sections.0.type', StorefrontPageSection::TYPE_IMAGE_BANNER)
+            ->where('contentPage.sections.0.settings.media.id', $media->id)
+            ->where('contentPage.sections.1.type', StorefrontPageSection::TYPE_HERO));
+});
+
+test('recommended products resolve active products for the current store in manual order', function () {
+    $page = StorefrontPage::factory()->create([
+        'store_id' => $this->store->id,
+        'slug' => StorefrontPage::HOME,
+        'is_published' => true,
+    ]);
+    $first = Product::factory()->create(['name' => 'First product']);
+    $second = Product::factory()->create(['name' => 'Second product']);
+    $inactive = Product::factory()->inactive()->create(['name' => 'Inactive product']);
+    $otherStoreProduct = Product::factory()->create(['name' => 'Other store product']);
+    $otherStore = Store::factory()->create(['website_id' => $this->website->id]);
+
+    foreach ([$first, $second, $inactive] as $product) {
+        ProductStore::factory()->create([
+            'product_id' => $product->id,
+            'store_id' => $this->store->id,
+            'is_active' => true,
+        ]);
+        ProductPrice::factory()->create(['product_id' => $product->id]);
+    }
+
+    ProductStore::factory()->create([
+        'product_id' => $otherStoreProduct->id,
+        'store_id' => $otherStore->id,
+        'is_active' => true,
+    ]);
+    ProductPrice::factory()->create(['product_id' => $otherStoreProduct->id]);
+
+    StorefrontPageSection::factory()->create([
+        'storefront_page_id' => $page->id,
+        'type' => StorefrontPageSection::TYPE_RECOMMENDED_PRODUCTS,
+        'settings' => [
+            'title' => 'Recomendados',
+            'display_type' => 'carousel',
+            'product_ids' => [
+                $second->id,
+                $inactive->id,
+                $otherStoreProduct->id,
+                $first->id,
+            ],
+        ],
+    ]);
+
+    $this->get(route('home'))
+        ->assertOk()
+        ->assertInertia(fn ($inertia) => $inertia
+            ->where('contentPage.sections.0.type', StorefrontPageSection::TYPE_RECOMMENDED_PRODUCTS)
+            ->where('contentPage.sections.0.settings.display_type', 'carousel')
+            ->has('contentPage.sections.0.settings.products', 2)
+            ->where('contentPage.sections.0.settings.products.0.name', 'Second product')
+            ->where('contentPage.sections.0.settings.products.1.name', 'First product'));
+});
+
+test('recommended products expose dynamic bundle prices', function () {
+    $source = InventorySource::factory()->default()->create();
+    $shirt = sellableProduct($this->store, $source, 120);
+    $cap = sellableProduct($this->store, $source, 80);
+    $bundle = bundleProduct($this->store, [[$shirt, 1], [$cap, 2]]);
+    $bundle->update(['name' => 'Kit Deportivo']);
+
+    $page = StorefrontPage::factory()->create([
+        'store_id' => $this->store->id,
+        'slug' => StorefrontPage::HOME,
+        'is_published' => true,
+    ]);
+
+    StorefrontPageSection::factory()->create([
+        'storefront_page_id' => $page->id,
+        'type' => StorefrontPageSection::TYPE_RECOMMENDED_PRODUCTS,
+        'settings' => [
+            'title' => 'Recomendados',
+            'display_type' => 'carousel',
+            'product_ids' => [$bundle->id],
+        ],
+    ]);
+
+    $this->get(route('home'))
+        ->assertOk()
+        ->assertInertia(fn ($inertia) => $inertia
+            ->where('contentPage.sections.0.settings.products.0.name', 'Kit Deportivo')
+            ->where('contentPage.sections.0.settings.products.0.price.effective_price', '280.00'));
+});
+
+test('obsolete pagebuilder section types are not rendered', function () {
+    $page = StorefrontPage::factory()->create([
+        'store_id' => $this->store->id,
+        'slug' => StorefrontPage::HOME,
+        'is_published' => true,
+    ]);
+
+    StorefrontPageSection::factory()->create([
+        'storefront_page_id' => $page->id,
+        'type' => 'featured_products',
+        'settings' => ['title' => 'Old builder'],
+    ]);
+
+    $this->get(route('home'))
+        ->assertOk()
+        ->assertInertia(fn ($inertia) => $inertia->has('contentPage.sections', 0));
+});
+
+test('published cms page renders by slug without automatic template sections', function () {
     $page = StorefrontPage::factory()->create([
         'store_id' => $this->store->id,
         'slug' => 'nosotros',
@@ -60,7 +361,7 @@ test('published cms page renders by slug', function () {
     ]);
     StorefrontPageSection::factory()->create([
         'storefront_page_id' => $page->id,
-        'type' => StorefrontPageSection::TYPE_TEXT_IMAGE,
+        'type' => StorefrontPageSection::TYPE_HERO,
         'settings' => ['title' => 'Equipo experto'],
     ]);
 
@@ -84,45 +385,6 @@ test('unpublished cms page returns not found', function () {
 
 test('category route still wins over cms catch all route', function () {
     $this->get('/c/no-existe')->assertNotFound();
-});
-
-test('featured_products section renders selected products from product_ids', function () {
-    $source = InventorySource::factory()->default()->create();
-    $productA = sellableProduct($this->store, $source, 100);
-    $productB = sellableProduct($this->store, $source, 200);
-
-    $page = StorefrontPage::factory()->create(['store_id' => $this->store->id]);
-    StorefrontPageSection::factory()->create([
-        'storefront_page_id' => $page->id,
-        'type' => StorefrontPageSection::TYPE_FEATURED_PRODUCTS,
-        'settings' => [
-            'title' => 'Destacados',
-            'product_ids' => [$productA->id, $productB->id],
-        ],
-    ]);
-
-    $this->get(route('home'))
-        ->assertOk()
-        ->assertInertia(fn ($inertia) => $inertia
-            ->component('storefront/home')
-            ->where('contentPage.sections.0.settings.title', 'Destacados')
-            ->where('contentPage.sections.0.settings.product_ids', [$productA->id, $productB->id])
-            ->has('contentPage.sections.0.settings.products', 2));
-});
-
-test('featured_products section without product_ids uses fallback featured', function () {
-    $page = StorefrontPage::factory()->create(['store_id' => $this->store->id]);
-    StorefrontPageSection::factory()->create([
-        'storefront_page_id' => $page->id,
-        'type' => StorefrontPageSection::TYPE_FEATURED_PRODUCTS,
-        'settings' => ['title' => 'Destacados automáticos'],
-    ]);
-
-    $this->get(route('home'))
-        ->assertOk()
-        ->assertInertia(fn ($inertia) => $inertia
-            ->component('storefront/home')
-            ->has('featured'));
 });
 
 test('inquiry form stores leads for the resolved store', function () {

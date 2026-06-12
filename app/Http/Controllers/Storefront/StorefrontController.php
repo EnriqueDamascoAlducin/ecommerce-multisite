@@ -7,14 +7,12 @@ use App\Domain\Catalog\ConfigurableProductService;
 use App\Domain\Catalog\ProductPricingService;
 use App\Domain\Inventory\StockAvailabilityChecker;
 use App\Domain\Store\StoreContext;
-use App\Domain\Storefront\ProductSectionResolver;
 use App\Domain\Storefront\StorefrontPagePresenter;
 use App\Http\Controllers\Controller;
 use App\Models\Attribute;
 use App\Models\Category;
 use App\Models\Product;
 use App\Models\StorefrontPage;
-use App\Models\StorefrontPageSection;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
@@ -31,7 +29,6 @@ class StorefrontController extends Controller
         private readonly BundleService $bundles,
         private readonly StockAvailabilityChecker $availability,
         private readonly StorefrontPagePresenter $pagePresenter,
-        private readonly ProductSectionResolver $productSectionResolver,
     ) {}
 
     public function home(): Response
@@ -62,7 +59,7 @@ class StorefrontController extends Controller
         return $this->renderPage($slug, []);
     }
 
-    public function category(string $slug): Response
+    public function category(Request $request, string $slug): Response
     {
         if (! $this->context->hasStore()) {
             throw new NotFoundHttpException('Tienda no resuelta.');
@@ -80,9 +77,17 @@ class StorefrontController extends Controller
             throw new NotFoundHttpException('Categoría no encontrada.');
         }
 
-        $products = $this->catalogQuery()
-            ->whereHas('categories', fn (Builder $q) => $q->where('categories.id', $category->id))
-            ->orderBy('name')
+        $filterableAttributes = $this->filterableAttributes();
+        $attrs = $request->input('attrs', []);
+
+        $query = $this->catalogQuery()
+            ->whereHas('categories', fn (Builder $q) => $q->where('categories.id', $category->id));
+
+        if (is_array($attrs) && $attrs !== []) {
+            $this->applyAttributeFilters($query, $attrs, $filterableAttributes);
+        }
+
+        $products = $query->orderBy('name')
             ->paginate(12)
             ->withQueryString()
             ->through(fn (Product $product) => $this->productCard($product));
@@ -92,6 +97,12 @@ class StorefrontController extends Controller
                 'name' => $category->name,
                 'slug' => $category->slug,
                 'description' => $category->description,
+            ],
+            'filters' => [
+                'attrs' => is_array($attrs) ? $attrs : [],
+            ],
+            'filterOptions' => [
+                'attributes' => $this->presentFilterableAttributes($filterableAttributes),
             ],
             'products' => $products,
         ]);
@@ -154,6 +165,8 @@ class StorefrontController extends Controller
                 ->map(fn (Category $category) => ['name' => $category->name, 'slug' => $category->slug])
                 ->values(),
             'labels' => $this->labelsFor($product),
+            'upsell_products' => $this->relatedProductCards($product, Product::LINK_TYPE_UPSELL),
+            'cross_sell_products' => $this->relatedProductCards($product, Product::LINK_TYPE_CROSS_SELL),
         ];
 
         if ($product->isBundle()) {
@@ -171,7 +184,7 @@ class StorefrontController extends Controller
             $variants = $product->variants()
                 ->where('status', Product::STATUS_ACTIVE)
                 ->whereHas('storeLinks', fn (Builder $q) => $q->where('store_id', $store->id)->where('is_active', true))
-                ->with(['prices' => fn ($q) => $q->whereIn('store_id', [$store->id, null]), 'inventoryStocks', 'media', 'attributeValues.attribute'])
+                ->with(['prices' => fn ($q) => $q->where(fn ($query) => $query->where('store_id', $store->id)->orWhereNull('store_id')), 'inventoryStocks', 'media', 'attributeValues.attribute'])
                 ->get()
                 ->map(fn (Product $v) => [
                     'id' => $v->id,
@@ -227,7 +240,7 @@ class StorefrontController extends Controller
         $storeId = $this->context->store()->id;
 
         $query = Product::query()
-            ->with(['prices', 'media', 'inventoryStocks', 'labels'])
+            ->with(['prices', 'media', 'inventoryStocks', 'labels', 'bundleItems.product.prices', 'bundleItems.product.inventoryStocks'])
             ->where('status', Product::STATUS_ACTIVE)
             ->whereIn('visibility', ['both', 'search'])
             ->whereHas('storeLinks', fn (Builder $q) => $q->where('store_id', $storeId)->where('is_active', true));
@@ -240,11 +253,7 @@ class StorefrontController extends Controller
             });
         }
 
-        $filterableAttributes = Attribute::with('options')
-            ->where('is_filterable', true)
-            ->orderBy('sort_order')
-            ->orderBy('name')
-            ->get();
+        $filterableAttributes = $this->filterableAttributes();
 
         $attrs = $request->input('attrs', []);
         if (is_array($attrs) && $attrs !== []) {
@@ -262,18 +271,7 @@ class StorefrontController extends Controller
                 'attrs' => $attrs,
             ],
             'filterOptions' => [
-                'attributes' => $filterableAttributes->map(fn (Attribute $attr) => [
-                    'id' => $attr->id,
-                    'code' => $attr->code,
-                    'name' => $attr->name,
-                    'type' => $attr->type,
-                    'options' => $attr->hasOptions()
-                        ? $attr->options->map(fn ($opt) => [
-                            'label' => $opt->label,
-                            'value' => $opt->value,
-                        ])->values()
-                        : [],
-                ])->values(),
+                'attributes' => $this->presentFilterableAttributes($filterableAttributes),
             ],
             'products' => $products,
         ]);
@@ -289,7 +287,7 @@ class StorefrontController extends Controller
         $storeId = $this->context->store()->id;
 
         return Product::query()
-            ->with(['prices', 'media', 'inventoryStocks', 'labels'])
+            ->with(['prices', 'media', 'inventoryStocks', 'labels', 'bundleItems.product.prices', 'bundleItems.product.inventoryStocks'])
             ->where('status', Product::STATUS_ACTIVE)
             ->whereIn('visibility', ['both', 'catalog'])
             ->whereHas('storeLinks', fn (Builder $q) => $q->where('store_id', $storeId)->where('is_active', true));
@@ -313,63 +311,10 @@ class StorefrontController extends Controller
 
         $contentPage = $page ? $this->pagePresenter->present($page) : null;
 
-        if ($page && $contentPage) {
-            $contentPage['sections'] = array_map(
-                fn (array $section) => $this->resolveSectionProducts($section, $featured),
-                $contentPage['sections'],
-            );
-        }
-
-        if ($page && $featured === [] && $page->sections->contains('type', StorefrontPageSection::TYPE_FEATURED_PRODUCTS)) {
-            $fallbackSections = $page->sections->where('type', StorefrontPageSection::TYPE_FEATURED_PRODUCTS)
-                ->filter(fn (StorefrontPageSection $s) => empty($s->settings['product_ids'] ?? []));
-
-            if ($fallbackSections->isNotEmpty()) {
-                $featured = $this->catalogQuery()
-                    ->latest()
-                    ->limit(12)
-                    ->get()
-                    ->map(fn (Product $product) => $this->productCard($product))
-                    ->all();
-            }
-        }
-
         return Inertia::render('storefront/home', [
             'featured' => $featured,
             'contentPage' => $contentPage,
         ]);
-    }
-
-    /**
-     * @param  array<string, mixed>  $section
-     * @param  list<array<string, mixed>>  $featured
-     * @return array<string, mixed>
-     */
-    private function resolveSectionProducts(array $section, array $featured): array
-    {
-        if ($section['type'] !== StorefrontPageSection::TYPE_FEATURED_PRODUCTS) {
-            return $section;
-        }
-
-        $settings = $section['settings'];
-        $ids = $settings['product_ids'] ?? [];
-
-        if (empty($ids) || ! is_array($ids)) {
-            return $section;
-        }
-
-        $products = $this->productSectionResolver
-            ->resolve(
-                StorefrontPageSection::make(['settings' => ['product_ids' => $ids]]),
-                $this->context->store()->id,
-            )
-            ->map(fn (Product $product) => $this->productCard($product))
-            ->all();
-
-        $settings['products'] = $products;
-        $section['settings'] = $settings;
-
-        return $section;
     }
 
     /**
@@ -383,11 +328,41 @@ class StorefrontController extends Controller
             'sku' => $product->sku,
             'name' => $product->name,
             'slug' => $product->slug,
-            'price' => $this->pricing->priceFor($product, $storeId),
+            'price' => match (true) {
+                $product->isConfigurable() => $this->configurable->priceForConfigurable($product, $storeId)
+                    ?? ['price' => null, 'special_price' => null, 'effective_price' => null, 'is_special' => false],
+                $product->isBundle() => $this->bundles->priceFor($product, $storeId),
+                default => $this->pricing->priceFor($product, $storeId),
+            },
             'thumbnail' => $product->primaryMedia('gallery')?->url,
-            'in_stock' => $this->availability->canFulfill($product, 1),
+            'in_stock' => match (true) {
+                $product->isBundle() => $this->bundles->canFulfill($product, 1),
+                default => $this->availability->canFulfill($product, 1),
+            },
             'labels' => $this->labelsFor($product),
         ];
+    }
+
+    /**
+     * @return list<array<string, mixed>>
+     */
+    private function relatedProductCards(Product $product, string $type): array
+    {
+        $storeId = $this->context->store()->id;
+        $relation = $type === Product::LINK_TYPE_UPSELL
+            ? $product->upsellProducts()
+            : $product->crossSellProducts();
+
+        return $relation
+            ->with(['prices', 'media', 'inventoryStocks', 'labels', 'bundleItems.product.prices', 'bundleItems.product.inventoryStocks'])
+            ->where('status', Product::STATUS_ACTIVE)
+            ->whereIn('visibility', ['both', 'catalog'])
+            ->whereHas('storeLinks', fn (Builder $q) => $q->where('store_id', $storeId)->where('is_active', true))
+            ->limit(12)
+            ->get()
+            ->map(fn (Product $relatedProduct) => $this->productCard($relatedProduct))
+            ->values()
+            ->all();
     }
 
     /**
@@ -464,7 +439,7 @@ class StorefrontController extends Controller
                     Attribute::TYPE_NUMBER => $this->applyNumberAttributeFilter($q, is_array($raw) ? $raw : []),
                     Attribute::TYPE_DATE => $this->applyDateAttributeFilter($q, is_array($raw) ? $raw : []),
                     Attribute::TYPE_BOOLEAN => $raw === '' || $raw === null ? null : $q->where('value', (string) $raw),
-                    Attribute::TYPE_MULTISELECT => $raw === '' || $raw === null ? null : $q->where('value', 'like', '%"'.addcslashes((string) $raw, '%_\\').'"%'),
+                    Attribute::TYPE_MULTISELECT => $this->applyMultiselectAttributeFilter($q, $raw),
                     default => $raw === '' || $raw === null ? null : $q->where('value', 'like', '%'.addcslashes((string) $raw, '%_\\').'%'),
                 };
             });
@@ -481,7 +456,62 @@ class StorefrontController extends Controller
             return is_array($raw) && (($raw['from'] ?? '') !== '' || ($raw['to'] ?? '') !== '');
         }
 
+        if ($attribute->type === Attribute::TYPE_MULTISELECT) {
+            return is_array($raw) ? collect($raw)->contains(fn ($value) => $value !== '' && $value !== null) : $raw !== '' && $raw !== null;
+        }
+
         return $raw !== '' && $raw !== null;
+    }
+
+    /**
+     * @return Collection<int, Attribute>
+     */
+    private function filterableAttributes(): Collection
+    {
+        return Attribute::with('options')
+            ->where('is_filterable', true)
+            ->orderBy('sort_order')
+            ->orderBy('name')
+            ->get();
+    }
+
+    /**
+     * @param  Collection<int, Attribute>  $attributes
+     * @return Collection<int, array{id: int, code: string, name: string, type: string, options: Collection<int, array{label: string, value: string}>|array<int, never>}>
+     */
+    private function presentFilterableAttributes(Collection $attributes): Collection
+    {
+        return $attributes->map(fn (Attribute $attr) => [
+            'id' => $attr->id,
+            'code' => $attr->code,
+            'name' => $attr->name,
+            'type' => $attr->type,
+            'options' => $attr->hasOptions()
+                ? $attr->options->map(fn ($opt) => [
+                    'label' => $opt->label,
+                    'value' => $opt->value,
+                ])->values()
+                : [],
+        ])->values();
+    }
+
+    private function applyMultiselectAttributeFilter(Builder $query, mixed $raw): void
+    {
+        $values = is_array($raw) ? $raw : [$raw];
+        $values = collect($values)
+            ->filter(fn ($value) => $value !== '' && $value !== null)
+            ->map(fn ($value) => (string) $value)
+            ->values();
+
+        if ($values->isEmpty()) {
+            return;
+        }
+
+        $query->where(function (Builder $nested) use ($values) {
+            foreach ($values as $value) {
+                $nested->orWhere('value', 'like', '%"'.addcslashes($value, '%_\\').'"%');
+            }
+        });
     }
 
     /**

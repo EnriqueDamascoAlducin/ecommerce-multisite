@@ -32,6 +32,10 @@ class Product extends Model
 
     public const PRICE_TYPE_FIXED = 'fixed';
 
+    public const LINK_TYPE_UPSELL = 'upsell';
+
+    public const LINK_TYPE_CROSS_SELL = 'cross_sell';
+
     /** @var list<string> */
     protected $fillable = [
         'type', 'price_type', 'parent_id', 'sku', 'name', 'slug', 'short_description', 'description',
@@ -153,6 +157,38 @@ class Product extends Model
     public function variants(): HasMany
     {
         return $this->children()->where('type', self::TYPE_SIMPLE);
+    }
+
+    /**
+     * Productos sugeridos para subir ticket desde la ficha.
+     *
+     * @return BelongsToMany<Product, $this>
+     */
+    public function upsellProducts(): BelongsToMany
+    {
+        return $this->linkedProducts(self::LINK_TYPE_UPSELL);
+    }
+
+    /**
+     * Productos complementarios para la ficha.
+     *
+     * @return BelongsToMany<Product, $this>
+     */
+    public function crossSellProducts(): BelongsToMany
+    {
+        return $this->linkedProducts(self::LINK_TYPE_CROSS_SELL);
+    }
+
+    /**
+     * @return BelongsToMany<Product, $this>
+     */
+    private function linkedProducts(string $type): BelongsToMany
+    {
+        return $this->belongsToMany(self::class, 'product_links', 'product_id', 'linked_product_id')
+            ->withPivot(['type', 'sort_order'])
+            ->wherePivot('type', $type)
+            ->orderByPivot('sort_order')
+            ->withTimestamps();
     }
 
     /**

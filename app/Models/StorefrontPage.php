@@ -33,6 +33,6 @@ class StorefrontPage extends Model
 
     public function sections(): HasMany
     {
-        return $this->hasMany(StorefrontPageSection::class)->orderBy('sort_order');
+        return $this->hasMany(StorefrontPageSection::class)->orderBy('id');
     }
 }

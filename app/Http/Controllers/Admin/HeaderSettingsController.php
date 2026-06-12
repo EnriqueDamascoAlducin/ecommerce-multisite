@@ -66,6 +66,7 @@ class HeaderSettingsController extends Controller
                 'header_background_color' => $data['header_background_color'] ?? null,
                 'menu_text_color' => $data['menu_text_color'] ?? null,
                 'menu_background_color' => $data['menu_background_color'] ?? null,
+                'footer_settings' => $this->sanitizeFooter($data['footer'] ?? []),
             ],
         );
 
@@ -148,7 +149,105 @@ class HeaderSettingsController extends Controller
             'header_background_color' => $settings?->header_background_color,
             'menu_text_color' => $settings?->menu_text_color,
             'menu_background_color' => $settings?->menu_background_color,
+            'footer' => $this->footerPayload($settings?->footer_settings, $website),
         ];
+    }
+
+    /**
+     * @param  array<string, mixed>  $footer
+     * @return array{enabled: bool, description: string, copyright: string, background_color: string|null, text_color: string|null, columns: list<array{title: string, links: list<array{label: string, url: string}>}>, contact: list<array{label: string, value: string}>, social: list<array{platform: string, url: string}>}
+     */
+    private function sanitizeFooter(array $footer): array
+    {
+        return [
+            'enabled' => (bool) ($footer['enabled'] ?? true),
+            'description' => trim((string) ($footer['description'] ?? '')),
+            'copyright' => trim((string) ($footer['copyright'] ?? '')),
+            'background_color' => $footer['background_color'] ?? null,
+            'text_color' => $footer['text_color'] ?? null,
+            'columns' => $this->sanitizeFooterColumns($footer['columns'] ?? []),
+            'contact' => $this->sanitizeFooterContact($footer['contact'] ?? []),
+            'social' => $this->sanitizeSocial($footer['social'] ?? []),
+        ];
+    }
+
+    /**
+     * @return list<array{title: string, links: list<array{label: string, url: string}>}>
+     */
+    private function sanitizeFooterColumns(mixed $columns): array
+    {
+        if (! is_array($columns)) {
+            return [];
+        }
+
+        return collect($columns)
+            ->take(4)
+            ->map(function ($column) {
+                if (! is_array($column)) {
+                    return null;
+                }
+
+                $links = collect($column['links'] ?? [])
+                    ->take(8)
+                    ->filter(fn ($link) => is_array($link) && trim((string) ($link['label'] ?? '')) !== '' && trim((string) ($link['url'] ?? '')) !== '')
+                    ->map(fn ($link) => [
+                        'label' => trim((string) $link['label']),
+                        'url' => trim((string) $link['url']),
+                    ])
+                    ->values()
+                    ->all();
+
+                $title = trim((string) ($column['title'] ?? ''));
+
+                if ($title === '' && $links === []) {
+                    return null;
+                }
+
+                return ['title' => $title, 'links' => $links];
+            })
+            ->filter()
+            ->values()
+            ->all();
+    }
+
+    /**
+     * @return list<array{label: string, value: string}>
+     */
+    private function sanitizeFooterContact(mixed $contact): array
+    {
+        if (! is_array($contact)) {
+            return [];
+        }
+
+        return collect($contact)
+            ->take(6)
+            ->filter(fn ($row) => is_array($row) && trim((string) ($row['label'] ?? '')) !== '' && trim((string) ($row['value'] ?? '')) !== '')
+            ->map(fn ($row) => [
+                'label' => trim((string) $row['label']),
+                'value' => trim((string) $row['value']),
+            ])
+            ->values()
+            ->all();
+    }
+
+    /**
+     * @param  array<string, mixed>|null  $footer
+     * @return array{enabled: bool, description: string, copyright: string, background_color: string|null, text_color: string|null, columns: list<array{title: string, links: list<array{label: string, url: string}>}>, contact: list<array{label: string, value: string}>, social: list<array{platform: string, url: string}>}
+     */
+    private function footerPayload(?array $footer, Website $website): array
+    {
+        $defaults = [
+            'enabled' => true,
+            'description' => '',
+            'copyright' => '© {year} '.$website->name.'. Todos los derechos reservados.',
+            'background_color' => null,
+            'text_color' => null,
+            'columns' => [],
+            'contact' => [],
+            'social' => [],
+        ];
+
+        return $this->sanitizeFooter([...$defaults, ...($footer ?? [])]);
     }
 
     private function resolveWebsite(int $websiteId): ?Website

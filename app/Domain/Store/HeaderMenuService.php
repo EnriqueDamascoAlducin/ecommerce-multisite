@@ -2,6 +2,8 @@
 
 namespace App\Domain\Store;
 
+use App\Domain\Catalog\ProductPricingService;
+use App\Domain\Inventory\StockAvailabilityChecker;
 use App\Models\Category;
 use App\Models\HeaderMenuItem;
 use App\Models\Product;
@@ -13,6 +15,11 @@ use Illuminate\Support\Collection;
 class HeaderMenuService
 {
     private const MAX_PRODUCTS = 6;
+
+    public function __construct(
+        private readonly StockAvailabilityChecker $availability,
+        private readonly ProductPricingService $pricing,
+    ) {}
 
     /**
      * Construye el árbol completo del menú para una tienda, cargando
@@ -192,7 +199,9 @@ class HeaderMenuService
             ->whereHas('storeLinks', fn ($q) => $q->where('store_id', $store->id)->where('is_active', true))
             ->with([
                 'media' => fn (BelongsToMany $q) => $q->wherePivot('collection', 'default')->wherePivot('is_primary', true),
-                'prices' => fn ($q) => $q->where('store_id', $store->id),
+                'prices' => fn ($q) => $q->where(fn ($query) => $query
+                    ->where('store_id', $store->id)
+                    ->orWhereNull('store_id')),
                 'inventoryStocks',
             ])
             ->orderBy('name')
@@ -205,13 +214,8 @@ class HeaderMenuService
                 'sku' => $product->sku,
                 'url' => $this->storefrontPath($store, "/p/{$product->slug}"),
                 'thumbnail' => $product->primaryMedia()?->url,
-                'in_stock' => $product->totalAvailableQty() > 0,
-                'price' => [
-                    'price' => $product->prices->first()?->price,
-                    'special_price' => $product->prices->first()?->special_price,
-                    'effective_price' => $product->prices->first()?->effectivePrice(),
-                    'is_special' => $product->prices->first()?->isSpecialActive(),
-                ],
+                'in_stock' => $this->availability->canFulfill($product, 1),
+                'price' => $this->pricing->priceFor($product, $store->id),
             ])
             ->all();
     }

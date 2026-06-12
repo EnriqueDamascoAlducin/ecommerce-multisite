@@ -1,7 +1,9 @@
 <?php
 
-use App\Models\InventorySource;
 use App\Models\Media;
+use App\Models\Product;
+use App\Models\ProductPrice;
+use App\Models\ProductStore;
 use App\Models\Store;
 use App\Models\StorefrontPage;
 use App\Models\StorefrontPageSection;
@@ -44,53 +46,60 @@ test('an admin can create a storefront page', function () {
     ]);
 });
 
-test('an admin can create and update a page section with media', function () {
+test('home page is seeded with template sections on creation', function () {
     $store = Store::factory()->create();
-    $page = StorefrontPage::factory()->create(['store_id' => $store->id]);
-    $media = Media::factory()->create();
 
-    $this->post(route('admin.storefront.pages.sections.store', $page), [
+    $this->post(route('admin.storefront.pages.store'), [
         'store_id' => $store->id,
-        'type' => StorefrontPageSection::TYPE_HERO,
-        'is_active' => true,
-        'settings' => [
-            'title' => 'Hot Days 2024',
-            'media_id' => $media->id,
-        ],
+        'title' => 'Home',
+        'slug' => StorefrontPage::HOME,
+        'is_published' => true,
     ])->assertRedirect();
 
-    $section = $page->sections()->firstOrFail();
+    $page = StorefrontPage::where('slug', StorefrontPage::HOME)
+        ->where('store_id', $store->id)
+        ->firstOrFail();
 
-    $this->put(route('admin.storefront.pages.sections.update', [$page, $section]), [
-        'store_id' => $store->id,
-        'type' => StorefrontPageSection::TYPE_HERO,
-        'is_active' => false,
-        'settings' => [
-            'title' => 'Updated',
-            'media_id' => $media->id,
-        ],
-    ])->assertRedirect();
-
-    $this->assertDatabaseHas('storefront_page_sections', [
-        'id' => $section->id,
-        'is_active' => false,
-    ]);
+    expect($page->sections()->pluck('type')->all())->toBe(StorefrontPageSection::FIXED_TYPES);
 });
 
-test('an admin can reorder sections', function () {
-    $page = StorefrontPage::factory()->create();
-    $first = StorefrontPageSection::factory()->create(['storefront_page_id' => $page->id, 'sort_order' => 0]);
-    $second = StorefrontPageSection::factory()->create(['storefront_page_id' => $page->id, 'sort_order' => 1]);
+test('existing home page is completed without overwriting edited content', function () {
+    $store = Store::factory()->create();
+    $page = StorefrontPage::factory()->create([
+        'store_id' => $store->id,
+        'slug' => StorefrontPage::HOME,
+    ]);
 
-    $this->post(route('admin.storefront.pages.sections.reorder', $page), [
-        'sections' => [
-            ['id' => $first->id, 'sort_order' => 1],
-            ['id' => $second->id, 'sort_order' => 0],
-        ],
+    StorefrontPageSection::factory()->create([
+        'storefront_page_id' => $page->id,
+        'type' => StorefrontPageSection::TYPE_HERO,
+        'settings' => ['title' => 'Custom hero'],
+    ]);
+
+    $this->get(route('admin.storefront.pages.edit', $page))
+        ->assertOk()
+        ->assertInertia(fn ($inertia) => $inertia
+            ->has('page.sections', 5)
+            ->where('page.sections.0.settings.title', 'Custom hero'));
+
+    expect($page->fresh()->sections()->pluck('type')->all())->toBe(StorefrontPageSection::FIXED_TYPES);
+});
+
+test('non-home pages are not seeded with template sections', function () {
+    $store = Store::factory()->create();
+
+    $this->post(route('admin.storefront.pages.store'), [
+        'store_id' => $store->id,
+        'title' => 'About',
+        'slug' => 'about',
+        'is_published' => true,
     ])->assertRedirect();
 
-    expect($first->fresh()->sort_order)->toBe(1);
-    expect($second->fresh()->sort_order)->toBe(0);
+    $page = StorefrontPage::where('slug', 'about')
+        ->where('store_id', $store->id)
+        ->firstOrFail();
+
+    expect($page->sections()->count())->toBe(0);
 });
 
 test('a user without storefront permission is forbidden', function () {
@@ -105,91 +114,495 @@ test('home page cannot be deleted', function () {
     $this->delete(route('admin.storefront.pages.destroy', $page))->assertStatus(422);
 });
 
-test('edit page includes productOptions', function () {
+test('page content can be updated with template section settings', function () {
     $store = Store::factory()->create();
-    $source = InventorySource::factory()->default()->create();
-    $product = sellableProduct($store, $source, 100);
-    $page = StorefrontPage::factory()->create(['store_id' => $store->id]);
+    $media = Media::factory()->create();
 
-    $this->get(route('admin.storefront.pages.edit', $page))
-        ->assertOk()
-        ->assertInertia(fn ($page) => $page
-            ->has('productOptions', 1)
-            ->where('productOptions.0.id', $product->id));
-});
-
-test('can save featured_products section with product_ids', function () {
-    $store = Store::factory()->create();
-    $source = InventorySource::factory()->default()->create();
-    $productA = sellableProduct($store, $source, 100);
-    $productB = sellableProduct($store, $source, 200);
-    $page = StorefrontPage::factory()->create(['store_id' => $store->id]);
-
-    $this->post(route('admin.storefront.pages.sections.store', $page), [
+    $this->post(route('admin.storefront.pages.store'), [
         'store_id' => $store->id,
-        'type' => StorefrontPageSection::TYPE_FEATURED_PRODUCTS,
-        'is_active' => true,
-        'settings' => [
-            'title' => 'Destacados',
-            'product_ids' => [$productA->id, $productB->id],
+        'title' => 'Home',
+        'slug' => StorefrontPage::HOME,
+        'is_published' => true,
+    ])->assertRedirect();
+
+    $page = StorefrontPage::where('store_id', $store->id)
+        ->where('slug', StorefrontPage::HOME)
+        ->firstOrFail();
+
+    $sections = $page->sections()->get()->keyBy('type');
+
+    $this->put(route('admin.storefront.pages.update', $page), [
+        'store_id' => $store->id,
+        'title' => 'Home actualizado',
+        'is_published' => true,
+        'sections' => [
+            [
+                'id' => $sections[StorefrontPageSection::TYPE_HERO]->id,
+                'settings' => [
+                    'background_color' => '#101010',
+                    'content_width' => 'full',
+                    'eyebrow' => 'Nueva campaña',
+                    'title' => 'HOT DAYS',
+                    'subtitle' => 'Texto actualizado',
+                    'media_id' => $media->id,
+                    'buttons' => [
+                        ['label' => 'Ver ofertas', 'url' => '/ofertas'],
+                        ['label' => 'Catalogo', 'url' => '/catalogo'],
+                    ],
+                ],
+            ],
+            [
+                'id' => $sections[StorefrontPageSection::TYPE_SPECIALTY_GRID]->id,
+                'settings' => [
+                    'background_color' => '#ffffff',
+                    'content_width' => 'container',
+                    'title' => 'Especialidades',
+                    'items' => [
+                        [
+                            'title' => 'Electroterapia',
+                            'text' => 'Precision',
+                            'icon' => 'zap',
+                            'link' => '/electroterapia',
+                            'highlighted' => true,
+                            'wide' => true,
+                            'media_id' => $media->id,
+                        ],
+                    ],
+                ],
+            ],
+            [
+                'id' => $sections[StorefrontPageSection::TYPE_FEATURE_CARDS]->id,
+                'settings' => [
+                    'background_color' => '#f2f2f2',
+                    'items' => [
+                        [
+                            'title' => 'Servicio tecnico',
+                            'text' => 'Soporte experto',
+                            'cta_label' => 'Agendar',
+                            'cta_url' => '/servicio',
+                            'media_id' => $media->id,
+                        ],
+                    ],
+                ],
+            ],
+            [
+                'id' => $sections[StorefrontPageSection::TYPE_BRAND_STRIP]->id,
+                'settings' => [
+                    'background_color' => '#fafafa',
+                    'eyebrow' => 'Partners',
+                    'title' => 'Marcas',
+                    'brands' => ['BTL', 'DJO'],
+                ],
+            ],
+            [
+                'id' => $sections[StorefrontPageSection::TYPE_INQUIRY_FORM]->id,
+                'settings' => [
+                    'background_color' => '#ffffff',
+                    'title' => 'Cotiza hoy',
+                    'text' => 'Te ayudamos',
+                    'phone' => '+52 55 0000 0000',
+                    'email' => 'ventas@example.com',
+                    'interest_areas' => ['Electroterapia', 'Servicio tecnico'],
+                    'media_id' => $media->id,
+                ],
+            ],
         ],
     ])->assertRedirect();
 
-    $section = $page->sections()->firstOrFail();
-    expect($section->settings['product_ids'])->toBe([$productA->id, $productB->id]);
+    $page->refresh();
+    expect($page->title)->toBe('Home actualizado')
+        ->and($sections[StorefrontPageSection::TYPE_HERO]->fresh()->settings['background_color'])->toBe('#101010')
+        ->and($sections[StorefrontPageSection::TYPE_HERO]->fresh()->settings['content_width'])->toBe('full')
+        ->and($sections[StorefrontPageSection::TYPE_HERO]->fresh()->settings['eyebrow'])->toBe('Nueva campaña')
+        ->and($sections[StorefrontPageSection::TYPE_HERO]->fresh()->settings['title'])->toBe('HOT DAYS')
+        ->and($sections[StorefrontPageSection::TYPE_HERO]->fresh()->settings['subtitle'])->toBe('Texto actualizado')
+        ->and($sections[StorefrontPageSection::TYPE_HERO]->fresh()->settings['media_id'])->toBe($media->id)
+        ->and($sections[StorefrontPageSection::TYPE_HERO]->fresh()->settings['buttons'][0]['label'])->toBe('Ver ofertas')
+        ->and($sections[StorefrontPageSection::TYPE_SPECIALTY_GRID]->fresh()->settings['background_color'])->toBe('#ffffff')
+        ->and($sections[StorefrontPageSection::TYPE_SPECIALTY_GRID]->fresh()->settings['content_width'])->toBe('container')
+        ->and($sections[StorefrontPageSection::TYPE_SPECIALTY_GRID]->fresh()->settings['title'])->toBe('Especialidades')
+        ->and($sections[StorefrontPageSection::TYPE_SPECIALTY_GRID]->fresh()->settings['items'][0]['highlighted'])->toBeTrue()
+        ->and($sections[StorefrontPageSection::TYPE_SPECIALTY_GRID]->fresh()->settings['items'][0]['wide'])->toBeTrue()
+        ->and($sections[StorefrontPageSection::TYPE_FEATURE_CARDS]->fresh()->settings['background_color'])->toBe('#f2f2f2')
+        ->and($sections[StorefrontPageSection::TYPE_BRAND_STRIP]->fresh()->settings['background_color'])->toBe('#fafafa')
+        ->and($sections[StorefrontPageSection::TYPE_BRAND_STRIP]->fresh()->settings['eyebrow'])->toBe('Partners')
+        ->and($sections[StorefrontPageSection::TYPE_BRAND_STRIP]->fresh()->settings['title'])->toBe('Marcas')
+        ->and($sections[StorefrontPageSection::TYPE_BRAND_STRIP]->fresh()->settings['brands'])->toBe(['BTL', 'DJO'])
+        ->and($sections[StorefrontPageSection::TYPE_INQUIRY_FORM]->fresh()->settings['background_color'])->toBe('#ffffff')
+        ->and($sections[StorefrontPageSection::TYPE_INQUIRY_FORM]->fresh()->settings['title'])->toBe('Cotiza hoy')
+        ->and($sections[StorefrontPageSection::TYPE_INQUIRY_FORM]->fresh()->settings['text'])->toBe('Te ayudamos')
+        ->and($sections[StorefrontPageSection::TYPE_INQUIRY_FORM]->fresh()->settings['phone'])->toBe('+52 55 0000 0000')
+        ->and($sections[StorefrontPageSection::TYPE_INQUIRY_FORM]->fresh()->settings['email'])->toBe('ventas@example.com')
+        ->and($sections[StorefrontPageSection::TYPE_INQUIRY_FORM]->fresh()->settings['interest_areas'])->toBe(['Electroterapia', 'Servicio tecnico']);
 });
 
-test('can save featured_products section with display_type carrousel', function () {
+test('hero can be saved with slides and strips resolved media objects', function () {
     $store = Store::factory()->create();
-    $source = InventorySource::factory()->default()->create();
-    $product = sellableProduct($store, $source, 100);
-    $page = StorefrontPage::factory()->create(['store_id' => $store->id]);
+    $first = Media::factory()->create();
+    $second = Media::factory()->create();
 
-    $this->post(route('admin.storefront.pages.sections.store', $page), [
+    $this->post(route('admin.storefront.pages.store'), [
         'store_id' => $store->id,
-        'type' => StorefrontPageSection::TYPE_FEATURED_PRODUCTS,
-        'is_active' => true,
-        'settings' => [
-            'title' => 'Destacados',
-            'product_ids' => [$product->id],
-            'display_type' => 'carrousel',
-        ],
+        'title' => 'Home',
+        'slug' => StorefrontPage::HOME,
+        'is_published' => true,
     ])->assertRedirect();
 
-    $section = $page->sections()->firstOrFail();
-    expect($section->settings['display_type'])->toBe('carrousel');
+    $page = StorefrontPage::where('store_id', $store->id)
+        ->where('slug', StorefrontPage::HOME)
+        ->firstOrFail();
+    $sections = $page->sections()->get()->keyBy('type');
+
+    $payload = collect(StorefrontPageSection::FIXED_TYPES)
+        ->map(fn (string $type) => [
+            'id' => $sections[$type]->id,
+            'settings' => $sections[$type]->settings,
+        ])
+        ->all();
+
+    $payload[0]['settings'] = [
+        'slides' => [
+            [
+                'media_id' => $first->id,
+                // A resolved media object as it arrives from the presenter; must not be persisted.
+                'media' => ['id' => $first->id, 'url' => $first->url, 'alt' => null],
+                'eyebrow' => 'Campaña',
+                'title' => 'Primer slide',
+                'subtitle' => 'Subtitulo uno',
+                'buttons' => [
+                    ['label' => 'Ver ofertas', 'url' => '/ofertas'],
+                    ['label' => 'Catalogo', 'url' => '/catalogo'],
+                ],
+            ],
+            [
+                'media_id' => $second->id,
+                'title' => 'Segundo slide',
+            ],
+        ],
+    ];
+
+    $this->put(route('admin.storefront.pages.update', $page), [
+        'store_id' => $store->id,
+        'title' => 'Home',
+        'is_published' => true,
+        'sections' => $payload,
+    ])->assertRedirect()->assertSessionHasNoErrors();
+
+    $heroSettings = $sections[StorefrontPageSection::TYPE_HERO]->fresh()->settings;
+
+    expect($heroSettings['slides'])->toHaveCount(2)
+        ->and($heroSettings['slides'][0]['media_id'])->toBe($first->id)
+        ->and($heroSettings['slides'][0]['title'])->toBe('Primer slide')
+        ->and($heroSettings['slides'][0]['subtitle'])->toBe('Subtitulo uno')
+        ->and($heroSettings['slides'][0]['buttons'][0]['label'])->toBe('Ver ofertas')
+        ->and($heroSettings['slides'][0])->not->toHaveKey('media')
+        ->and($heroSettings['slides'][1]['media_id'])->toBe($second->id)
+        ->and($heroSettings['slides'][1]['title'])->toBe('Segundo slide');
 });
 
-test('rejects invalid display_type', function () {
+test('hero rejects more than five slides', function () {
     $store = Store::factory()->create();
-    $page = StorefrontPage::factory()->create(['store_id' => $store->id]);
 
-    $this->post(route('admin.storefront.pages.sections.store', $page), [
+    $this->post(route('admin.storefront.pages.store'), [
         'store_id' => $store->id,
-        'type' => StorefrontPageSection::TYPE_FEATURED_PRODUCTS,
-        'is_active' => true,
-        'settings' => [
-            'display_type' => 'invalid_value',
-        ],
-    ])->assertSessionHasErrors('settings.display_type');
-});
-
-test('featured_products section defaults to grid display', function () {
-    $store = Store::factory()->create();
-    $source = InventorySource::factory()->default()->create();
-    $product = sellableProduct($store, $source, 100);
-    $page = StorefrontPage::factory()->create(['store_id' => $store->id]);
-
-    $this->post(route('admin.storefront.pages.sections.store', $page), [
-        'store_id' => $store->id,
-        'type' => StorefrontPageSection::TYPE_FEATURED_PRODUCTS,
-        'is_active' => true,
-        'settings' => [
-            'title' => 'Destacados',
-            'product_ids' => [$product->id],
-        ],
+        'title' => 'Home',
+        'slug' => StorefrontPage::HOME,
+        'is_published' => true,
     ])->assertRedirect();
 
-    $section = $page->sections()->firstOrFail();
-    expect($section->settings['display_type'] ?? 'grid')->toBe('grid');
+    $page = StorefrontPage::where('store_id', $store->id)
+        ->where('slug', StorefrontPage::HOME)
+        ->firstOrFail();
+    $sections = $page->sections()->get()->keyBy('type');
+
+    $payload = collect(StorefrontPageSection::FIXED_TYPES)
+        ->map(fn (string $type) => [
+            'id' => $sections[$type]->id,
+            'settings' => $sections[$type]->settings,
+        ])
+        ->all();
+
+    $payload[0]['settings'] = [
+        'slides' => collect(range(1, 6))
+            ->map(fn (int $index) => ['title' => "Slide {$index}"])
+            ->all(),
+    ];
+
+    $this->put(route('admin.storefront.pages.update', $page), [
+        'store_id' => $store->id,
+        'title' => 'Home',
+        'is_published' => true,
+        'sections' => $payload,
+    ])->assertSessionHasErrors('sections.0.settings.slides');
+});
+
+test('home template sections can be reordered', function () {
+    $store = Store::factory()->create();
+
+    $this->post(route('admin.storefront.pages.store'), [
+        'store_id' => $store->id,
+        'title' => 'Home',
+        'slug' => StorefrontPage::HOME,
+        'is_published' => true,
+    ])->assertRedirect();
+
+    $page = StorefrontPage::where('store_id', $store->id)
+        ->where('slug', StorefrontPage::HOME)
+        ->firstOrFail();
+
+    $sections = $page->sections()->get()->keyBy('type');
+    $orderedTypes = [
+        StorefrontPageSection::TYPE_INQUIRY_FORM,
+        StorefrontPageSection::TYPE_HERO,
+        StorefrontPageSection::TYPE_BRAND_STRIP,
+        StorefrontPageSection::TYPE_SPECIALTY_GRID,
+        StorefrontPageSection::TYPE_FEATURE_CARDS,
+    ];
+
+    $this->put(route('admin.storefront.pages.update', $page), [
+        'store_id' => $store->id,
+        'title' => 'Home',
+        'is_published' => true,
+        'sections' => collect($orderedTypes)
+            ->map(fn (string $type) => [
+                'id' => $sections[$type]->id,
+                'settings' => $sections[$type]->settings,
+            ])
+            ->all(),
+    ])->assertRedirect();
+
+    $freshSections = $page->fresh()->sections()->get()->keyBy('type');
+
+    foreach ($orderedTypes as $index => $type) {
+        expect($freshSections[$type]->settings['display_order'])->toBe($index);
+    }
+});
+
+test('home can add move and delete controlled extra sections', function () {
+    $store = Store::factory()->create();
+    $media = Media::factory()->create();
+    $product = Product::factory()->create();
+    ProductStore::factory()->create([
+        'product_id' => $product->id,
+        'store_id' => $store->id,
+        'is_active' => true,
+    ]);
+    ProductPrice::factory()->create(['product_id' => $product->id]);
+
+    $this->post(route('admin.storefront.pages.store'), [
+        'store_id' => $store->id,
+        'title' => 'Home',
+        'slug' => StorefrontPage::HOME,
+        'is_published' => true,
+    ])->assertRedirect();
+
+    $page = StorefrontPage::where('store_id', $store->id)
+        ->where('slug', StorefrontPage::HOME)
+        ->firstOrFail();
+    $sections = $page->sections()->get()->keyBy('type');
+
+    $payloadSections = [
+        [
+            'id' => $sections[StorefrontPageSection::TYPE_HERO]->id,
+            'settings' => $sections[StorefrontPageSection::TYPE_HERO]->settings,
+        ],
+        [
+            'type' => StorefrontPageSection::TYPE_IMAGE_BANNER,
+            'settings' => [
+                'background_color' => '#ffffff',
+                'content_width' => 'container',
+                'eyebrow' => 'Nuevo',
+                'title' => 'Banner',
+                'text' => 'Texto banner',
+                'media_id' => $media->id,
+                'button_label' => 'Ver',
+                'button_url' => '/ver',
+                'image_position' => 'right',
+            ],
+        ],
+        [
+            'id' => $sections[StorefrontPageSection::TYPE_SPECIALTY_GRID]->id,
+            'settings' => $sections[StorefrontPageSection::TYPE_SPECIALTY_GRID]->settings,
+        ],
+        [
+            'type' => StorefrontPageSection::TYPE_RECOMMENDED_PRODUCTS,
+            'settings' => [
+                'background_color' => '#ffffff',
+                'content_width' => 'container',
+                'title' => 'Recomendados',
+                'product_ids' => [$product->id],
+                'display_type' => 'carousel',
+                'columns' => 4,
+            ],
+        ],
+        [
+            'id' => $sections[StorefrontPageSection::TYPE_FEATURE_CARDS]->id,
+            'settings' => $sections[StorefrontPageSection::TYPE_FEATURE_CARDS]->settings,
+        ],
+        [
+            'id' => $sections[StorefrontPageSection::TYPE_BRAND_STRIP]->id,
+            'settings' => $sections[StorefrontPageSection::TYPE_BRAND_STRIP]->settings,
+        ],
+        [
+            'id' => $sections[StorefrontPageSection::TYPE_INQUIRY_FORM]->id,
+            'settings' => $sections[StorefrontPageSection::TYPE_INQUIRY_FORM]->settings,
+        ],
+    ];
+
+    $this->put(route('admin.storefront.pages.update', $page), [
+        'store_id' => $store->id,
+        'title' => 'Home',
+        'is_published' => true,
+        'sections' => $payloadSections,
+    ])->assertRedirect();
+
+    $freshTypes = $page->fresh()->sections()
+        ->get()
+        ->sortBy(fn (StorefrontPageSection $section) => $section->settings['display_order'] ?? 99)
+        ->pluck('type')
+        ->values()
+        ->all();
+
+    expect($freshTypes)->toBe([
+        StorefrontPageSection::TYPE_HERO,
+        StorefrontPageSection::TYPE_IMAGE_BANNER,
+        StorefrontPageSection::TYPE_SPECIALTY_GRID,
+        StorefrontPageSection::TYPE_RECOMMENDED_PRODUCTS,
+        StorefrontPageSection::TYPE_FEATURE_CARDS,
+        StorefrontPageSection::TYPE_BRAND_STRIP,
+        StorefrontPageSection::TYPE_INQUIRY_FORM,
+    ]);
+
+    expect($page->fresh()->sections()
+        ->where('type', StorefrontPageSection::TYPE_RECOMMENDED_PRODUCTS)
+        ->firstOrFail()
+        ->settings['display_type'])->toBe('carousel');
+
+    $extras = $page->fresh()->sections()
+        ->whereIn('type', StorefrontPageSection::EXTRA_TYPES)
+        ->get();
+
+    $this->put(route('admin.storefront.pages.update', $page), [
+        'store_id' => $store->id,
+        'title' => 'Home',
+        'is_published' => true,
+        'sections' => collect($payloadSections)
+            ->filter(fn (array $section) => isset($section['id']))
+            ->values()
+            ->all(),
+    ])->assertRedirect();
+
+    foreach ($extras as $extra) {
+        expect($extra->fresh())->toBeNull();
+    }
+});
+
+test('recommended products must belong to the current store', function () {
+    $store = Store::factory()->create();
+    $otherStore = Store::factory()->create();
+    $product = Product::factory()->create();
+    ProductStore::factory()->create([
+        'product_id' => $product->id,
+        'store_id' => $otherStore->id,
+        'is_active' => true,
+    ]);
+
+    $this->post(route('admin.storefront.pages.store'), [
+        'store_id' => $store->id,
+        'title' => 'Home',
+        'slug' => StorefrontPage::HOME,
+        'is_published' => true,
+    ])->assertRedirect();
+
+    $page = StorefrontPage::where('store_id', $store->id)
+        ->where('slug', StorefrontPage::HOME)
+        ->firstOrFail();
+    $sections = $page->sections()->get()->keyBy('type');
+    $fixedSectionsPayload = collect(StorefrontPageSection::FIXED_TYPES)
+        ->map(fn (string $type) => [
+            'id' => $sections[$type]->id,
+            'settings' => $sections[$type]->settings,
+        ])
+        ->all();
+
+    $this->put(route('admin.storefront.pages.update', $page), [
+        'store_id' => $store->id,
+        'title' => 'Home',
+        'is_published' => true,
+        'sections' => [
+            ...$fixedSectionsPayload,
+            [
+                'type' => StorefrontPageSection::TYPE_RECOMMENDED_PRODUCTS,
+                'settings' => ['product_ids' => [$product->id]],
+            ],
+        ],
+    ])->assertSessionHasErrors('sections.5.settings.product_ids');
+});
+
+test('duplicate section ids are rejected', function () {
+    $store = Store::factory()->create();
+    $page = StorefrontPage::factory()->create([
+        'store_id' => $store->id,
+        'slug' => StorefrontPage::HOME,
+    ]);
+    $section = StorefrontPageSection::factory()->create([
+        'storefront_page_id' => $page->id,
+        'type' => StorefrontPageSection::TYPE_HERO,
+        'settings' => ['title' => 'Hero'],
+    ]);
+
+    $this->put(route('admin.storefront.pages.update', $page), [
+        'store_id' => $store->id,
+        'title' => 'Home',
+        'is_published' => true,
+        'sections' => [
+            ['id' => $section->id, 'settings' => ['title' => 'First']],
+            ['id' => $section->id, 'settings' => ['title' => 'Second']],
+        ],
+    ])->assertSessionHasErrors('sections.1.id');
+});
+
+test('home slug cannot be changed through update payload', function () {
+    $store = Store::factory()->create();
+    $page = StorefrontPage::factory()->create([
+        'store_id' => $store->id,
+        'slug' => StorefrontPage::HOME,
+    ]);
+
+    $this->put(route('admin.storefront.pages.update', $page), [
+        'store_id' => $store->id,
+        'title' => 'Home',
+        'slug' => 'otro-home',
+        'is_published' => true,
+    ])->assertSessionHasErrors('slug');
+
+    expect($page->fresh()->slug)->toBe(StorefrontPage::HOME);
+});
+
+test('section from another page is rejected and not updated', function () {
+    $store = Store::factory()->create();
+    $page = StorefrontPage::factory()->create([
+        'store_id' => $store->id,
+        'slug' => 'page-a',
+    ]);
+    $otherPage = StorefrontPage::factory()->create([
+        'store_id' => $store->id,
+        'slug' => 'page-b',
+    ]);
+    $section = StorefrontPageSection::factory()->create([
+        'storefront_page_id' => $otherPage->id,
+        'settings' => ['title' => 'Original'],
+    ]);
+
+    $this->put(route('admin.storefront.pages.update', $page), [
+        'store_id' => $store->id,
+        'title' => $page->title,
+        'slug' => $page->slug,
+        'is_published' => true,
+        'sections' => [
+            ['id' => $section->id, 'settings' => ['title' => 'Changed']],
+        ],
+    ])->assertSessionHasErrors('sections.0.id');
+
+    expect($section->fresh()->settings['title'])->toBe('Original');
 });

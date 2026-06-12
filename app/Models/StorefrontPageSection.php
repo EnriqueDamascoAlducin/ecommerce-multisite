@@ -22,13 +22,9 @@ class StorefrontPageSection extends Model
 
     public const TYPE_INQUIRY_FORM = 'inquiry_form';
 
-    public const TYPE_TEXT_IMAGE = 'text_image';
+    public const TYPE_RECOMMENDED_PRODUCTS = 'recommended_products';
 
-    public const TYPE_GALLERY = 'gallery';
-
-    public const TYPE_CTA_BANNER = 'cta_banner';
-
-    public const TYPE_FEATURED_PRODUCTS = 'featured_products';
+    public const TYPE_IMAGE_BANNER = 'image_banner';
 
     public const TYPES = [
         self::TYPE_HERO,
@@ -36,21 +32,30 @@ class StorefrontPageSection extends Model
         self::TYPE_FEATURE_CARDS,
         self::TYPE_BRAND_STRIP,
         self::TYPE_INQUIRY_FORM,
-        self::TYPE_TEXT_IMAGE,
-        self::TYPE_GALLERY,
-        self::TYPE_CTA_BANNER,
-        self::TYPE_FEATURED_PRODUCTS,
+        self::TYPE_RECOMMENDED_PRODUCTS,
+        self::TYPE_IMAGE_BANNER,
+    ];
+
+    public const FIXED_TYPES = [
+        self::TYPE_HERO,
+        self::TYPE_SPECIALTY_GRID,
+        self::TYPE_FEATURE_CARDS,
+        self::TYPE_BRAND_STRIP,
+        self::TYPE_INQUIRY_FORM,
+    ];
+
+    public const EXTRA_TYPES = [
+        self::TYPE_RECOMMENDED_PRODUCTS,
+        self::TYPE_IMAGE_BANNER,
     ];
 
     /** @var list<string> */
-    protected $fillable = ['storefront_page_id', 'type', 'sort_order', 'is_active', 'settings'];
+    protected $fillable = ['storefront_page_id', 'type', 'settings'];
 
     /** @return array<string, string> */
     protected function casts(): array
     {
         return [
-            'is_active' => 'boolean',
-            'sort_order' => 'integer',
             'settings' => 'array',
         ];
     }
