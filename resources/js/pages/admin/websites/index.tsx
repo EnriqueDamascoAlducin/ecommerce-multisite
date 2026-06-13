@@ -1,4 +1,6 @@
 import { Head, Link, router } from '@inertiajs/react';
+import { useState } from 'react';
+import { ConfirmDialog } from '@/components/confirm-dialog';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import websites from '@/routes/admin/websites';
@@ -12,10 +14,22 @@ type WebsiteRow = {
 };
 
 export default function WebsitesIndex({ websites: items }: { websites: WebsiteRow[] }) {
-    const destroy = (website: WebsiteRow) => {
-        if (confirm(`¿Eliminar el website ${website.name}? Se eliminarán sus tiendas.`)) {
-            router.delete(websites.destroy(website.id).url);
+    const [deleteTarget, setDeleteTarget] = useState<WebsiteRow | null>(null);
+    const [deleting, setDeleting] = useState(false);
+
+    const destroy = () => {
+        if (!deleteTarget) {
+            return;
         }
+
+        router.delete(websites.destroy(deleteTarget.id).url, {
+            preserveScroll: true,
+            onStart: () => setDeleting(true),
+            onFinish: () => {
+                setDeleting(false);
+                setDeleteTarget(null);
+            },
+        });
     };
 
     return (
@@ -54,7 +68,7 @@ export default function WebsitesIndex({ websites: items }: { websites: WebsiteRo
                                             <Link href={websites.edit(website.id)}>Editar</Link>
                                         </Button>
                                         {!website.is_default && (
-                                            <Button variant="destructive" size="sm" onClick={() => destroy(website)}>
+                                            <Button variant="destructive" size="sm" onClick={() => setDeleteTarget(website)}>
                                                 Eliminar
                                             </Button>
                                         )}
@@ -65,6 +79,30 @@ export default function WebsitesIndex({ websites: items }: { websites: WebsiteRo
                     </tbody>
                 </table>
             </div>
+
+            <ConfirmDialog
+                open={deleteTarget !== null}
+                onOpenChange={(open) => {
+                    if (!open) {
+                        setDeleteTarget(null);
+                    }
+                }}
+                onConfirm={destroy}
+                loading={deleting}
+                title="Eliminar website"
+                description={
+                    deleteTarget ? (
+                        <>
+                            Vas a eliminar el website{' '}
+                            <span className="font-semibold text-foreground">
+                                {deleteTarget.name}
+                            </span>{' '}
+                            y todas sus tiendas. Esta acción no se puede deshacer.
+                        </>
+                    ) : null
+                }
+                confirmLabel="Eliminar"
+            />
         </>
     );
 }

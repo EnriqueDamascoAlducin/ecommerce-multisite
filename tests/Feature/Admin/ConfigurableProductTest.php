@@ -85,6 +85,48 @@ test('a configurable product shows in the product list', function () {
         ->assertInertia(fn ($page) => $page->where('filters.type', ''));
 });
 
+test('the product grid embeds variants for a configurable product', function () {
+    $color = Attribute::where('code', 'color')->first();
+
+    $this->post(route('admin.products.store'), [
+        'type' => 'configurable',
+        'sku' => 'CONF-GRID',
+        'name' => 'Con Variantes',
+        'status' => 'active',
+        'visibility' => 'both',
+        'price' => '100',
+        'configurable_attributes' => [$color->id],
+    ]);
+
+    $parent = Product::where('sku', 'CONF-GRID')->firstOrFail();
+    $variantCount = $parent->children()->count();
+
+    $this->get(route('admin.products.index'))
+        ->assertOk()
+        ->assertInertia(function ($page) use ($parent, $variantCount) {
+            $row = collect($page->toArray()['props']['products']['data'])
+                ->firstWhere('id', $parent->id);
+
+            expect($row)->not->toBeNull();
+            expect($row['variants'])->toHaveCount($variantCount);
+            expect($row['variants'][0]['type'])->toBe(Product::TYPE_SIMPLE);
+            expect($row['variants'][0]['variants'])->toBe([]);
+        });
+});
+
+test('the product grid embeds no variants for a simple product', function () {
+    $parent = Product::factory()->create(['type' => Product::TYPE_SIMPLE, 'sku' => 'SIMPLE-GRID']);
+
+    $this->get(route('admin.products.index'))
+        ->assertOk()
+        ->assertInertia(function ($page) use ($parent) {
+            $row = collect($page->toArray()['props']['products']['data'])
+                ->firstWhere('id', $parent->id);
+
+            expect($row['variants'])->toBe([]);
+        });
+});
+
 test('configurable product variants inherit parent store links and categories', function () {
     $store = Store::factory()->create(['website_id' => $this->website->id]);
     $color = Attribute::where('code', 'color')->first();

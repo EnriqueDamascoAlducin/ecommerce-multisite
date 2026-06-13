@@ -9,6 +9,7 @@ import { Label } from '@/components/ui/label';
 import storefrontPages from '@/routes/admin/storefront/pages';
 
 type StoreOption = { id: number; label: string };
+type TemplateOption = { key: string; label: string; description: string };
 type PageRow = {
     id: number;
     title: string;
@@ -22,18 +23,25 @@ type PageRow = {
 export default function StorefrontPagesIndex({
     stores,
     currentStoreId,
+    availableTemplates,
     pages,
 }: {
     stores: StoreOption[];
     currentStoreId: number;
+    availableTemplates: TemplateOption[];
     pages: PageRow[];
 }) {
     const form = useForm({
         store_id: currentStoreId,
         title: '',
         slug: '',
+        template: availableTemplates[0]?.key ?? 'flexible',
         is_published: false,
     });
+
+    const selectedTemplate = availableTemplates.find(
+        (template) => template.key === form.data.template,
+    );
 
     const changeStore = (event: ChangeEvent<HTMLSelectElement>) => {
         router.get(
@@ -91,7 +99,7 @@ export default function StorefrontPagesIndex({
 
             <div className="mb-6 rounded-lg border border-neutral-200 bg-white p-4 dark:border-neutral-800 dark:bg-neutral-900">
                 <h2 className="mb-3 text-lg font-semibold">Nueva pagina</h2>
-                <div className="grid gap-3 md:grid-cols-[1fr_1fr_auto_auto] md:items-end">
+                <div className="grid gap-3 md:grid-cols-3">
                     <div className="grid gap-1">
                         <Label>Titulo</Label>
                         <Input
@@ -115,26 +123,49 @@ export default function StorefrontPagesIndex({
                             placeholder="nosotros"
                         />
                     </div>
-                    <label className="flex items-center gap-2 pb-2 text-sm">
-                        <Checkbox
-                            checked={form.data.is_published}
-                            onCheckedChange={(value) =>
-                                form.setData('is_published', value === true)
+                    <div className="grid gap-1">
+                        <Label>Plantilla</Label>
+                        <select
+                            value={form.data.template}
+                            onChange={(event) =>
+                                form.setData('template', event.target.value)
                             }
-                        />
-                        Publicar
-                    </label>
-                    <Button
-                        onClick={createPage}
-                        disabled={
-                            form.processing ||
-                            !form.data.title ||
-                            !form.data.slug
-                        }
-                    >
-                        <Plus className="mr-1 size-4" />
-                        Crear
-                    </Button>
+                            className="h-9 rounded-md border border-neutral-300 bg-white px-3 text-sm dark:border-neutral-700 dark:bg-neutral-800"
+                        >
+                            {availableTemplates.map((template) => (
+                                <option key={template.key} value={template.key}>
+                                    {template.label}
+                                </option>
+                            ))}
+                        </select>
+                    </div>
+                </div>
+                <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
+                    <p className="text-sm text-neutral-500">
+                        {selectedTemplate?.description}
+                    </p>
+                    <div className="flex items-center gap-4">
+                        <label className="flex items-center gap-2 text-sm">
+                            <Checkbox
+                                checked={form.data.is_published}
+                                onCheckedChange={(value) =>
+                                    form.setData('is_published', value === true)
+                                }
+                            />
+                            Publicar
+                        </label>
+                        <Button
+                            onClick={createPage}
+                            disabled={
+                                form.processing ||
+                                !form.data.title ||
+                                !form.data.slug
+                            }
+                        >
+                            <Plus className="mr-1 size-4" />
+                            Crear
+                        </Button>
+                    </div>
                 </div>
             </div>
 

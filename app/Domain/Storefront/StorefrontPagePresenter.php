@@ -115,6 +115,7 @@ class StorefrontPagePresenter
     private function productCard(Product $product, int $storeId, ?int $websiteId): array
     {
         return [
+            'id' => $product->id,
             'sku' => $product->sku,
             'name' => $product->name,
             'slug' => $product->slug,
@@ -129,6 +130,7 @@ class StorefrontPagePresenter
                 $product->isBundle() => $this->bundles->canFulfill($product, 1),
                 default => $this->availability->canFulfill($product, 1),
             },
+            'requires_options' => $product->isConfigurable(),
             'labels' => $this->labelsFor($product, $websiteId),
         ];
     }

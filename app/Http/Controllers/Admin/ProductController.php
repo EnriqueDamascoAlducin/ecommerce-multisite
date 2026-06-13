@@ -22,6 +22,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
+use Illuminate\Validation\Rule;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -74,6 +75,16 @@ class ProductController extends Controller
                 'storeLinks.store:id,name,code',
                 'inventoryStocks',
                 'attributeValues.attribute.options',
+                'variants' => fn ($query) => $query->with([
+                    'prices',
+                    'media',
+                    'labels',
+                    'inventoryStocks',
+                    'attributeValues.attribute.options',
+                    'categories:id,name',
+                    'storeLinks.store:id,name,code',
+                    'parent:id,name',
+                ]),
             ])
             ->when($filters['search'], fn ($query, $search) => $query->where(
                 fn ($q) => $q->where('name', 'like', "%{$search}%")->orWhere('sku', 'like', "%{$search}%"),
@@ -293,6 +304,33 @@ class ProductController extends Controller
         $this->auditLogger->log('product.updated', $product, "Producto {$product->sku} actualizado");
 
         return to_route('admin.products.index')->with('success', 'Producto actualizado.');
+    }
+
+    /**
+     * Edición en línea de un solo campo desde el grid (status, visibility, nombre).
+     */
+    public function inlineUpdate(Request $request, Product $product): RedirectResponse
+    {
+        $field = $request->validate([
+            'field' => ['required', Rule::in(['status', 'visibility', 'name'])],
+        ])['field'];
+
+        $value = $request->validate([
+            'value' => array_merge(
+                ['required'],
+                match ($field) {
+                    'status' => [Rule::in([Product::STATUS_ACTIVE, Product::STATUS_INACTIVE])],
+                    'visibility' => [Rule::in(['both', 'catalog', 'search', 'hidden'])],
+                    'name' => ['string', 'max:255'],
+                },
+            ),
+        ])['value'];
+
+        $product->update([$field => $value]);
+
+        $this->auditLogger->log('product.updated', $product, "Producto {$product->sku} actualizado ({$field})");
+
+        return back();
     }
 
     public function destroy(Product $product): RedirectResponse
@@ -595,6 +633,9 @@ class ProductController extends Controller
             'status' => $product->status,
             'visibility' => $product->visibility,
             'parent' => $product->parent ? ['id' => $product->parent->id, 'name' => $product->parent->name] : null,
+            'variants' => $product->relationLoaded('variants')
+                ? $product->variants->map(fn (Product $variant) => $this->productGridRow($variant))->values()
+                : [],
             'price' => match (true) {
                 $product->isConfigurable() => $this->configurable->lowestVariantBasePrice($product),
                 $product->isBundle() => $this->bundles->priceFor($product)['effective_price'],

@@ -36,6 +36,7 @@ test('an admin can create a storefront page', function () {
         'store_id' => $store->id,
         'title' => 'Nosotros',
         'slug' => 'nosotros',
+        'template' => 'flexible',
         'is_published' => true,
     ])->assertRedirect();
 
@@ -92,6 +93,7 @@ test('non-home pages are not seeded with template sections', function () {
         'store_id' => $store->id,
         'title' => 'About',
         'slug' => 'about',
+        'template' => 'flexible',
         'is_published' => true,
     ])->assertRedirect();
 
@@ -234,6 +236,186 @@ test('page content can be updated with template section settings', function () {
         ->and($sections[StorefrontPageSection::TYPE_INQUIRY_FORM]->fresh()->settings['phone'])->toBe('+52 55 0000 0000')
         ->and($sections[StorefrontPageSection::TYPE_INQUIRY_FORM]->fresh()->settings['email'])->toBe('ventas@example.com')
         ->and($sections[StorefrontPageSection::TYPE_INQUIRY_FORM]->fresh()->settings['interest_areas'])->toBe(['Electroterapia', 'Servicio tecnico']);
+});
+
+test('creating a page seeds the chosen template fixed sections', function (string $template, array $expectedTypes) {
+    $store = Store::factory()->create();
+
+    $this->post(route('admin.storefront.pages.store'), [
+        'store_id' => $store->id,
+        'title' => 'Pagina',
+        'slug' => 'pagina',
+        'template' => $template,
+        'is_published' => true,
+    ])->assertRedirect();
+
+    $page = StorefrontPage::where('store_id', $store->id)
+        ->where('slug', 'pagina')
+        ->firstOrFail();
+
+    expect($page->template)->toBe($template)
+        ->and($page->sections()->pluck('type')->all())->toBe($expectedTypes);
+})->with([
+    'contact' => ['contact', ['page_header', 'contact_info', 'inquiry_form']],
+    'legal' => ['legal', ['page_header', 'rich_text']],
+    'about' => ['about', ['page_header', 'rich_text']],
+    'flexible' => ['flexible', []],
+]);
+
+test('creating a page rejects an unknown template', function () {
+    $store = Store::factory()->create();
+
+    $this->post(route('admin.storefront.pages.store'), [
+        'store_id' => $store->id,
+        'title' => 'Pagina',
+        'slug' => 'pagina',
+        'template' => 'does-not-exist',
+        'is_published' => true,
+    ])->assertSessionHasErrors('template');
+});
+
+test('a flexible page accepts any section type', function () {
+    $store = Store::factory()->create();
+
+    $this->post(route('admin.storefront.pages.store'), [
+        'store_id' => $store->id,
+        'title' => 'Landing',
+        'slug' => 'landing',
+        'template' => 'flexible',
+        'is_published' => true,
+    ])->assertRedirect();
+
+    $page = StorefrontPage::where('store_id', $store->id)
+        ->where('slug', 'landing')
+        ->firstOrFail();
+
+    $this->put(route('admin.storefront.pages.update', $page), [
+        'store_id' => $store->id,
+        'title' => 'Landing',
+        'slug' => 'landing',
+        'template' => 'flexible',
+        'is_published' => true,
+        'sections' => [
+            ['type' => StorefrontPageSection::TYPE_HERO, 'settings' => ['title' => 'Hola']],
+        ],
+    ])->assertRedirect()->assertSessionHasNoErrors();
+
+    expect($page->fresh()->sections()->pluck('type')->all())
+        ->toContain(StorefrontPageSection::TYPE_HERO);
+});
+
+test('a legal page rejects a section type outside its template', function () {
+    $store = Store::factory()->create();
+
+    $this->post(route('admin.storefront.pages.store'), [
+        'store_id' => $store->id,
+        'title' => 'Privacidad',
+        'slug' => 'privacidad',
+        'template' => 'legal',
+        'is_published' => true,
+    ])->assertRedirect();
+
+    $page = StorefrontPage::where('store_id', $store->id)
+        ->where('slug', 'privacidad')
+        ->firstOrFail();
+    $sections = $page->sections()->get()->keyBy('type');
+
+    $this->put(route('admin.storefront.pages.update', $page), [
+        'store_id' => $store->id,
+        'title' => 'Privacidad',
+        'slug' => 'privacidad',
+        'template' => 'legal',
+        'is_published' => true,
+        'sections' => [
+            ['id' => $sections[StorefrontPageSection::TYPE_PAGE_HEADER]->id, 'settings' => []],
+            ['type' => StorefrontPageSection::TYPE_HERO, 'settings' => []],
+        ],
+    ])->assertSessionHasErrors('sections.1.type');
+});
+
+test('changing a page template reseeds fixed sections without deleting content', function () {
+    $store = Store::factory()->create();
+
+    $this->post(route('admin.storefront.pages.store'), [
+        'store_id' => $store->id,
+        'title' => 'Pagina',
+        'slug' => 'pagina',
+        'template' => 'legal',
+        'is_published' => true,
+    ])->assertRedirect();
+
+    $page = StorefrontPage::where('store_id', $store->id)
+        ->where('slug', 'pagina')
+        ->firstOrFail();
+    $richTextId = $page->sections()
+        ->where('type', StorefrontPageSection::TYPE_RICH_TEXT)
+        ->firstOrFail()->id;
+
+    $this->put(route('admin.storefront.pages.update', $page), [
+        'store_id' => $store->id,
+        'title' => 'Pagina',
+        'slug' => 'pagina',
+        'template' => 'contact',
+        'is_published' => true,
+    ])->assertRedirect();
+
+    $page->refresh();
+
+    expect($page->template)->toBe('contact')
+        ->and($page->sections()->pluck('type')->all())->toContain(
+            StorefrontPageSection::TYPE_PAGE_HEADER,
+            StorefrontPageSection::TYPE_CONTACT_INFO,
+            StorefrontPageSection::TYPE_INQUIRY_FORM,
+            StorefrontPageSection::TYPE_RICH_TEXT,
+        )
+        ->and($page->sections()->whereKey($richTextId)->exists())->toBeTrue();
+});
+
+test('rich text html is sanitized when saving', function () {
+    $store = Store::factory()->create();
+
+    $this->post(route('admin.storefront.pages.store'), [
+        'store_id' => $store->id,
+        'title' => 'Privacidad',
+        'slug' => 'privacidad',
+        'template' => 'legal',
+        'is_published' => true,
+    ])->assertRedirect();
+
+    $page = StorefrontPage::where('store_id', $store->id)
+        ->where('slug', 'privacidad')
+        ->firstOrFail();
+    $sections = $page->sections()->get()->keyBy('type');
+
+    $this->put(route('admin.storefront.pages.update', $page), [
+        'store_id' => $store->id,
+        'title' => 'Privacidad',
+        'slug' => 'privacidad',
+        'template' => 'legal',
+        'is_published' => true,
+        'sections' => [
+            ['id' => $sections[StorefrontPageSection::TYPE_PAGE_HEADER]->id, 'settings' => []],
+            [
+                'id' => $sections[StorefrontPageSection::TYPE_RICH_TEXT]->id,
+                'settings' => [
+                    'html' => '<p><span style="color: #ff0000; position: fixed;">Contenido</span>'
+                        .'<mark style="background-color: #fef08a">resaltado</mark>'
+                        .'<script>alert(1)</script></p>',
+                ],
+            ],
+        ],
+    ])->assertRedirect()->assertSessionHasNoErrors();
+
+    $html = $page->sections()
+        ->whereKey($sections[StorefrontPageSection::TYPE_RICH_TEXT]->id)
+        ->firstOrFail()->settings['html'];
+
+    expect($html)->toContain('Contenido')
+        ->and($html)->not->toContain('<script')
+        // Color/highlight styles survive, dangerous declarations are stripped.
+        ->and($html)->toContain('color: #ff0000')
+        ->and($html)->toContain('background-color: #fef08a')
+        ->and($html)->not->toContain('position');
 });
 
 test('hero can be saved with slides and strips resolved media objects', function () {

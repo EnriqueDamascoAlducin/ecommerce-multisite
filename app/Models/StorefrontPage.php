@@ -16,7 +16,7 @@ class StorefrontPage extends Model
     public const HOME = 'home';
 
     /** @var list<string> */
-    protected $fillable = ['store_id', 'slug', 'title', 'is_published'];
+    protected $fillable = ['store_id', 'slug', 'template', 'title', 'is_published'];
 
     /** @return array<string, string> */
     protected function casts(): array

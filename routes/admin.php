@@ -82,6 +82,7 @@ Route::middleware(['auth', 'verified'])->prefix('admin')->name('admin.')->group(
         Route::post('products', [ProductController::class, 'store'])->middleware('permission:catalog.products.create')->name('products.store');
         Route::get('products/{product}/edit', [ProductController::class, 'edit'])->middleware('permission:catalog.products.edit')->name('products.edit');
         Route::put('products/{product}', [ProductController::class, 'update'])->middleware('permission:catalog.products.edit')->name('products.update');
+        Route::patch('products/{product}/inline', [ProductController::class, 'inlineUpdate'])->middleware('permission:catalog.products.edit')->name('products.inline-update');
         Route::delete('products/{product}', [ProductController::class, 'destroy'])->middleware('permission:catalog.products.delete')->name('products.destroy');
 
         // Variantes: vincular/desvincular productos simple existentes a un configurable.

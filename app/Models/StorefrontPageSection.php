@@ -26,6 +26,12 @@ class StorefrontPageSection extends Model
 
     public const TYPE_IMAGE_BANNER = 'image_banner';
 
+    public const TYPE_PAGE_HEADER = 'page_header';
+
+    public const TYPE_RICH_TEXT = 'rich_text';
+
+    public const TYPE_CONTACT_INFO = 'contact_info';
+
     public const TYPES = [
         self::TYPE_HERO,
         self::TYPE_SPECIALTY_GRID,
@@ -34,6 +40,9 @@ class StorefrontPageSection extends Model
         self::TYPE_INQUIRY_FORM,
         self::TYPE_RECOMMENDED_PRODUCTS,
         self::TYPE_IMAGE_BANNER,
+        self::TYPE_PAGE_HEADER,
+        self::TYPE_RICH_TEXT,
+        self::TYPE_CONTACT_INFO,
     ];
 
     public const FIXED_TYPES = [

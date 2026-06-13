@@ -8,6 +8,7 @@ import {
     BadgeCheck,
     Eye,
     Grid3X3,
+    Heading,
     ImageIcon,
     Layers3,
     Mail,
@@ -19,10 +20,12 @@ import {
     ShoppingBag,
     Sparkles,
     Trash2,
+    Type as TextIcon,
     Upload,
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import { useRef, useState, type ChangeEvent, type CSSProperties } from 'react';
+import { RichTextEditor } from '@/components/admin/rich-text-editor';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
@@ -71,9 +74,17 @@ type Page = {
     store_id: number;
     title: string;
     slug: string;
+    template: string;
     is_published: boolean;
     sections: Section[];
 };
+type TemplateInfo = {
+    key: string | null;
+    label: string | null;
+    fixedTypes: string[];
+    extraTypes: string[];
+};
+type TemplateOption = { key: string; label: string; description: string };
 type BuilderItem = {
     title?: string;
     text?: string;
@@ -95,8 +106,6 @@ const TYPE_ORDER = [
     'brand_strip',
     'inquiry_form',
 ] as const;
-const FIXED_SECTION_TYPES = [...TYPE_ORDER] as string[];
-const EXTRA_SECTION_TYPES = ['recommended_products', 'image_banner'] as const;
 
 const SECTION_META: Record<
     string,
@@ -137,6 +146,21 @@ const SECTION_META: Record<
         description: 'Bloque visual con imagen y CTA',
         icon: ImageIcon,
     },
+    page_header: {
+        label: 'Encabezado de página',
+        description: 'Título y subtítulo para páginas interiores',
+        icon: Heading,
+    },
+    rich_text: {
+        label: 'Texto enriquecido',
+        description: 'Contenido con formato (negritas, listas, enlaces)',
+        icon: TextIcon,
+    },
+    contact_info: {
+        label: 'Datos de contacto',
+        description: 'Teléfono, email, dirección, horario y mapa',
+        icon: Mail,
+    },
 };
 
 export default function StorefrontPageEdit({
@@ -146,6 +170,8 @@ export default function StorefrontPageEdit({
     products,
     publicUrl,
     isHome,
+    template,
+    availableTemplates,
 }: {
     stores: { id: number; label: string }[];
     currentStoreId: number;
@@ -154,6 +180,8 @@ export default function StorefrontPageEdit({
     products: ProductOption[];
     publicUrl: string;
     isHome: boolean;
+    template: TemplateInfo;
+    availableTemplates: TemplateOption[];
 }) {
     const pageForm = useForm({
         store_id: currentStoreId,
@@ -161,6 +189,9 @@ export default function StorefrontPageEdit({
         slug: page.slug,
         is_published: page.is_published,
     });
+    const [templateKey, setTemplateKey] = useState(page.template);
+    const fixedTypes = template.fixedTypes;
+    const extraTypes = template.extraTypes;
     const [sections, setSections] = useState<Section[]>(
         sortSections(page.sections).map((section) => ({
             ...section,
@@ -193,7 +224,7 @@ export default function StorefrontPageEdit({
         });
     };
 
-    const addSection = (type: (typeof EXTRA_SECTION_TYPES)[number]) => {
+    const addSection = (type: string) => {
         const section = newExtraSection(type);
 
         setSections((current) => [...current, section]);
@@ -212,11 +243,14 @@ export default function StorefrontPageEdit({
 
     const savePage = () => {
         setSaving(true);
+        const templateChanged = !isHome && templateKey !== page.template;
         const payload = {
             store_id: pageForm.data.store_id,
             title: pageForm.data.title,
             is_published: pageForm.data.is_published,
-            ...(isHome ? {} : { slug: pageForm.data.slug }),
+            ...(isHome
+                ? {}
+                : { slug: pageForm.data.slug, template: templateKey }),
             sections: sections.map((section) => ({
                 ...(section.id > 0
                     ? { id: section.id }
@@ -227,6 +261,13 @@ export default function StorefrontPageEdit({
 
         router.put(storefrontPages.update.url(page.id), payload, {
             preserveScroll: true,
+            // Switching template re-seeds the layout server-side; reload to
+            // pick up the new section structure with real ids.
+            onSuccess: () => {
+                if (templateChanged) {
+                    window.location.reload();
+                }
+            },
             onFinish: () => setSaving(false),
         });
     };
@@ -246,6 +287,10 @@ export default function StorefrontPageEdit({
                 slug={pageForm.data.slug}
                 isPublished={pageForm.data.is_published}
                 saving={saving}
+                templateKey={templateKey}
+                templateChanged={!isHome && templateKey !== page.template}
+                availableTemplates={availableTemplates}
+                onTemplateChange={setTemplateKey}
                 onTitleChange={(title) => pageForm.setData('title', title)}
                 onSlugChange={(slug) => pageForm.setData('slug', slugify(slug))}
                 onPublishedChange={(published) =>
@@ -258,6 +303,8 @@ export default function StorefrontPageEdit({
                         <SectionSidebar
                             sections={sections}
                             activeSectionId={activeSection.id}
+                            fixedTypes={fixedTypes}
+                            extraTypes={extraTypes}
                             onSelect={setActiveSectionId}
                             onMoveSection={moveSection}
                             onAddSection={addSection}
@@ -280,8 +327,18 @@ export default function StorefrontPageEdit({
                         <CardContent className="py-10 text-center">
                             <PanelLeft className="mx-auto size-8 text-neutral-400" />
                             <p className="mt-3 text-sm text-neutral-500">
-                                Esta página no tiene secciones de template.
+                                {extraTypes.length > 0
+                                    ? 'Esta página aún no tiene secciones. Agrega la primera:'
+                                    : 'Esta página no tiene secciones de template.'}
                             </p>
+                            {extraTypes.length > 0 && (
+                                <div className="mx-auto mt-4 max-w-xs text-left">
+                                    <AddSectionControl
+                                        extraTypes={extraTypes}
+                                        onAdd={addSection}
+                                    />
+                                </div>
+                            )}
                         </CardContent>
                     </Card>
                 )}
@@ -306,7 +363,11 @@ function EditorShell({
     slug,
     isPublished,
     saving,
+    templateKey,
+    templateChanged,
+    availableTemplates,
     children,
+    onTemplateChange,
     onTitleChange,
     onSlugChange,
     onPublishedChange,
@@ -320,7 +381,11 @@ function EditorShell({
     slug: string;
     isPublished: boolean;
     saving: boolean;
+    templateKey: string;
+    templateChanged: boolean;
+    availableTemplates: TemplateOption[];
     children: React.ReactNode;
+    onTemplateChange: (template: string) => void;
     onTitleChange: (title: string) => void;
     onSlugChange: (slug: string) => void;
     onPublishedChange: (published: boolean) => void;
@@ -402,6 +467,25 @@ function EditorShell({
                             Publicada
                         </label>
                     </div>
+                    {!isHome && (
+                        <div className="mt-4 grid gap-2 md:max-w-sm">
+                            <SelectField
+                                label="Plantilla"
+                                value={templateKey}
+                                options={availableTemplates.map((option) => ({
+                                    value: option.key,
+                                    label: option.label,
+                                }))}
+                                onChange={onTemplateChange}
+                            />
+                            {templateChanged && (
+                                <p className="text-xs text-amber-600 dark:text-amber-400">
+                                    Al guardar se aplicará la nueva plantilla y se
+                                    añadirán sus secciones fijas.
+                                </p>
+                            )}
+                        </div>
+                    )}
                 </CardContent>
             </Card>
 
@@ -410,9 +494,55 @@ function EditorShell({
     );
 }
 
+function AddSectionControl({
+    extraTypes,
+    onAdd,
+}: {
+    extraTypes: string[];
+    onAdd: (type: string) => void;
+}) {
+    const [newSectionType, setNewSectionType] = useState<string>(
+        extraTypes[0] ?? '',
+    );
+
+    if (extraTypes.length === 0) {
+        return null;
+    }
+
+    return (
+        <div className="rounded-lg border border-dashed border-neutral-300 bg-neutral-50 p-2 dark:border-neutral-700 dark:bg-neutral-950">
+            <Label className="text-xs">Agregar bloque</Label>
+            <div className="mt-2 flex gap-2">
+                <select
+                    value={newSectionType}
+                    onChange={(event) => setNewSectionType(event.target.value)}
+                    className="h-9 min-w-0 flex-1 rounded-md border border-neutral-300 bg-white px-2 text-xs outline-none transition focus:border-red-700 focus:ring-2 focus:ring-red-700/10 dark:border-neutral-700 dark:bg-neutral-900"
+                >
+                    {extraTypes.map((type) => (
+                        <option key={type} value={type}>
+                            {sectionMeta(type).label}
+                        </option>
+                    ))}
+                </select>
+                <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => newSectionType && onAdd(newSectionType)}
+                    title="Agregar bloque"
+                >
+                    <Plus className="size-4" />
+                </Button>
+            </div>
+        </div>
+    );
+}
+
 function SectionSidebar({
     sections,
     activeSectionId,
+    fixedTypes,
+    extraTypes,
     onSelect,
     onMoveSection,
     onAddSection,
@@ -420,57 +550,31 @@ function SectionSidebar({
 }: {
     sections: Section[];
     activeSectionId: number;
+    fixedTypes: string[];
+    extraTypes: string[];
     onSelect: (id: number) => void;
     onMoveSection: (id: number, direction: -1 | 1) => void;
-    onAddSection: (type: (typeof EXTRA_SECTION_TYPES)[number]) => void;
+    onAddSection: (type: string) => void;
     onRemoveSection: (id: number) => void;
 }) {
-    const [newSectionType, setNewSectionType] =
-        useState<(typeof EXTRA_SECTION_TYPES)[number]>('image_banner');
-
     return (
         <aside className="lg:sticky lg:top-32 lg:self-start">
             <Card className="rounded-lg border-neutral-200 bg-white py-4 shadow-sm dark:border-neutral-800 dark:bg-neutral-900">
                 <CardHeader className="px-4">
                     <CardTitle className="flex items-center gap-2 text-sm">
                         <PanelLeft className="size-4 text-red-700 dark:text-red-400" />
-                        Secciones del home
+                        Secciones de la página
                     </CardTitle>
                     <CardDescription>
                         Selecciona una sección para editar su contenido.
                     </CardDescription>
                 </CardHeader>
                 <CardContent className="px-3">
-                    <div className="mb-3 rounded-lg border border-dashed border-neutral-300 bg-neutral-50 p-2 dark:border-neutral-700 dark:bg-neutral-950">
-                        <Label className="text-xs">Agregar bloque</Label>
-                        <div className="mt-2 flex gap-2">
-                            <select
-                                value={newSectionType}
-                                onChange={(event) =>
-                                    setNewSectionType(
-                                        event.target
-                                            .value as (typeof EXTRA_SECTION_TYPES)[number],
-                                    )
-                                }
-                                className="h-9 min-w-0 flex-1 rounded-md border border-neutral-300 bg-white px-2 text-xs outline-none transition focus:border-red-700 focus:ring-2 focus:ring-red-700/10 dark:border-neutral-700 dark:bg-neutral-900"
-                            >
-                                <option value="image_banner">
-                                    Banner imagen
-                                </option>
-                                <option value="recommended_products">
-                                    Productos recomendados
-                                </option>
-                            </select>
-                            <Button
-                                type="button"
-                                variant="outline"
-                                size="sm"
-                                onClick={() => onAddSection(newSectionType)}
-                                title="Agregar bloque"
-                            >
-                                <Plus className="size-4" />
-                            </Button>
-                        </div>
+                    <div className="mb-3">
+                        <AddSectionControl
+                            extraTypes={extraTypes}
+                            onAdd={onAddSection}
+                        />
                     </div>
                     <div className="flex gap-2 overflow-x-auto pb-1 lg:block lg:space-y-2 lg:overflow-visible lg:pb-0">
                         {sections.map((section, index) => (
@@ -482,6 +586,7 @@ function SectionSidebar({
                                     section={section}
                                     index={index}
                                     active={section.id === activeSectionId}
+                                    isFixed={fixedTypes.includes(section.type)}
                                     onSelect={() => onSelect(section.id)}
                                 />
                                 <div className="grid w-9 shrink-0 gap-1">
@@ -509,7 +614,7 @@ function SectionSidebar({
                                     >
                                         <ArrowDown className="size-4" />
                                     </Button>
-                                    {isExtraSection(section.type) && (
+                                    {!fixedTypes.includes(section.type) && (
                                         <Button
                                             variant="destructive"
                                             size="sm"
@@ -536,11 +641,13 @@ function SectionNavItem({
     section,
     index,
     active,
+    isFixed,
     onSelect,
 }: {
     section: Section;
     index: number;
     active: boolean;
+    isFixed: boolean;
     onSelect: () => void;
 }) {
     const meta = sectionMeta(section.type);
@@ -586,14 +693,10 @@ function SectionNavItem({
                                 {index + 1}
                             </Badge>
                             <Badge
-                                variant={
-                                    isFixedSection(section.type)
-                                        ? 'secondary'
-                                        : 'outline'
-                                }
+                                variant={isFixed ? 'secondary' : 'outline'}
                                 className="text-[10px]"
                             >
-                                {isFixedSection(section.type) ? 'Fijo' : 'Extra'}
+                                {isFixed ? 'Fijo' : 'Extra'}
                             </Badge>
                         </span>
                     </span>
@@ -728,6 +831,24 @@ function SectionPanel({
                             <RecommendedProductsFields
                                 settings={section.settings}
                                 products={products}
+                                setSetting={setSetting}
+                            />
+                        )}
+                        {section.type === 'page_header' && (
+                            <PageHeaderFields
+                                settings={section.settings}
+                                setSetting={setSetting}
+                            />
+                        )}
+                        {section.type === 'rich_text' && (
+                            <RichTextFields
+                                settings={section.settings}
+                                setSetting={setSetting}
+                            />
+                        )}
+                        {section.type === 'contact_info' && (
+                            <ContactInfoFields
+                                settings={section.settings}
                                 setSetting={setSetting}
                             />
                         )}
@@ -1008,6 +1129,122 @@ function InquiryFormFields({
                     label="Áreas"
                     value={arrayValue<string>(settings.interest_areas)}
                     onChange={(value) => setSetting('interest_areas', value)}
+                />
+            </FieldGroup>
+        </>
+    );
+}
+
+function PageHeaderFields({
+    settings,
+    setSetting,
+}: {
+    settings: SectionSettings;
+    setSetting: (key: string, value: FormDataConvertible) => void;
+}) {
+    return (
+        <FieldGroup
+            title="Encabezado"
+            description="Título y subtítulo del encabezado de la página."
+            icon={Heading}
+        >
+            <div className="grid gap-4 md:grid-cols-2">
+                <TextField
+                    label="Etiqueta"
+                    value={text(settings.eyebrow)}
+                    onChange={(value) => setSetting('eyebrow', value)}
+                />
+                <TextField
+                    label="Título"
+                    value={text(settings.title)}
+                    onChange={(value) => setSetting('title', value)}
+                />
+                <div className="md:col-span-2">
+                    <TextArea
+                        label="Subtítulo"
+                        value={text(settings.subtitle)}
+                        onChange={(value) => setSetting('subtitle', value)}
+                    />
+                </div>
+            </div>
+        </FieldGroup>
+    );
+}
+
+function RichTextFields({
+    settings,
+    setSetting,
+}: {
+    settings: SectionSettings;
+    setSetting: (key: string, value: FormDataConvertible) => void;
+}) {
+    return (
+        <FieldGroup
+            title="Contenido"
+            description="Texto con formato: negritas, listas, encabezados y enlaces."
+            icon={TextIcon}
+        >
+            <RichTextEditor
+                value={text(settings.html)}
+                onChange={(html) => setSetting('html', html)}
+            />
+        </FieldGroup>
+    );
+}
+
+function ContactInfoFields({
+    settings,
+    setSetting,
+}: {
+    settings: SectionSettings;
+    setSetting: (key: string, value: FormDataConvertible) => void;
+}) {
+    return (
+        <>
+            <FieldGroup
+                title="Datos de contacto"
+                description="Información visible para los clientes."
+                icon={Mail}
+            >
+                <div className="grid gap-4 md:grid-cols-2">
+                    <TextField
+                        label="Título"
+                        value={text(settings.title)}
+                        onChange={(value) => setSetting('title', value)}
+                    />
+                    <TextField
+                        label="Teléfono"
+                        value={text(settings.phone)}
+                        onChange={(value) => setSetting('phone', value)}
+                    />
+                    <TextField
+                        label="Email"
+                        value={text(settings.email)}
+                        onChange={(value) => setSetting('email', value)}
+                    />
+                    <TextField
+                        label="Horario"
+                        value={text(settings.hours)}
+                        onChange={(value) => setSetting('hours', value)}
+                    />
+                    <div className="md:col-span-2">
+                        <TextArea
+                            label="Dirección"
+                            value={text(settings.address)}
+                            onChange={(value) => setSetting('address', value)}
+                        />
+                    </div>
+                </div>
+            </FieldGroup>
+            <FieldGroup
+                title="Mapa"
+                description="URL de inserción (embed) de Google Maps. Opcional."
+                icon={Sparkles}
+            >
+                <TextField
+                    label="URL del mapa"
+                    value={text(settings.map_url)}
+                    onChange={(value) => setSetting('map_url', value)}
                 />
             </FieldGroup>
         </>
@@ -2406,6 +2643,23 @@ function sectionSummary(section: Section): string {
         return `${arrayValue<number>(settings.product_ids).length} productos`;
     }
 
+    if (section.type === 'page_header') {
+        return text(settings.title) || 'Encabezado de página';
+    }
+
+    if (section.type === 'rich_text') {
+        const plain = text(settings.html)
+            .replace(/<[^>]+>/g, ' ')
+            .replace(/\s+/g, ' ')
+            .trim();
+
+        return plain ? plain.slice(0, 60) : 'Texto enriquecido';
+    }
+
+    if (section.type === 'contact_info') {
+        return text(settings.email) || text(settings.phone) || 'Datos de contacto';
+    }
+
     return 'Contenido editable';
 }
 
@@ -2451,51 +2705,89 @@ function isHexColor(value: string): boolean {
     return /^#(?:[0-9a-fA-F]{3}){1,2}$/.test(value);
 }
 
-function isFixedSection(type: string): boolean {
-    return FIXED_SECTION_TYPES.includes(type);
-}
-
-function isExtraSection(type: string): boolean {
-    return EXTRA_SECTION_TYPES.includes(
-        type as (typeof EXTRA_SECTION_TYPES)[number],
-    );
-}
-
-function newExtraSection(type: (typeof EXTRA_SECTION_TYPES)[number]): Section {
+function newExtraSection(type: string): Section {
     return {
         id: -Date.now() - Math.floor(Math.random() * 1000),
         type,
-        settings: extraSectionDefaults(type),
+        settings: sectionDefaults(type),
     };
 }
 
-function extraSectionDefaults(
-    type: (typeof EXTRA_SECTION_TYPES)[number],
-): SectionSettings {
-    if (type === 'recommended_products') {
-        return {
-            background_color: '#ffffff',
-            content_width: 'container',
-            eyebrow: 'Recomendados',
-            title: 'Productos recomendados',
-            subtitle: '',
-            product_ids: [],
-            display_type: 'grid',
-            columns: 4,
-        };
-    }
-
-    return {
+function sectionDefaults(type: string): SectionSettings {
+    const base = {
         background_color: '#ffffff',
         content_width: 'container',
-        eyebrow: 'Nuevo bloque',
-        title: 'Banner imagen',
-        text: '',
-        media_id: null,
-        button_label: 'Ver mas',
-        button_url: '#',
-        image_position: 'right',
     };
+
+    switch (type) {
+        case 'hero':
+            return {
+                ...base,
+                background_color: '#111827',
+                slides: [],
+                eyebrow: '',
+                title: 'Nueva portada',
+                subtitle: '',
+                buttons: [],
+            };
+        case 'specialty_grid':
+            return { ...base, title: 'Especialidades', items: [] };
+        case 'feature_cards':
+            return { ...base, items: [] };
+        case 'brand_strip':
+            return { ...base, eyebrow: '', title: 'Marcas', brands: [] };
+        case 'inquiry_form':
+            return {
+                ...base,
+                title: 'Escríbenos',
+                text: '',
+                phone: '',
+                email: '',
+                interest_areas: [],
+                media_id: null,
+            };
+        case 'recommended_products':
+            return {
+                ...base,
+                eyebrow: 'Recomendados',
+                title: 'Productos recomendados',
+                subtitle: '',
+                product_ids: [],
+                display_type: 'grid',
+                columns: 4,
+            };
+        case 'page_header':
+            return {
+                ...base,
+                background_color: '#0f172a',
+                eyebrow: '',
+                title: 'Título de la página',
+                subtitle: '',
+            };
+        case 'rich_text':
+            return { ...base, html: '<p></p>' };
+        case 'contact_info':
+            return {
+                ...base,
+                title: 'Información de contacto',
+                phone: '',
+                email: '',
+                address: '',
+                hours: '',
+                map_url: '',
+            };
+        default:
+            return {
+                ...base,
+                eyebrow: 'Nuevo bloque',
+                title: 'Banner imagen',
+                text: '',
+                media_id: null,
+                button_label: 'Ver mas',
+                button_url: '#',
+                image_position: 'right',
+            };
+    }
 }
 
 function moveItem<T>(items: T[], index: number, direction: -1 | 1): T[] {

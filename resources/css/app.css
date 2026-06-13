@@ -141,3 +141,48 @@
         @apply bg-background text-foreground;
     }
 }
+
+/* Rendered/edited rich-text content (TipTap output). */
+.rich-text {
+    @apply text-base leading-7;
+}
+.rich-text :where(h2) {
+    @apply mt-8 mb-3 text-2xl font-bold tracking-tight first:mt-0;
+}
+.rich-text :where(h3) {
+    @apply mt-6 mb-2 text-xl font-semibold tracking-tight first:mt-0;
+}
+.rich-text :where(p) {
+    @apply my-4;
+}
+.rich-text :where(ul) {
+    @apply my-4 list-disc pl-6;
+}
+.rich-text :where(ol) {
+    @apply my-4 list-decimal pl-6;
+}
+.rich-text :where(li) {
+    @apply my-1;
+}
+.rich-text :where(blockquote) {
+    @apply my-4 border-l-4 border-neutral-300 pl-4 text-neutral-600 italic dark:border-neutral-700 dark:text-neutral-300;
+}
+.rich-text :where(a) {
+    @apply font-medium text-red-700 underline underline-offset-2 dark:text-red-400;
+}
+.rich-text :where(strong) {
+    @apply font-semibold;
+}
+.rich-text :where(mark) {
+    @apply rounded px-0.5;
+    color: inherit;
+}
+.rich-text :where(code) {
+    @apply rounded bg-neutral-100 px-1.5 py-0.5 text-sm dark:bg-neutral-800;
+}
+.rich-text :where(pre) {
+    @apply my-4 overflow-x-auto rounded-md bg-neutral-900 p-4 text-sm text-neutral-100;
+}
+.rich-text:focus {
+    @apply outline-none;
+}

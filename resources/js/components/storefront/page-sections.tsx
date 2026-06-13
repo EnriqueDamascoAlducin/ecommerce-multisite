@@ -4,7 +4,9 @@ import {
     ArrowRight,
     ChevronLeft,
     ChevronRight,
+    Clock,
     Mail,
+    MapPin,
     Phone,
     Sparkles,
     Waves,
@@ -67,6 +69,12 @@ export function SectionRenderer({
         return <ImageBanner section={section} />;
     if (section.type === 'recommended_products')
         return <RecommendedProducts section={section} />;
+    if (section.type === 'page_header')
+        return <PageHeaderSection section={section} />;
+    if (section.type === 'rich_text')
+        return <RichTextSection section={section} />;
+    if (section.type === 'contact_info')
+        return <ContactInfoSection section={section} />;
 
     return null;
 }
@@ -114,7 +122,7 @@ function HeroSection({ section }: { section: CmsSection }) {
             )}
             <div className="absolute inset-0 bg-linear-to-r from-red-950/95 via-red-950/75 to-slate-950/85" />
             <div
-                className={`${sectionContentWidthClass(settings)} relative flex min-h-[32rem] items-center px-4 py-20`}
+                className={`${sectionContentWidthClass(settings)} relative flex min-h-[32rem] items-center px-6 py-20 sm:px-8 lg:px-16 xl:px-24`}
             >
                 <div className="max-w-2xl">
                     {stringValue(slide?.eyebrow) && (
@@ -672,6 +680,136 @@ function Field({
             />
             <InputError message={error} />
         </div>
+    );
+}
+
+function PageHeaderSection({ section }: { section: CmsSection }) {
+    const settings = section.settings;
+
+    return (
+        <section
+            className="bg-neutral-950 px-4 py-20 text-white"
+            style={sectionBackgroundStyle(settings)}
+        >
+            <div className={`${sectionContentWidthClass(settings)} text-center`}>
+                {stringValue(settings.eyebrow) && (
+                    <p className="mb-3 text-xs font-bold tracking-wide text-white/70 uppercase">
+                        {stringValue(settings.eyebrow)}
+                    </p>
+                )}
+                <h1 className="text-4xl font-black tracking-tight md:text-5xl">
+                    {stringValue(settings.title)}
+                </h1>
+                {stringValue(settings.subtitle) && (
+                    <p className="mx-auto mt-4 max-w-2xl text-base leading-7 text-white/80">
+                        {stringValue(settings.subtitle)}
+                    </p>
+                )}
+            </div>
+        </section>
+    );
+}
+
+function RichTextSection({ section }: { section: CmsSection }) {
+    const settings = section.settings;
+    const html = stringValue(settings.html);
+
+    if (!html) {
+        return null;
+    }
+
+    return (
+        <section
+            className="bg-white px-4 py-14 dark:bg-neutral-950"
+            style={sectionBackgroundStyle(settings)}
+        >
+            <div className={sectionContentWidthClass(settings)}>
+                {/* HTML is sanitized server-side by App\Domain\Storefront\HtmlSanitizer. */}
+                <div
+                    className="rich-text mx-auto max-w-3xl text-neutral-800 dark:text-neutral-200"
+                    dangerouslySetInnerHTML={{ __html: html }}
+                />
+            </div>
+        </section>
+    );
+}
+
+function ContactInfoSection({ section }: { section: CmsSection }) {
+    const settings = section.settings;
+    const phone = stringValue(settings.phone);
+    const email = stringValue(settings.email);
+    const address = stringValue(settings.address);
+    const hours = stringValue(settings.hours);
+    const mapUrl = stringValue(settings.map_url);
+
+    return (
+        <section
+            className="bg-white px-4 py-16 dark:bg-neutral-950"
+            style={sectionBackgroundStyle(settings)}
+        >
+            <div
+                className={`${sectionContentWidthClass(settings)} grid gap-8 md:grid-cols-2`}
+            >
+                <div>
+                    {stringValue(settings.title) && (
+                        <h2 className="text-2xl font-bold text-neutral-950 dark:text-white">
+                            {stringValue(settings.title)}
+                        </h2>
+                    )}
+                    <dl className="mt-6 space-y-4 text-sm">
+                        {phone && (
+                            <div className="flex items-center gap-3">
+                                <Phone className="size-5 text-red-700 dark:text-red-400" />
+                                <a
+                                    href={`tel:${phone}`}
+                                    className="text-neutral-700 dark:text-neutral-300"
+                                >
+                                    {phone}
+                                </a>
+                            </div>
+                        )}
+                        {email && (
+                            <div className="flex items-center gap-3">
+                                <Mail className="size-5 text-red-700 dark:text-red-400" />
+                                <a
+                                    href={`mailto:${email}`}
+                                    className="text-neutral-700 dark:text-neutral-300"
+                                >
+                                    {email}
+                                </a>
+                            </div>
+                        )}
+                        {address && (
+                            <div className="flex items-start gap-3">
+                                <MapPin className="mt-0.5 size-5 text-red-700 dark:text-red-400" />
+                                <span className="whitespace-pre-line text-neutral-700 dark:text-neutral-300">
+                                    {address}
+                                </span>
+                            </div>
+                        )}
+                        {hours && (
+                            <div className="flex items-start gap-3">
+                                <Clock className="mt-0.5 size-5 text-red-700 dark:text-red-400" />
+                                <span className="whitespace-pre-line text-neutral-700 dark:text-neutral-300">
+                                    {hours}
+                                </span>
+                            </div>
+                        )}
+                    </dl>
+                </div>
+                {mapUrl && (
+                    <div className="overflow-hidden rounded-lg border border-neutral-200 dark:border-neutral-800">
+                        <iframe
+                            src={mapUrl}
+                            title="Mapa"
+                            loading="lazy"
+                            referrerPolicy="no-referrer-when-downgrade"
+                            className="h-full min-h-[18rem] w-full"
+                        />
+                    </div>
+                )}
+            </div>
+        </section>
     );
 }
 

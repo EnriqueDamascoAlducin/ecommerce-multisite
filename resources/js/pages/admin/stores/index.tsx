@@ -1,4 +1,6 @@
 import { Head, Link, router } from '@inertiajs/react';
+import { useState } from 'react';
+import { ConfirmDialog } from '@/components/confirm-dialog';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import stores from '@/routes/admin/stores';
@@ -14,10 +16,22 @@ type StoreRow = {
 };
 
 export default function StoresIndex({ stores: items }: { stores: StoreRow[] }) {
-    const destroy = (store: StoreRow) => {
-        if (confirm(`¿Eliminar la tienda ${store.name}?`)) {
-            router.delete(stores.destroy(store.id).url);
+    const [deleteTarget, setDeleteTarget] = useState<StoreRow | null>(null);
+    const [deleting, setDeleting] = useState(false);
+
+    const destroy = () => {
+        if (!deleteTarget) {
+            return;
         }
+
+        router.delete(stores.destroy(deleteTarget.id).url, {
+            preserveScroll: true,
+            onStart: () => setDeleting(true),
+            onFinish: () => {
+                setDeleting(false);
+                setDeleteTarget(null);
+            },
+        });
     };
 
     return (
@@ -64,7 +78,7 @@ export default function StoresIndex({ stores: items }: { stores: StoreRow[] }) {
                                             <Link href={stores.edit(store.id)}>Editar</Link>
                                         </Button>
                                         {!store.is_default && (
-                                            <Button variant="destructive" size="sm" onClick={() => destroy(store)}>
+                                            <Button variant="destructive" size="sm" onClick={() => setDeleteTarget(store)}>
                                                 Eliminar
                                             </Button>
                                         )}
@@ -75,6 +89,30 @@ export default function StoresIndex({ stores: items }: { stores: StoreRow[] }) {
                     </tbody>
                 </table>
             </div>
+
+            <ConfirmDialog
+                open={deleteTarget !== null}
+                onOpenChange={(open) => {
+                    if (!open) {
+                        setDeleteTarget(null);
+                    }
+                }}
+                onConfirm={destroy}
+                loading={deleting}
+                title="Eliminar tienda"
+                description={
+                    deleteTarget ? (
+                        <>
+                            Vas a eliminar la tienda{' '}
+                            <span className="font-semibold text-foreground">
+                                {deleteTarget.name}
+                            </span>
+                            . Esta acción no se puede deshacer.
+                        </>
+                    ) : null
+                }
+                confirmLabel="Eliminar"
+            />
         </>
     );
 }

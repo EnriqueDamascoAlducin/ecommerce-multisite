@@ -212,6 +212,66 @@ test('legacy hero without slides still resolves its background media', function 
             ->where('contentPage.sections.0.settings.media.id', $media->id));
 });
 
+test('a legal page renders its rich text content by slug', function () {
+    $page = StorefrontPage::factory()->create([
+        'store_id' => $this->store->id,
+        'slug' => 'privacidad',
+        'template' => 'legal',
+        'is_published' => true,
+    ]);
+
+    StorefrontPageSection::factory()->create([
+        'storefront_page_id' => $page->id,
+        'type' => StorefrontPageSection::TYPE_PAGE_HEADER,
+        'settings' => ['display_order' => 0, 'title' => 'Aviso de privacidad'],
+    ]);
+    StorefrontPageSection::factory()->create([
+        'storefront_page_id' => $page->id,
+        'type' => StorefrontPageSection::TYPE_RICH_TEXT,
+        'settings' => ['display_order' => 1, 'html' => '<p>Tu privacidad importa.</p>'],
+    ]);
+
+    $this->get('/privacidad')
+        ->assertOk()
+        ->assertInertia(fn ($inertia) => $inertia
+            ->where('contentPage.slug', 'privacidad')
+            ->where('contentPage.sections.0.type', StorefrontPageSection::TYPE_PAGE_HEADER)
+            ->where('contentPage.sections.0.settings.title', 'Aviso de privacidad')
+            ->where('contentPage.sections.1.type', StorefrontPageSection::TYPE_RICH_TEXT)
+            ->where('contentPage.sections.1.settings.html', '<p>Tu privacidad importa.</p>'));
+});
+
+test('a contact page exposes contact info and the inquiry form', function () {
+    $page = StorefrontPage::factory()->create([
+        'store_id' => $this->store->id,
+        'slug' => 'contacto',
+        'template' => 'contact',
+        'is_published' => true,
+    ]);
+
+    StorefrontPageSection::factory()->create([
+        'storefront_page_id' => $page->id,
+        'type' => StorefrontPageSection::TYPE_CONTACT_INFO,
+        'settings' => [
+            'display_order' => 0,
+            'email' => 'hola@tienda.com',
+            'phone' => '555-1234',
+        ],
+    ]);
+    StorefrontPageSection::factory()->create([
+        'storefront_page_id' => $page->id,
+        'type' => StorefrontPageSection::TYPE_INQUIRY_FORM,
+        'settings' => ['display_order' => 1, 'title' => 'Escríbenos'],
+    ]);
+
+    $this->get('/contacto')
+        ->assertOk()
+        ->assertInertia(fn ($inertia) => $inertia
+            ->where('contentPage.sections.0.type', StorefrontPageSection::TYPE_CONTACT_INFO)
+            ->where('contentPage.sections.0.settings.email', 'hola@tienda.com')
+            ->where('contentPage.sections.1.type', StorefrontPageSection::TYPE_INQUIRY_FORM));
+});
+
 test('home renders controlled extra blocks in saved order', function () {
     $media = Media::factory()->create();
     $page = StorefrontPage::factory()->create([

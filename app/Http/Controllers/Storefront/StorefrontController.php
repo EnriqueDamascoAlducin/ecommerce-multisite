@@ -12,6 +12,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Attribute;
 use App\Models\Category;
 use App\Models\Product;
+use App\Models\ProductPrice;
 use App\Models\StorefrontPage;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
@@ -87,7 +88,10 @@ class StorefrontController extends Controller
             $this->applyAttributeFilters($query, $attrs, $filterableAttributes);
         }
 
-        $products = $query->orderBy('name')
+        $sort = (string) $request->input('sort', 'relevance');
+        $this->applyCatalogSort($query, $sort);
+
+        $products = $query
             ->paginate(12)
             ->withQueryString()
             ->through(fn (Product $product) => $this->productCard($product));
@@ -104,8 +108,40 @@ class StorefrontController extends Controller
             'filterOptions' => [
                 'attributes' => $this->presentFilterableAttributes($filterableAttributes),
             ],
+            'sort' => in_array($sort, ['price_asc', 'price_desc', 'newest'], true) ? $sort : 'relevance',
             'products' => $products,
         ]);
+    }
+
+    /**
+     * Best-effort catalog sort. Price ordering uses the store-specific base
+     * price (falling back to the global price); specials/configurable pricing
+     * are not factored in.
+     */
+    private function applyCatalogSort(Builder $query, string $sort): void
+    {
+        if ($sort === 'newest') {
+            $query->orderByDesc('products.created_at');
+
+            return;
+        }
+
+        if ($sort === 'price_asc' || $sort === 'price_desc') {
+            $storeId = $this->context->store()->id;
+
+            $priceSubquery = ProductPrice::query()
+                ->select('price')
+                ->whereColumn('product_id', 'products.id')
+                ->where(fn (Builder $q) => $q->where('store_id', $storeId)->orWhereNull('store_id'))
+                ->orderByRaw('store_id IS NULL')
+                ->limit(1);
+
+            $query->orderBy($priceSubquery, $sort === 'price_desc' ? 'desc' : 'asc');
+
+            return;
+        }
+
+        $query->orderBy('products.name');
     }
 
     public function product(string $slug): Response
@@ -325,6 +361,7 @@ class StorefrontController extends Controller
         $storeId = $this->context->store()->id;
 
         return [
+            'id' => $product->id,
             'sku' => $product->sku,
             'name' => $product->name,
             'slug' => $product->slug,
@@ -339,6 +376,7 @@ class StorefrontController extends Controller
                 $product->isBundle() => $this->bundles->canFulfill($product, 1),
                 default => $this->availability->canFulfill($product, 1),
             },
+            'requires_options' => $product->isConfigurable(),
             'labels' => $this->labelsFor($product),
         ];
     }

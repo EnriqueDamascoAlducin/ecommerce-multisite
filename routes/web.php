@@ -24,7 +24,7 @@ Route::middleware('resolve.store')->group(function () {
 
     Route::get('{slug}', [StorefrontController::class, 'page'])
         ->name('storefront.page')
-        ->where('slug', '(?!admin|cuenta|carrito|checkout|login|register|logout|forgot-password|reset-password|dashboard|settings|storage|media|webhooks|up|user|two-factor-challenge|email|api|sanctum|build|c|p|consulta|buscar)[a-z0-9-]+');
+        ->where('slug', '(?!(?:admin|cuenta|carrito|checkout|login|register|logout|forgot-password|reset-password|dashboard|settings|storage|media|webhooks|up|user|two-factor-challenge|email|api|sanctum|build|c|p|consulta|buscar)$)[a-z0-9-]+');
 });
 
 // Descarga de medios privados mediante URL firmada (productos descargables, etc.).
@@ -58,5 +58,5 @@ Route::middleware('resolve.store')->prefix('{store_code}')->name('storefront.sto
     Route::get('buscar', [StorefrontController::class, 'search'])->name('search');
     Route::get('{slug}', [StorefrontController::class, 'page'])
         ->name('page')
-        ->where('slug', '(?!c|p|consulta|buscar)[a-z0-9-]+');
-})->where('store_code', '(?!admin|cuenta|carrito|checkout|login|register|logout|forgot-password|reset-password|dashboard|settings|storage|media|webhooks|up|user|two-factor-challenge|email|api|sanctum|build|c|p|buscar)[a-z0-9-]+');
+        ->where('slug', '(?!(?:c|p|consulta|buscar)$)[a-z0-9-]+');
+})->where('store_code', '(?!(?:admin|cuenta|carrito|checkout|login|register|logout|forgot-password|reset-password|dashboard|settings|storage|media|webhooks|up|user|two-factor-challenge|email|api|sanctum|build|c|p|buscar)$)[a-z0-9-]+');

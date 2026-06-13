@@ -1,14 +1,18 @@
 import { Form, Head, Link, router } from '@inertiajs/react';
 import {
     ChevronDown,
+    ChevronRight,
     Columns3,
     Filter,
     ImageIcon,
+    Pencil,
     Search,
     X,
 } from 'lucide-react';
 import type { ReactNode } from 'react';
-import { useMemo, useState } from 'react';
+import { Fragment, useMemo, useState } from 'react';
+import { toast } from 'sonner';
+import { ConfirmDialog } from '@/components/confirm-dialog';
 import { ProductLabels } from '@/components/product-labels';
 import type { ProductLabelData } from '@/components/product-labels';
 import { Badge } from '@/components/ui/badge';
@@ -91,6 +95,7 @@ type ProductRow = {
         is_active: boolean;
     }>;
     attributes: Record<string, { raw: string | string[]; label: string }>;
+    variants?: ProductRow[];
 };
 
 type Paginated<T> = {
@@ -159,12 +164,57 @@ export default function ProductsIndex({
         [filters, filterOptions],
     );
 
-    const destroy = (product: ProductRow) => {
-        if (confirm(`Eliminar el producto ${product.sku}?`)) {
-            router.delete(products.destroy(product.id).url, {
+    const [deleteTarget, setDeleteTarget] = useState<ProductRow | null>(null);
+    const [deleting, setDeleting] = useState(false);
+    const [expanded, setExpanded] = useState<Set<number>>(new Set());
+
+    const toggleExpand = (id: number) => {
+        setExpanded((current) => {
+            const next = new Set(current);
+            if (next.has(id)) {
+                next.delete(id);
+            } else {
+                next.add(id);
+            }
+            return next;
+        });
+    };
+
+    const canEditProducts = can('catalog.products.edit');
+
+    const saveInline = (
+        id: number,
+        field: 'status' | 'visibility' | 'name',
+        value: string,
+    ) => {
+        router.patch(
+            products.inlineUpdate(id).url,
+            { field, value },
+            {
                 preserveScroll: true,
-            });
+                preserveState: true,
+                onSuccess: () => toast.success('Producto actualizado'),
+                onError: (errors) =>
+                    toast.error(
+                        Object.values(errors)[0] ?? 'No se pudo actualizar',
+                    ),
+            },
+        );
+    };
+
+    const destroy = () => {
+        if (!deleteTarget) {
+            return;
         }
+
+        router.delete(products.destroy(deleteTarget.id).url, {
+            preserveScroll: true,
+            onStart: () => setDeleting(true),
+            onFinish: () => {
+                setDeleting(false);
+                setDeleteTarget(null);
+            },
+        });
     };
 
     const toggleColumn = (key: string, checked: boolean) => {
@@ -442,6 +492,7 @@ export default function ProductsIndex({
                     <table className="w-full min-w-max text-left text-xs">
                         <thead className="border-b border-neutral-200 bg-neutral-50 text-neutral-500 dark:border-neutral-800 dark:bg-neutral-950/40">
                             <tr>
+                                <th className="w-8 px-2 py-2" />
                                 {visibleColumns.map((column) => (
                                     <th
                                         key={column.key}
@@ -456,58 +507,167 @@ export default function ProductsIndex({
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-neutral-100 dark:divide-neutral-800">
-                            {page.data.map((product) => (
-                                <tr
-                                    key={product.id}
-                                    className="hover:bg-neutral-50/70 dark:hover:bg-neutral-800/40"
-                                >
-                                    {visibleColumns.map((column) => (
-                                        <td
-                                            key={column.key}
-                                            className="max-w-56 px-3 py-2 align-top"
-                                        >
-                                            <ProductCell
-                                                column={column}
-                                                product={product}
-                                            />
-                                        </td>
-                                    ))}
-                                    <td className="sticky right-0 bg-white px-3 py-2 dark:bg-neutral-900">
-                                        <div className="flex justify-end gap-2">
-                                            {can('catalog.products.edit') && (
-                                                <Button
-                                                    variant="outline"
-                                                    size="sm"
-                                                    asChild
-                                                >
-                                                    <Link
-                                                        href={products.edit(
-                                                            product.id,
-                                                        )}
+                            {page.data.map((product) => {
+                                const variants = product.variants ?? [];
+                                const isExpandable = variants.length > 0;
+                                const isExpanded = expanded.has(product.id);
+
+                                return (
+                                    <Fragment key={product.id}>
+                                        <tr className="hover:bg-neutral-50/70 dark:hover:bg-neutral-800/40">
+                                            <td className="px-2 py-2 align-top">
+                                                {isExpandable && (
+                                                    <button
+                                                        type="button"
+                                                        onClick={() =>
+                                                            toggleExpand(
+                                                                product.id,
+                                                            )
+                                                        }
+                                                        aria-label={
+                                                            isExpanded
+                                                                ? 'Ocultar variantes'
+                                                                : 'Ver variantes'
+                                                        }
+                                                        aria-expanded={isExpanded}
+                                                        className="flex size-6 cursor-pointer items-center justify-center rounded text-neutral-500 transition hover:bg-neutral-200 hover:text-neutral-900 dark:hover:bg-neutral-700 dark:hover:text-neutral-100"
                                                     >
-                                                        Editar
-                                                    </Link>
-                                                </Button>
-                                            )}
-                                            {can('catalog.products.delete') && (
-                                                <Button
-                                                    variant="destructive"
-                                                    size="sm"
-                                                    onClick={() =>
-                                                        destroy(product)
-                                                    }
+                                                        {isExpanded ? (
+                                                            <ChevronDown className="size-4" />
+                                                        ) : (
+                                                            <ChevronRight className="size-4" />
+                                                        )}
+                                                    </button>
+                                                )}
+                                            </td>
+                                            {visibleColumns.map((column) => (
+                                                <td
+                                                    key={column.key}
+                                                    className="max-w-56 px-3 py-2 align-top"
                                                 >
-                                                    Eliminar
-                                                </Button>
-                                            )}
-                                        </div>
-                                    </td>
-                                </tr>
-                            ))}
+                                                    <ProductCell
+                                                        column={column}
+                                                        product={product}
+                                                        onInlineSave={
+                                                            canEditProducts
+                                                                ? saveInline
+                                                                : undefined
+                                                        }
+                                                    />
+                                                </td>
+                                            ))}
+                                            <td className="sticky right-0 bg-white px-3 py-2 dark:bg-neutral-900">
+                                                <div className="flex justify-end gap-2">
+                                                    {can(
+                                                        'catalog.products.edit',
+                                                    ) && (
+                                                        <Button
+                                                            variant="outline"
+                                                            size="sm"
+                                                            asChild
+                                                        >
+                                                            <Link
+                                                                href={products.edit(
+                                                                    product.id,
+                                                                )}
+                                                            >
+                                                                Editar
+                                                            </Link>
+                                                        </Button>
+                                                    )}
+                                                    {can(
+                                                        'catalog.products.delete',
+                                                    ) && (
+                                                        <Button
+                                                            variant="destructive"
+                                                            size="sm"
+                                                            onClick={() =>
+                                                                setDeleteTarget(
+                                                                    product,
+                                                                )
+                                                            }
+                                                        >
+                                                            Eliminar
+                                                        </Button>
+                                                    )}
+                                                </div>
+                                            </td>
+                                        </tr>
+                                        {isExpanded &&
+                                            variants.map((variant) => (
+                                                <tr
+                                                    key={variant.id}
+                                                    className="bg-neutral-50/60 hover:bg-neutral-100/70 dark:bg-neutral-900/40 dark:hover:bg-neutral-800/50"
+                                                >
+                                                    <td className="border-l-2 border-red-700 px-2 py-2 align-top dark:border-red-400" />
+                                                    {visibleColumns.map(
+                                                        (column) => (
+                                                            <td
+                                                                key={column.key}
+                                                                className="max-w-56 px-3 py-2 align-top"
+                                                            >
+                                                                <ProductCell
+                                                                    column={
+                                                                        column
+                                                                    }
+                                                                    product={
+                                                                        variant
+                                                                    }
+                                                                    nested
+                                                                    onInlineSave={
+                                                                        canEditProducts
+                                                                            ? saveInline
+                                                                            : undefined
+                                                                    }
+                                                                />
+                                                            </td>
+                                                        ),
+                                                    )}
+                                                    <td className="sticky right-0 bg-neutral-50 px-3 py-2 dark:bg-neutral-900">
+                                                        <div className="flex justify-end gap-2">
+                                                            {can(
+                                                                'catalog.products.edit',
+                                                            ) && (
+                                                                <Button
+                                                                    variant="outline"
+                                                                    size="sm"
+                                                                    asChild
+                                                                >
+                                                                    <Link
+                                                                        href={products.edit(
+                                                                            variant.id,
+                                                                        )}
+                                                                    >
+                                                                        Editar
+                                                                    </Link>
+                                                                </Button>
+                                                            )}
+                                                            {can(
+                                                                'catalog.products.delete',
+                                                            ) && (
+                                                                <Button
+                                                                    variant="destructive"
+                                                                    size="sm"
+                                                                    onClick={() =>
+                                                                        setDeleteTarget(
+                                                                            variant,
+                                                                        )
+                                                                    }
+                                                                >
+                                                                    Eliminar
+                                                                </Button>
+                                                            )}
+                                                        </div>
+                                                    </td>
+                                                </tr>
+                                            ))}
+                                    </Fragment>
+                                );
+                            })}
                             {page.data.length === 0 && (
                                 <tr>
                                     <td
-                                        colSpan={visibleColumns.length + 1}
+                                        colSpan={visibleColumns.length + 2}
                                         className="px-4 py-8 text-center text-neutral-500"
                                     >
                                         No hay productos con esos filtros.
@@ -546,6 +706,31 @@ export default function ProductsIndex({
                     )}
                 </div>
             </div>
+
+            <ConfirmDialog
+                open={deleteTarget !== null}
+                onOpenChange={(open) => {
+                    if (!open) {
+                        setDeleteTarget(null);
+                    }
+                }}
+                onConfirm={destroy}
+                loading={deleting}
+                title="Eliminar producto"
+                description={
+                    deleteTarget ? (
+                        <>
+                            Vas a eliminar{' '}
+                            <span className="font-semibold text-foreground">
+                                {deleteTarget.name}
+                            </span>{' '}
+                            ({deleteTarget.sku}). Esta acción no se puede
+                            deshacer.
+                        </>
+                    ) : null
+                }
+                confirmLabel="Eliminar"
+            />
         </>
     );
 }
@@ -690,12 +875,23 @@ function AttributeFilterInput({
     );
 }
 
+const INLINE_SELECT_CLASS =
+    'w-full max-w-40 cursor-pointer rounded-md border border-neutral-200 bg-white px-2 py-1 text-xs text-neutral-800 transition hover:border-neutral-400 focus:border-red-700 focus:ring-1 focus:ring-red-700 focus:outline-none dark:border-neutral-700 dark:bg-neutral-950 dark:text-neutral-100';
+
 function ProductCell({
     column,
     product,
+    nested = false,
+    onInlineSave,
 }: {
     column: ColumnDefinition;
     product: ProductRow;
+    nested?: boolean;
+    onInlineSave?: (
+        id: number,
+        field: 'status' | 'visibility' | 'name',
+        value: string,
+    ) => void;
 }) {
     if (column.key.startsWith('attr:')) {
         const value = product.attributes[String(column.attribute_id)]?.label;
@@ -726,11 +922,20 @@ function ProductCell({
     if (column.key === 'name') {
         return (
             <div className="space-y-1">
-                <TruncatedText
-                    value={product.name}
-                    className="font-medium text-neutral-900 dark:text-neutral-100"
-                />
-                {product.parent && (
+                {onInlineSave ? (
+                    <EditableName
+                        value={product.name}
+                        onSave={(value) =>
+                            onInlineSave(product.id, 'name', value)
+                        }
+                    />
+                ) : (
+                    <TruncatedText
+                        value={product.name}
+                        className="font-medium text-neutral-900 dark:text-neutral-100"
+                    />
+                )}
+                {product.parent && !nested && (
                     <Badge variant="outline" className="text-[10px]">
                         Variante de {product.parent.name}
                     </Badge>
@@ -745,17 +950,49 @@ function ProductCell({
     }
 
     if (column.key === 'status') {
+        if (!onInlineSave) {
+            return (
+                <Badge
+                    variant={product.status === 'active' ? 'default' : 'outline'}
+                >
+                    {product.status === 'active' ? 'Activo' : 'Inactivo'}
+                </Badge>
+            );
+        }
+
         return (
-            <Badge
-                variant={product.status === 'active' ? 'default' : 'outline'}
+            <select
+                value={product.status}
+                onChange={(event) =>
+                    onInlineSave(product.id, 'status', event.target.value)
+                }
+                className={INLINE_SELECT_CLASS}
             >
-                {product.status === 'active' ? 'Activo' : 'Inactivo'}
-            </Badge>
+                <option value="active">Activo</option>
+                <option value="inactive">Inactivo</option>
+            </select>
         );
     }
 
     if (column.key === 'visibility') {
-        return <TruncatedText value={visibilityLabel(product.visibility)} />;
+        if (!onInlineSave) {
+            return <TruncatedText value={visibilityLabel(product.visibility)} />;
+        }
+
+        return (
+            <select
+                value={product.visibility}
+                onChange={(event) =>
+                    onInlineSave(product.id, 'visibility', event.target.value)
+                }
+                className={INLINE_SELECT_CLASS}
+            >
+                <option value="both">Catálogo y búsqueda</option>
+                <option value="catalog">Solo catálogo</option>
+                <option value="search">Solo búsqueda</option>
+                <option value="hidden">Oculto</option>
+            </select>
+        );
     }
 
     if (column.key === 'price') {
@@ -804,6 +1041,60 @@ function ProductCell({
     }
 
     return <TruncatedText value="-" />;
+}
+
+function EditableName({
+    value,
+    onSave,
+}: {
+    value: string;
+    onSave: (value: string) => void;
+}) {
+    const [editing, setEditing] = useState(false);
+
+    const commit = (next: string) => {
+        const trimmed = next.trim();
+        setEditing(false);
+        if (trimmed && trimmed !== value) {
+            onSave(trimmed);
+        }
+    };
+
+    if (!editing) {
+        return (
+            <button
+                type="button"
+                onClick={() => setEditing(true)}
+                title="Editar nombre"
+                className="group/name flex max-w-56 cursor-text items-center gap-1 text-left"
+            >
+                <span className="truncate font-medium text-neutral-900 dark:text-neutral-100">
+                    {value}
+                </span>
+                <Pencil className="size-3 shrink-0 text-neutral-400 opacity-0 transition group-hover/name:opacity-100" />
+            </button>
+        );
+    }
+
+    return (
+        <input
+            type="text"
+            autoFocus
+            defaultValue={value}
+            onBlur={(event) => commit(event.target.value)}
+            onKeyDown={(event) => {
+                if (event.key === 'Enter') {
+                    event.preventDefault();
+                    event.currentTarget.blur();
+                } else if (event.key === 'Escape') {
+                    event.preventDefault();
+                    event.currentTarget.value = value;
+                    event.currentTarget.blur();
+                }
+            }}
+            className="w-full max-w-56 rounded-md border border-red-700 bg-white px-2 py-1 text-xs font-medium text-neutral-900 focus:ring-1 focus:ring-red-700 focus:outline-none dark:bg-neutral-950 dark:text-neutral-100"
+        />
+    );
 }
 
 function TruncatedText({

@@ -1,16 +1,19 @@
-import { Link } from '@inertiajs/react';
-import { ImageIcon } from 'lucide-react';
+import { Form, Link } from '@inertiajs/react';
+import { ImageIcon, ShoppingCart, SlidersHorizontal } from 'lucide-react';
 import { ProductLabels, type ProductLabelData } from '@/components/product-labels';
 import { Badge } from '@/components/ui/badge';
+import cart from '@/routes/cart';
 import { formatPrice, type Price, useStoreUrls } from '@/lib/storefront';
 
 export type ProductCardData = {
+    id: number;
     sku: string;
     name: string;
     slug: string;
     price: Price;
     thumbnail: string | null;
     in_stock: boolean;
+    requires_options?: boolean;
     labels?: ProductLabelData[];
 };
 
@@ -102,32 +105,85 @@ export function ProductCard({
     }
 
     return (
-        <Link
-            href={urls.product(product.slug)}
-            className="group flex flex-col overflow-hidden rounded-lg border border-neutral-200 transition-shadow hover:shadow-md dark:border-neutral-800"
-        >
-            <div className="relative flex aspect-square items-center justify-center overflow-hidden bg-neutral-100 dark:bg-neutral-900">
+        <div className="group relative flex flex-col overflow-hidden rounded-xl border border-neutral-200 bg-white shadow-sm transition-all duration-300 hover:shadow-lg dark:border-neutral-800 dark:bg-neutral-950">
+            <Link
+                href={urls.product(product.slug)}
+                className="relative flex aspect-square items-center justify-center overflow-hidden bg-neutral-100 dark:bg-neutral-900"
+            >
                 {product.thumbnail ? (
-                    <img src={product.thumbnail} alt={product.name} className="h-full w-full object-cover transition-transform group-hover:scale-105" />
+                    <img
+                        src={product.thumbnail}
+                        alt={product.name}
+                        className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
+                    />
                 ) : (
-                    <ImageIcon className="size-10 text-neutral-300" />
+                    <ImageIcon className="size-10 text-neutral-300 dark:text-neutral-700" />
                 )}
-                <ProductLabels labels={product.labels} className="absolute left-2 top-2" />
-            </div>
-            <div className="flex flex-1 flex-col gap-1 p-3">
-                <h3 className="line-clamp-2 text-sm font-medium">{product.name}</h3>
-                <div className="mt-auto flex items-center gap-2">
-                    {product.price.is_special && product.price.special_price ? (
-                        <>
-                            <span className="font-semibold text-red-600">{formatPrice(product.price.special_price)}</span>
-                            <span className="text-xs text-neutral-400 line-through">{formatPrice(product.price.price)}</span>
-                        </>
+                <ProductLabels labels={product.labels} className="absolute top-4 left-4" />
+            </Link>
+            <div className="flex flex-1 flex-col p-5">
+                <span className="mb-1 text-[11px] font-bold tracking-[0.16em] text-neutral-400 uppercase dark:text-neutral-500">
+                    {product.sku}
+                </span>
+                <Link href={urls.product(product.slug)}>
+                    <h3 className="mb-4 line-clamp-2 text-base leading-tight font-semibold text-neutral-950 transition group-hover:text-red-700 dark:text-neutral-50 dark:group-hover:text-red-300">
+                        {product.name}
+                    </h3>
+                </Link>
+                <div className="mt-auto flex items-end justify-between gap-3">
+                    <div className="flex flex-col">
+                        {product.price.is_special && product.price.special_price ? (
+                            <>
+                                <span className="text-xs text-neutral-400 line-through">
+                                    {formatPrice(product.price.price)}
+                                </span>
+                                <span className="text-lg font-bold text-red-700 dark:text-red-300">
+                                    {formatPrice(product.price.special_price)}
+                                </span>
+                            </>
+                        ) : (
+                            <span className="text-lg font-bold text-neutral-950 dark:text-neutral-50">
+                                {formatPrice(product.price.effective_price)}
+                            </span>
+                        )}
+                    </div>
+                    {!product.in_stock ? (
+                        <Badge variant="outline" className="shrink-0">
+                            Agotado
+                        </Badge>
+                    ) : product.requires_options ? (
+                        <Link
+                            href={urls.product(product.slug)}
+                            aria-label="Elegir opciones"
+                            title="Elegir opciones"
+                            className="flex size-12 items-center justify-center rounded-lg border-2 border-red-700 text-red-700 transition hover:bg-red-700 hover:text-white dark:border-red-300 dark:text-red-300 dark:hover:bg-red-300 dark:hover:text-neutral-950"
+                        >
+                            <SlidersHorizontal className="size-5" />
+                        </Link>
                     ) : (
-                        <span className="font-semibold">{formatPrice(product.price.effective_price)}</span>
+                        <Form
+                            action={cart.store.url()}
+                            method="post"
+                            options={{ preserveScroll: true }}
+                        >
+                            <input
+                                type="hidden"
+                                name="product_id"
+                                value={product.id}
+                            />
+                            <input type="hidden" name="quantity" value="1" />
+                            <button
+                                type="submit"
+                                aria-label="Agregar al carrito"
+                                title="Agregar al carrito"
+                                className="flex size-12 cursor-pointer items-center justify-center rounded-lg bg-red-700 text-white shadow-md transition hover:scale-105 hover:bg-red-800 active:scale-95"
+                            >
+                                <ShoppingCart className="size-5" />
+                            </button>
+                        </Form>
                     )}
                 </div>
-                {!product.in_stock && <Badge variant="outline" className="w-fit">Agotado</Badge>}
             </div>
-        </Link>
+        </div>
     );
 }

@@ -2,8 +2,10 @@
 
 namespace App\Http\Controllers\Admin;
 
-use App\Domain\Storefront\StorefrontHomeTemplate;
+use App\Domain\Storefront\HtmlSanitizer;
 use App\Domain\Storefront\StorefrontPagePresenter;
+use App\Domain\Storefront\Templates\PageTemplate;
+use App\Domain\Storefront\Templates\PageTemplateRegistry;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Admin\StorefrontPageRequest;
 use App\Models\Media;
@@ -34,6 +36,7 @@ class StorefrontPageController extends Controller
         return Inertia::render('admin/storefront/pages/index', [
             'stores' => $this->storeOptions(),
             'currentStoreId' => $store->id,
+            'availableTemplates' => PageTemplateRegistry::options(),
             'pages' => StorefrontPage::query()
                 ->where('store_id', $store->id)
                 ->orderByRaw("CASE WHEN slug = 'home' THEN 0 ELSE 1 END")
@@ -59,6 +62,9 @@ class StorefrontPageController extends Controller
             'store_id' => $validated['store_id'],
             'title' => $validated['title'],
             'slug' => $validated['slug'],
+            'template' => $validated['slug'] === StorefrontPage::HOME
+                ? 'home'
+                : ($validated['template'] ?? 'flexible'),
             'is_published' => $validated['is_published'] ?? false,
         ]);
 
@@ -72,11 +78,11 @@ class StorefrontPageController extends Controller
 
     public function edit(StorefrontPage $page): Response
     {
-        if ($page->slug === StorefrontPage::HOME) {
-            $this->ensureTemplateSections($page);
-        }
+        $this->ensureFixedSections($page);
 
         $page->load('store.website', 'sections');
+
+        $template = $this->resolveTemplate($page);
 
         return Inertia::render('admin/storefront/pages/edit', [
             'stores' => $this->storeOptions(),
@@ -84,41 +90,59 @@ class StorefrontPageController extends Controller
             'page' => [
                 ...$this->presenter->present($page),
                 'store_id' => $page->store_id,
+                'template' => $page->template,
                 'is_published' => $page->is_published,
             ],
             'media' => $this->mediaOptions(),
             'products' => $this->productOptions($page->store),
             'publicUrl' => $this->publicUrl($page),
             'isHome' => $page->slug === StorefrontPage::HOME,
+            'template' => [
+                'key' => $template?->key(),
+                'label' => $template?->label(),
+                'fixedTypes' => $template?->fixedTypes() ?? [],
+                'extraTypes' => $template?->extraTypes() ?? [],
+            ],
+            'availableTemplates' => PageTemplateRegistry::options(),
         ]);
     }
 
     public function update(StorefrontPageRequest $request, StorefrontPage $page): RedirectResponse
     {
         $validated = $request->validated();
-        $sections = $request->has('sections')
-            ? $this->validateSections($request, $page)
-            : [];
 
         $payload = [
             'title' => $validated['title'],
             'is_published' => $validated['is_published'] ?? false,
         ];
 
+        $templateChanged = false;
+
         if ($page->slug !== StorefrontPage::HOME) {
             $payload['slug'] = $validated['slug'];
+
+            if (isset($validated['template']) && $validated['template'] !== $page->template) {
+                $payload['template'] = $validated['template'];
+                $templateChanged = true;
+            }
         }
 
         $page->update($payload);
 
-        if ($page->slug === StorefrontPage::HOME) {
-            $this->persistHomeSections($page, $sections);
-        } else {
-            foreach ($sections as $data) {
-                $page->sections()
-                    ->whereKey($data['id'])
-                    ->update(['settings' => $data['settings'] ?? []]);
-            }
+        // Switching template re-seeds its missing fixed sections without
+        // destroying existing content; the editor reloads with the new layout.
+        if ($templateChanged) {
+            $page->refresh();
+            $this->ensureFixedSections($page);
+
+            $this->auditLogger->log('storefront_page.updated', $page, "Plantilla de {$page->title} actualizada");
+
+            return back()->with('success', 'Plantilla actualizada.');
+        }
+
+        if ($request->has('sections')) {
+            $sections = $this->validateSections($request, $page);
+            $this->persistSections($page, $this->resolveTemplate($page), $sections);
         }
 
         $this->auditLogger->log('storefront_page.updated', $page, "Pagina {$page->title} actualizada");
@@ -179,7 +203,7 @@ class StorefrontPageController extends Controller
             ['title' => 'Home', 'is_published' => true],
         );
 
-        $this->ensureTemplateSections($page);
+        $this->ensureFixedSections($page);
 
         return $page->load('sections');
     }
@@ -189,6 +213,9 @@ class StorefrontPageController extends Controller
      */
     private function validateSections(Request $request, StorefrontPage $page): array
     {
+        $template = $this->resolveTemplate($page);
+        $allowedTypes = $template?->allowedTypes() ?? StorefrontPageSection::TYPES;
+
         $validated = $request->validate([
             'sections' => ['required', 'array'],
             'sections.*.id' => [
@@ -201,9 +228,7 @@ class StorefrontPageController extends Controller
                 'required_without:sections.*.id',
                 'nullable',
                 'string',
-                Rule::in($page->slug === StorefrontPage::HOME
-                    ? StorefrontPageSection::TYPES
-                    : StorefrontPageSection::EXTRA_TYPES),
+                Rule::in($allowedTypes),
             ],
             'sections.*.settings' => ['nullable', 'array'],
             'sections.*.settings.background_color' => ['nullable', 'hex_color'],
@@ -214,6 +239,10 @@ class StorefrontPageController extends Controller
             'sections.*.settings.text' => ['nullable', 'string'],
             'sections.*.settings.phone' => ['nullable', 'string', 'max:50'],
             'sections.*.settings.email' => ['nullable', 'email', 'max:255'],
+            'sections.*.settings.address' => ['nullable', 'string', 'max:500'],
+            'sections.*.settings.hours' => ['nullable', 'string', 'max:255'],
+            'sections.*.settings.map_url' => ['nullable', 'string', 'max:1000', 'url'],
+            'sections.*.settings.html' => ['nullable', 'string'],
             'sections.*.settings.media_id' => ['nullable', 'integer', 'exists:media,id'],
             'sections.*.settings.slides' => ['nullable', 'array', 'max:5'],
             'sections.*.settings.slides.*.media_id' => ['nullable', 'integer', 'exists:media,id'],
@@ -249,18 +278,20 @@ class StorefrontPageController extends Controller
             'sections.*.settings.columns' => ['nullable', Rule::in([3, 4, '3', '4'])],
         ]);
 
-        if ($page->slug !== StorefrontPage::HOME) {
-            return $validated['sections'];
-        }
+        $this->validateTemplateSections($page, $template, $validated['sections']);
 
-        $this->validateHomeSections($page, $validated['sections']);
+        // Laravel's validated() groups id-bearing items before type-only items,
+        // but their array keys still match the submitted positions. Sort by key
+        // to restore the original order before assigning display_order.
+        $ordered = $validated['sections'];
+        ksort($ordered);
 
-        return collect($validated['sections'])
+        return collect($ordered)
             ->values()
             ->map(fn (array $section, int $index) => [
                 ...$section,
                 'settings' => [
-                    ...($section['settings'] ?? []),
+                    ...$this->sanitizeSettings($section['settings'] ?? []),
                     'display_order' => $index,
                 ],
             ])
@@ -268,10 +299,27 @@ class StorefrontPageController extends Controller
     }
 
     /**
+     * @param  array<string, mixed>  $settings
+     * @return array<string, mixed>
+     */
+    private function sanitizeSettings(array $settings): array
+    {
+        if (array_key_exists('html', $settings)) {
+            $settings['html'] = HtmlSanitizer::clean(
+                is_string($settings['html']) ? $settings['html'] : null,
+            );
+        }
+
+        return $settings;
+    }
+
+    /**
      * @param  list<array{id?: int, type?: string, settings?: array<string, mixed>}>  $sections
      */
-    private function validateHomeSections(StorefrontPage $page, array $sections): void
+    private function validateTemplateSections(StorefrontPage $page, ?PageTemplate $template, array $sections): void
     {
+        $fixedTypes = $template?->fixedTypes() ?? [];
+
         $existingSections = $page->sections()->get()->keyBy('id');
         $submittedExistingIds = collect($sections)
             ->pluck('id')
@@ -293,18 +341,18 @@ class StorefrontPageController extends Controller
 
                 return $section['type'] ?? null;
             })
-            ->filter(fn (?string $type) => in_array($type, StorefrontPageSection::FIXED_TYPES, true))
+            ->filter(fn (?string $type) => in_array($type, $fixedTypes, true))
             ->values();
 
         foreach ($sections as $sectionIndex => $section) {
-            if (! isset($section['id']) && in_array($section['type'] ?? null, StorefrontPageSection::FIXED_TYPES, true)) {
+            if (! isset($section['id']) && in_array($section['type'] ?? null, $fixedTypes, true)) {
                 throw ValidationException::withMessages([
                     "sections.{$sectionIndex}.type" => 'Las secciones fijas no se pueden crear manualmente.',
                 ]);
             }
         }
 
-        foreach (StorefrontPageSection::FIXED_TYPES as $fixedType) {
+        foreach ($fixedTypes as $fixedType) {
             if (! $submittedFixedTypes->contains($fixedType)) {
                 throw ValidationException::withMessages([
                     'sections' => "La seccion fija {$fixedType} no se puede eliminar.",
@@ -316,10 +364,6 @@ class StorefrontPageController extends Controller
             $type = isset($section['id'])
                 ? $existingSections->get($section['id'])?->type
                 : ($section['type'] ?? null);
-
-            if (! in_array($type, StorefrontPageSection::EXTRA_TYPES, true)) {
-                continue;
-            }
 
             if ($type === StorefrontPageSection::TYPE_RECOMMENDED_PRODUCTS) {
                 $this->validateRecommendedProducts($page, $section, $sectionIndex);
@@ -360,16 +404,19 @@ class StorefrontPageController extends Controller
     /**
      * @param  list<array{id?: int, type?: string, settings?: array<string, mixed>}>  $sections
      */
-    private function persistHomeSections(StorefrontPage $page, array $sections): void
+    private function persistSections(StorefrontPage $page, ?PageTemplate $template, array $sections): void
     {
+        $extraTypes = $template?->extraTypes() ?? StorefrontPageSection::TYPES;
+
         $existingSections = $page->sections()->get()->keyBy('id');
         $submittedExistingIds = collect($sections)
             ->pluck('id')
             ->filter()
             ->map(fn (mixed $id) => (int) $id);
 
+        // Only repeatable (extra) sections can be removed; fixed ones persist.
         $page->sections()
-            ->whereIn('type', StorefrontPageSection::EXTRA_TYPES)
+            ->whereIn('type', $extraTypes)
             ->whereNotIn('id', $submittedExistingIds)
             ->delete();
 
@@ -388,7 +435,7 @@ class StorefrontPageController extends Controller
 
             $type = $data['type'] ?? null;
 
-            if (! in_array($type, StorefrontPageSection::EXTRA_TYPES, true)) {
+            if (! in_array($type, $extraTypes, true)) {
                 continue;
             }
 
@@ -405,19 +452,42 @@ class StorefrontPageController extends Controller
             return;
         }
 
-        $this->ensureTemplateSections($page);
+        $template = $this->resolveTemplate($page);
+        if ($template === null) {
+            return;
+        }
+
+        foreach ($template->sections() as $section) {
+            $page->sections()->create([
+                'type' => $section['type'],
+                'settings' => $section['settings'] ?? [],
+            ]);
+        }
     }
 
-    private function ensureTemplateSections(StorefrontPage $page): void
+    /**
+     * Ensure the template's mandatory (fixed) sections exist, without touching
+     * repeatable content. Used on edit and after switching template.
+     */
+    private function ensureFixedSections(StorefrontPage $page): void
     {
-        $template = $this->resolveTemplate($page->slug);
+        $template = $this->resolveTemplate($page);
         if ($template === null) {
+            return;
+        }
+
+        $fixedTypes = $template->fixedTypes();
+        if ($fixedTypes === []) {
             return;
         }
 
         $existingTypes = $page->sections()->pluck('type')->all();
 
-        foreach ($template::sections() as $section) {
+        foreach ($template->sections() as $section) {
+            if (! in_array($section['type'], $fixedTypes, true)) {
+                continue;
+            }
+
             if (in_array($section['type'], $existingTypes, true)) {
                 continue;
             }
@@ -431,12 +501,9 @@ class StorefrontPageController extends Controller
         }
     }
 
-    private function resolveTemplate(string $slug): ?string
+    private function resolveTemplate(StorefrontPage $page): ?PageTemplate
     {
-        return match ($slug) {
-            StorefrontPage::HOME => StorefrontHomeTemplate::class,
-            default => null,
-        };
+        return PageTemplateRegistry::find($page->template);
     }
 
     private function publicUrl(StorefrontPage $page): string
