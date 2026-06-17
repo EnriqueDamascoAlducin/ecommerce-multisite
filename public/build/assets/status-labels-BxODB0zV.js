@@ -1,0 +1,1 @@
+var e={pending_payment:`Pago pendiente`,payment_review:`Revisión de pago`,processing:`En proceso`,paid:`Pagada`,invoiced:`Facturada`,partially_shipped:`Envío parcial`,shipped:`Enviada`,complete:`Completada`,cancelled:`Cancelada`,failed:`Fallida`,refunded:`Reembolsada`};function t(t){return e[t]??t}export{t};

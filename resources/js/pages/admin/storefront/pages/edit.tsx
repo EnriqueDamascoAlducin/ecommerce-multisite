@@ -24,8 +24,14 @@ import {
     Upload,
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
-import { useRef, useState, type ChangeEvent, type CSSProperties } from 'react';
-import { RichTextEditor } from '@/components/admin/rich-text-editor';
+import {
+    lazy,
+    Suspense,
+    useRef,
+    useState,
+    type ChangeEvent,
+    type CSSProperties,
+} from 'react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
@@ -41,6 +47,12 @@ import { Label } from '@/components/ui/label';
 import { cn } from '@/lib/utils';
 import mediaRoutes from '@/routes/admin/media';
 import storefrontPages from '@/routes/admin/storefront/pages';
+
+const RichTextEditor = lazy(() =>
+    import('@/components/admin/rich-text-editor').then((module) => ({
+        default: module.RichTextEditor,
+    })),
+);
 
 type MediaOption = { id: number; label: string; url: string };
 type ProductOption = { id: number; label: string; sku: string };
@@ -1184,11 +1196,19 @@ function RichTextFields({
             description="Texto con formato: negritas, listas, encabezados y enlaces."
             icon={TextIcon}
         >
-            <RichTextEditor
-                value={text(settings.html)}
-                onChange={(html) => setSetting('html', html)}
-            />
+            <Suspense fallback={<RichTextEditorFallback />}>
+                <RichTextEditor
+                    value={text(settings.html)}
+                    onChange={(html) => setSetting('html', html)}
+                />
+            </Suspense>
         </FieldGroup>
+    );
+}
+
+function RichTextEditorFallback() {
+    return (
+        <div className="min-h-[14.8rem] animate-pulse rounded-md border border-neutral-200 bg-neutral-50 dark:border-neutral-800 dark:bg-neutral-900" />
     );
 }
 
