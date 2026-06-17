@@ -38,9 +38,9 @@ test('a missing product returns 404', function () {
     $this->getJson('/api/v1/products/no-existe')->assertNotFound();
 });
 
-test('categories are listed for the resolved website', function () {
-    Category::create(['website_id' => $this->website->id, 'name' => 'Electrónica', 'slug' => 'electronica', 'is_active' => true]);
-    Category::create(['website_id' => $this->website->id, 'name' => 'Oculta', 'slug' => 'oculta', 'is_active' => false]);
+test('categories are listed for the resolved store', function () {
+    Category::create(['store_id' => $this->store->id, 'website_id' => $this->website->id, 'name' => 'Electrónica', 'slug' => 'electronica', 'is_active' => true]);
+    Category::create(['store_id' => $this->store->id, 'website_id' => $this->website->id, 'name' => 'Oculta', 'slug' => 'oculta', 'is_active' => false]);
 
     $this->getJson('/api/v1/categories')
         ->assertOk()

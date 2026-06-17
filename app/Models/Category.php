@@ -18,7 +18,7 @@ class Category extends Model
 
     /** @var list<string> */
     protected $fillable = [
-        'website_id', 'parent_id', 'name', 'slug', 'description',
+        'website_id', 'store_id', 'parent_id', 'name', 'slug', 'description',
         'is_active', 'sort_order', 'meta_title', 'meta_description', 'meta_keywords',
     ];
 
@@ -39,6 +39,14 @@ class Category extends Model
     public function website(): BelongsTo
     {
         return $this->belongsTo(Website::class);
+    }
+
+    /**
+     * @return BelongsTo<Store, $this>
+     */
+    public function store(): BelongsTo
+    {
+        return $this->belongsTo(Store::class);
     }
 
     /**

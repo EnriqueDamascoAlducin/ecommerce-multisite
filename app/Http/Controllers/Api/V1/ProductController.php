@@ -106,7 +106,7 @@ class ProductController extends ApiController
             ->all();
 
         $product->catalog_categories = $product->categories
-            ->where('website_id', $store->website_id)
+            ->where('store_id', $store->id)
             ->map(fn ($category) => ['name' => $category->name, 'slug' => $category->slug])
             ->values()
             ->all();

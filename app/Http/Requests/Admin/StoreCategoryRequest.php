@@ -18,10 +18,10 @@ class StoreCategoryRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'website_id' => ['required', 'integer', 'exists:websites,id'],
+            'store_id' => ['required', 'integer', 'exists:stores,id'],
             'parent_id' => [
                 'nullable', 'integer',
-                Rule::exists('categories', 'id')->where('website_id', $this->integer('website_id')),
+                Rule::exists('categories', 'id')->where('store_id', $this->integer('store_id')),
             ],
             'name' => ['required', 'string', 'max:255'],
             'slug' => ['nullable', 'string', 'max:255'],

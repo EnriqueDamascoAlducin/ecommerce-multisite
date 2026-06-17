@@ -12,21 +12,21 @@ type TreeNode = {
     children: TreeNode[];
 };
 
-type WebsiteOption = { id: number; name: string };
+type StoreOption = { id: number; name: string };
 
 export default function CategoriesIndex({
-    websites,
-    currentWebsiteId,
+    stores,
+    currentStoreId,
     tree,
 }: {
-    websites: WebsiteOption[];
-    currentWebsiteId: number | null;
+    stores: StoreOption[];
+    currentStoreId: number | null;
     tree: TreeNode[];
 }) {
     const { can } = usePermissions();
 
-    const onWebsiteChange = (event: React.ChangeEvent<HTMLSelectElement>) => {
-        router.get(categories.index().url, { website_id: event.target.value }, { preserveState: false });
+    const onStoreChange = (event: React.ChangeEvent<HTMLSelectElement>) => {
+        router.get(categories.index().url, { store_id: event.target.value }, { preserveState: false });
     };
 
     const destroy = (node: TreeNode) => {
@@ -43,19 +43,19 @@ export default function CategoriesIndex({
                 <h1 className="text-2xl font-semibold">Categorías</h1>
                 <div className="flex items-center gap-2">
                     <select
-                        value={currentWebsiteId ?? ''}
-                        onChange={onWebsiteChange}
+                        value={currentStoreId ?? ''}
+                        onChange={onStoreChange}
                         className="rounded-md border border-neutral-300 bg-white px-3 py-2 text-sm dark:border-neutral-700 dark:bg-neutral-800"
                     >
-                        {websites.map((website) => (
-                            <option key={website.id} value={website.id}>
-                                {website.name}
+                        {stores.map((store) => (
+                            <option key={store.id} value={store.id}>
+                                {store.name}
                             </option>
                         ))}
                     </select>
-                    {can('catalog.categories.create') && currentWebsiteId && (
+                    {can('catalog.categories.create') && currentStoreId && (
                         <Button asChild>
-                            <Link href={categories.create({ query: { website_id: currentWebsiteId } })}>Nueva categoría</Link>
+                            <Link href={categories.create({ query: { store_id: currentStoreId } })}>Nueva categoría</Link>
                         </Button>
                     )}
                 </div>
@@ -63,7 +63,7 @@ export default function CategoriesIndex({
 
             <div className="rounded-lg border border-neutral-200 bg-white p-4 dark:border-neutral-800 dark:bg-neutral-900">
                 {tree.length === 0 ? (
-                    <p className="py-8 text-center text-sm text-neutral-500">No hay categorías en este website.</p>
+                    <p className="py-8 text-center text-sm text-neutral-500">No hay categorías en esta tienda.</p>
                 ) : (
                     <ul className="space-y-1">
                         {tree.map((node) => (

@@ -24,6 +24,7 @@ export function ProductCarousel({
 }) {
     const [activePage, setActivePage] = useState(0);
     const [itemsPerPage, setItemsPerPage] = useState(4);
+    const [paused, setPaused] = useState(false);
 
     useEffect(() => {
         const updateItemsPerPage = () => {
@@ -77,22 +78,31 @@ export function ProductCarousel({
         setActivePage((page + totalPages) % totalPages);
     };
 
-    const visibleColumns = Math.min(
-        itemsPerPage,
-        Math.max(currentProducts.length, 1),
-    );
-    const gridClassName =
-        visibleColumns === 1
-            ? 'grid-cols-1'
-            : visibleColumns === 2
-              ? 'grid-cols-2'
-              : 'grid-cols-4';
-    const gridWidthClassName =
-        visibleColumns === 1
-            ? 'mx-auto max-w-sm'
-            : visibleColumns === 2
-              ? 'mx-auto max-w-3xl'
-              : '';
+    // Avance automático cada 4s; se reinicia el contador en cada cambio de
+    // página y se detiene al pasar el cursor o si el usuario prefiere menos
+    // movimiento.
+    useEffect(() => {
+        if (!hasControls || paused) {
+            return;
+        }
+
+        if (
+            typeof window !== 'undefined' &&
+            window.matchMedia('(prefers-reduced-motion: reduce)').matches
+        ) {
+            return;
+        }
+
+        const intervalId = window.setInterval(() => {
+            setActivePage((current) => (current + 1) % totalPages);
+        }, 4000);
+
+        return () => window.clearInterval(intervalId);
+    }, [hasControls, paused, totalPages, activePage]);
+
+    // Columnas fijas según el breakpoint (1 / 2 / 4) para que el tamaño de la
+    // card no cambie aunque la página tenga menos productos que columnas.
+    const gridClassName = 'grid-cols-1 sm:grid-cols-2 lg:grid-cols-4';
 
     return (
         <section className={`mt-14 ${className}`}>
@@ -136,7 +146,13 @@ export function ProductCarousel({
                 </div>
             )}
 
-            <div className="rounded-lg border border-neutral-200 bg-white p-4 shadow-sm shadow-neutral-950/5 dark:border-neutral-800 dark:bg-neutral-950 dark:shadow-black/20 sm:p-5 lg:p-6">
+            <div
+                onMouseEnter={() => setPaused(true)}
+                onMouseLeave={() => setPaused(false)}
+                onFocusCapture={() => setPaused(true)}
+                onBlurCapture={() => setPaused(false)}
+                className="rounded-lg border border-neutral-200 bg-white p-4 shadow-sm shadow-neutral-950/5 dark:border-neutral-800 dark:bg-neutral-950 dark:shadow-black/20 sm:p-5 lg:p-6"
+            >
                 <div className="mb-6 flex flex-wrap items-center justify-between gap-4">
                     <div className="flex items-center gap-3">
                         <span className="h-px w-12 bg-red-800 dark:bg-red-300" />
@@ -169,7 +185,7 @@ export function ProductCarousel({
 
                 <div
                     key={`${itemsPerPage}-${activePage}`}
-                    className={`grid gap-5 ${gridClassName} ${gridWidthClassName}`}
+                    className={`grid gap-5 ${gridClassName}`}
                 >
                     {currentProducts.map((product) => (
                         <div

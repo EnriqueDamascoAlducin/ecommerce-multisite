@@ -41,9 +41,11 @@ class CatalogSeeder extends Seeder
 
     private function category(Website $website, string $name, ?Category $parent = null): Category
     {
+        $store = $website->defaultStore();
+
         return Category::firstOrCreate(
-            ['website_id' => $website->id, 'slug' => Str::slug($name)],
-            ['name' => $name, 'parent_id' => $parent?->id, 'is_active' => true],
+            ['store_id' => $store?->id, 'slug' => Str::slug($name)],
+            ['website_id' => $website->id, 'name' => $name, 'parent_id' => $parent?->id, 'is_active' => true],
         );
     }
 

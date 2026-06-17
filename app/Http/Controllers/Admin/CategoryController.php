@@ -7,7 +7,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\Admin\StoreCategoryRequest;
 use App\Http\Requests\Admin\UpdateCategoryRequest;
 use App\Models\Category;
-use App\Models\Website;
+use App\Models\Store;
 use App\Services\AuditLogger;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -25,38 +25,39 @@ class CategoryController extends Controller
 
     public function index(Request $request): Response
     {
-        $website = $this->resolveWebsite($request->integer('website_id'));
+        $store = $this->resolveStore($request->integer('store_id'));
 
         return Inertia::render('admin/categories/index', [
-            'websites' => $this->websiteOptions(),
-            'currentWebsiteId' => $website?->id,
-            'tree' => $website ? $this->categories->treeForWebsite($website->id) : [],
+            'stores' => $this->storeOptions(),
+            'currentStoreId' => $store?->id,
+            'tree' => $store ? $this->categories->treeForStore($store->id) : [],
         ]);
     }
 
     public function create(Request $request): Response
     {
-        $website = $this->resolveWebsite($request->integer('website_id'));
+        $store = $this->resolveStore($request->integer('store_id'));
 
         return Inertia::render('admin/categories/create', [
-            'websites' => $this->websiteOptions(),
-            'currentWebsiteId' => $website?->id,
-            'parentOptions' => $website ? $this->categories->flattenedForWebsite($website->id) : [],
+            'stores' => $this->storeOptions(),
+            'currentStoreId' => $store?->id,
+            'parentOptions' => $store ? $this->categories->flattenedForStore($store->id) : [],
         ]);
     }
 
     public function store(StoreCategoryRequest $request): RedirectResponse
     {
         $data = $request->validated();
+        $store = Store::findOrFail($data['store_id']);
 
         $category = Category::create([
-            ...$this->attributes($data),
-            'slug' => $this->uniqueSlug($data['website_id'], $data['slug'] ?? null, $data['name']),
+            ...$this->attributes($data, $store),
+            'slug' => $this->uniqueSlug($store->id, $data['slug'] ?? null, $data['name']),
         ]);
 
         $this->auditLogger->log('category.created', $category, "Categoría {$category->name} creada");
 
-        return to_route('admin.categories.index', ['website_id' => $category->website_id])
+        return to_route('admin.categories.index', ['store_id' => $category->store_id])
             ->with('success', 'Categoría creada.');
     }
 
@@ -64,38 +65,39 @@ class CategoryController extends Controller
     {
         return Inertia::render('admin/categories/edit', [
             'category' => $category->only([
-                'id', 'website_id', 'parent_id', 'name', 'slug', 'description',
+                'id', 'store_id', 'parent_id', 'name', 'slug', 'description',
                 'is_active', 'sort_order', 'meta_title', 'meta_description', 'meta_keywords',
             ]),
-            'websites' => $this->websiteOptions(),
-            'parentOptions' => $this->categories->flattenedForWebsite($category->website_id, $category->id),
+            'stores' => $this->storeOptions(),
+            'parentOptions' => $this->categories->flattenedForStore($category->store_id, $category->id),
         ]);
     }
 
     public function update(UpdateCategoryRequest $request, Category $category): RedirectResponse
     {
         $data = $request->validated();
+        $store = Store::findOrFail($data['store_id']);
 
         $category->update([
-            ...$this->attributes($data),
-            'slug' => $this->uniqueSlug($data['website_id'], $data['slug'] ?? null, $data['name'], $category->id),
+            ...$this->attributes($data, $store),
+            'slug' => $this->uniqueSlug($store->id, $data['slug'] ?? null, $data['name'], $category->id),
         ]);
 
         $this->auditLogger->log('category.updated', $category, "Categoría {$category->name} actualizada");
 
-        return to_route('admin.categories.index', ['website_id' => $category->website_id])
+        return to_route('admin.categories.index', ['store_id' => $category->store_id])
             ->with('success', 'Categoría actualizada.');
     }
 
     public function destroy(Category $category): RedirectResponse
     {
-        $websiteId = $category->website_id;
+        $storeId = $category->store_id;
         $name = $category->name;
         $category->delete();
 
         $this->auditLogger->log('category.deleted', null, "Categoría {$name} eliminada");
 
-        return to_route('admin.categories.index', ['website_id' => $websiteId])
+        return to_route('admin.categories.index', ['store_id' => $storeId])
             ->with('success', 'Categoría eliminada.');
     }
 
@@ -103,10 +105,11 @@ class CategoryController extends Controller
      * @param  array<string, mixed>  $data
      * @return array<string, mixed>
      */
-    private function attributes(array $data): array
+    private function attributes(array $data, Store $store): array
     {
         return [
-            'website_id' => $data['website_id'],
+            'website_id' => $store->website_id,
+            'store_id' => $store->id,
             'parent_id' => $data['parent_id'] ?? null,
             'name' => $data['name'],
             'description' => $data['description'] ?? null,
@@ -118,20 +121,20 @@ class CategoryController extends Controller
         ];
     }
 
-    private function resolveWebsite(int $websiteId): ?Website
+    private function resolveStore(int $storeId): ?Store
     {
-        return ($websiteId ? Website::find($websiteId) : null)
-            ?? Website::orderBy('sort_order')->first();
+        return ($storeId ? Store::find($storeId) : null)
+            ?? Store::orderBy('website_id')->orderBy('sort_order')->first();
     }
 
-    private function uniqueSlug(int $websiteId, ?string $slug, string $name, ?int $ignoreId = null): string
+    private function uniqueSlug(int $storeId, ?string $slug, string $name, ?int $ignoreId = null): string
     {
         $base = Str::slug($slug ?: $name);
         $candidate = $base;
         $counter = 2;
 
         while (
-            Category::where('website_id', $websiteId)
+            Category::where('store_id', $storeId)
                 ->where('slug', $candidate)
                 ->when($ignoreId, fn ($q) => $q->whereKeyNot($ignoreId))
                 ->exists()
@@ -144,11 +147,19 @@ class CategoryController extends Controller
     }
 
     /**
+     * Tiendas para el selector, etiquetadas por website.
+     *
      * @return Collection<int, array{id: int, name: string}>
      */
-    private function websiteOptions()
+    private function storeOptions(): Collection
     {
-        return Website::orderBy('sort_order')->get(['id', 'name'])
-            ->map(fn (Website $website) => ['id' => $website->id, 'name' => $website->name]);
+        return Store::with('website:id,name')
+            ->orderBy('website_id')
+            ->orderBy('sort_order')
+            ->get(['id', 'website_id', 'name'])
+            ->map(fn (Store $store) => [
+                'id' => $store->id,
+                'name' => "{$store->website->name} / {$store->name}",
+            ]);
     }
 }

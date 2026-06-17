@@ -167,7 +167,7 @@ class HeaderMenuService
     private function categoryBranch(?int $parentId, Store $store, bool $includeProducts): array
     {
         return Category::query()
-            ->where('website_id', $store->website_id)
+            ->where('store_id', $store->id)
             ->where('parent_id', $parentId)
             ->active()
             ->orderBy('sort_order')

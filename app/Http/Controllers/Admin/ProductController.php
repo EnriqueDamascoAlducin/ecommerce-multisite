@@ -728,10 +728,10 @@ class ProductController extends Controller
                 ['value' => 'search', 'label' => 'Solo búsqueda'],
                 ['value' => 'hidden', 'label' => 'Oculto'],
             ],
-            'categories' => Category::with('website:id,name')->orderBy('website_id')->orderBy('name')->get()
+            'categories' => Category::with('store.website:id,name')->orderBy('store_id')->orderBy('name')->get()
                 ->map(fn (Category $category) => [
                     'id' => $category->id,
-                    'label' => "{$category->website->name} / {$category->name}",
+                    'label' => "{$category->store->website->name} / {$category->store->name} / {$category->name}",
                 ]),
             'stores' => Store::with('website:id,name')->orderBy('website_id')->orderBy('sort_order')->get()
                 ->map(fn (Store $store) => [
@@ -800,10 +800,10 @@ class ProductController extends Controller
                 ]),
             'availableImages' => Media::where('is_image', true)->latest()->limit(60)->get()
                 ->map(fn (Media $media) => ['id' => $media->id, 'url' => $media->url, 'name' => $media->name]),
-            'categories' => Category::with('website:id,name')->orderBy('website_id')->orderBy('name')->get()
+            'categories' => Category::with('store.website:id,name')->orderBy('store_id')->orderBy('name')->get()
                 ->map(fn (Category $category) => [
                     'id' => $category->id,
-                    'label' => "{$category->website->name} / {$category->name}",
+                    'label' => "{$category->store->website->name} / {$category->store->name} / {$category->name}",
                 ]),
             'labels' => ProductLabel::active()->with('website:id,name')->orderBy('website_id')->orderBy('sort_order')->get()
                 ->map(fn (ProductLabel $label) => [

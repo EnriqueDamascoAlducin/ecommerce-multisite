@@ -57,6 +57,14 @@ class StorefrontController extends Controller
             throw new NotFoundHttpException('Pagina no encontrada.');
         }
 
+        // Cuando el slug coincide con el code de una tienda resuelta por prefijo
+        // (p. ej. "/sports"), la URL apunta a la home de esa tienda y no a una
+        // página CMS. La ruta genérica {slug} captura el segmento antes que el
+        // grupo {store_code}, así que aquí redirigimos a la home de la tienda.
+        if ($this->context->pathPrefix() === $slug) {
+            return $this->home();
+        }
+
         return $this->renderPage($slug, []);
     }
 
@@ -66,10 +74,10 @@ class StorefrontController extends Controller
             throw new NotFoundHttpException('Tienda no resuelta.');
         }
 
-        $website = $this->context->website();
+        $store = $this->context->store();
 
         $category = Category::query()
-            ->where('website_id', $website->id)
+            ->where('store_id', $store->id)
             ->where('slug', $slug)
             ->where('is_active', true)
             ->first();
@@ -168,8 +176,6 @@ class StorefrontController extends Controller
             throw new NotFoundHttpException('Producto no encontrado.');
         }
 
-        $websiteId = $this->context->website()->id;
-
         $result = [
             'id' => $product->id,
             'sku' => $product->sku,
@@ -197,7 +203,7 @@ class StorefrontController extends Controller
                 ->values(),
             'attributes' => $this->visibleAttributes($product),
             'categories' => $product->categories
-                ->where('website_id', $websiteId)
+                ->where('store_id', $store->id)
                 ->map(fn (Category $category) => ['name' => $category->name, 'slug' => $category->slug])
                 ->values(),
             'labels' => $this->labelsFor($product),

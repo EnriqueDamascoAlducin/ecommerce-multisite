@@ -3,7 +3,7 @@
 namespace Database\Factories;
 
 use App\Models\Category;
-use App\Models\Website;
+use App\Models\Store;
 use Illuminate\Database\Eloquent\Factories\Factory;
 use Illuminate\Support\Str;
 
@@ -22,7 +22,7 @@ class CategoryFactory extends Factory
         $name = fake()->unique()->words(2, true);
 
         return [
-            'website_id' => Website::factory(),
+            'store_id' => Store::factory(),
             'parent_id' => null,
             'name' => ucfirst($name),
             'slug' => Str::slug($name).'-'.fake()->unique()->numberBetween(1, 100000),
@@ -30,6 +30,18 @@ class CategoryFactory extends Factory
             'is_active' => true,
             'sort_order' => 0,
         ];
+    }
+
+    /**
+     * El website se mantiene consistente con la tienda de la categoría.
+     */
+    public function configure(): static
+    {
+        return $this->afterMaking(function (Category $category) {
+            if (! $category->website_id && $category->store_id) {
+                $category->website_id = Store::find($category->store_id)?->website_id;
+            }
+        });
     }
 
     public function inactive(): static

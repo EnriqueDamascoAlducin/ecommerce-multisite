@@ -89,7 +89,7 @@ test('the home shares product menu item urls for the resolved store', function (
 });
 
 test('a category lists its products', function () {
-    $category = Category::factory()->create(['website_id' => $this->website->id, 'slug' => 'ofertas']);
+    $category = Category::factory()->create(['store_id' => $this->store->id, 'slug' => 'ofertas']);
     $product = publishedProduct($this->store);
     $product->categories()->attach($category->id);
 
@@ -102,7 +102,7 @@ test('a category lists its products', function () {
 
 test('a category product card shows dynamic bundle price', function () {
     $source = InventorySource::factory()->default()->create();
-    $category = Category::factory()->create(['website_id' => $this->website->id, 'slug' => 'kits']);
+    $category = Category::factory()->create(['store_id' => $this->store->id, 'slug' => 'kits']);
     $shirt = sellableProduct($this->store, $source, 120);
     $cap = sellableProduct($this->store, $source, 80);
     $bundle = bundleProduct($this->store, [[$shirt, 1], [$cap, 2]]);
@@ -119,7 +119,7 @@ test('a category product card shows dynamic bundle price', function () {
 });
 
 test('a category exposes filterable attribute options', function () {
-    $category = Category::factory()->create(['website_id' => $this->website->id, 'slug' => 'ofertas']);
+    $category = Category::factory()->create(['store_id' => $this->store->id, 'slug' => 'ofertas']);
     $attribute = Attribute::factory()->select()->create([
         'is_filterable' => true,
         'code' => 'color',
@@ -140,7 +140,7 @@ test('a category exposes filterable attribute options', function () {
 });
 
 test('a category filters products by select attribute', function () {
-    $category = Category::factory()->create(['website_id' => $this->website->id, 'slug' => 'ofertas']);
+    $category = Category::factory()->create(['store_id' => $this->store->id, 'slug' => 'ofertas']);
     $attribute = Attribute::factory()->select()->create([
         'is_filterable' => true,
         'code' => 'color',
@@ -166,7 +166,7 @@ test('a category filters products by select attribute', function () {
 });
 
 test('a category filters products by multiselect attribute', function () {
-    $category = Category::factory()->create(['website_id' => $this->website->id, 'slug' => 'ofertas']);
+    $category = Category::factory()->create(['store_id' => $this->store->id, 'slug' => 'ofertas']);
     $attribute = Attribute::factory()->multiselect()->create([
         'is_filterable' => true,
         'code' => 'usos',
@@ -192,7 +192,7 @@ test('a category filters products by multiselect attribute', function () {
 });
 
 test('a category filters products by number range attribute', function () {
-    $category = Category::factory()->create(['website_id' => $this->website->id, 'slug' => 'ofertas']);
+    $category = Category::factory()->create(['store_id' => $this->store->id, 'slug' => 'ofertas']);
     $attribute = Attribute::factory()->create([
         'type' => Attribute::TYPE_NUMBER,
         'is_filterable' => true,
@@ -217,7 +217,7 @@ test('a category filters products by number range attribute', function () {
 });
 
 test('a category ignores non-filterable attributes', function () {
-    $category = Category::factory()->create(['website_id' => $this->website->id, 'slug' => 'ofertas']);
+    $category = Category::factory()->create(['store_id' => $this->store->id, 'slug' => 'ofertas']);
     $attribute = Attribute::factory()->select()->create([
         'is_filterable' => false,
         'code' => 'color',
@@ -237,7 +237,7 @@ test('a category ignores non-filterable attributes', function () {
 });
 
 test('category pagination preserves active filters in links', function () {
-    $category = Category::factory()->create(['website_id' => $this->website->id, 'slug' => 'ofertas']);
+    $category = Category::factory()->create(['store_id' => $this->store->id, 'slug' => 'ofertas']);
     $attribute = Attribute::factory()->select()->create([
         'is_filterable' => true,
         'code' => 'color',

@@ -8,11 +8,11 @@ type EditableCategory = CategoryDefaults & { id: number };
 
 export default function CategoriesEdit({
     category,
-    websites,
+    stores,
     parentOptions,
 }: {
     category: EditableCategory;
-    websites: { id: number; name: string }[];
+    stores: { id: number; name: string }[];
     parentOptions: { id: number; label: string }[];
 }) {
     return (
@@ -22,7 +22,7 @@ export default function CategoriesEdit({
             <div className="mb-6 flex items-center justify-between">
                 <h1 className="text-2xl font-semibold">Editar categoría</h1>
                 <Button variant="outline" asChild>
-                    <Link href={categories.index({ query: { website_id: category.website_id } })}>Volver</Link>
+                    <Link href={categories.index({ query: { store_id: category.store_id } })}>Volver</Link>
                 </Button>
             </div>
 
@@ -31,10 +31,10 @@ export default function CategoriesEdit({
                     <div className="space-y-6">
                         <CategoryFields
                             errors={errors}
-                            websites={websites}
+                            stores={stores}
                             parentOptions={parentOptions}
                             defaults={category}
-                            lockWebsite
+                            lockStore
                         />
                         <Button disabled={processing}>Guardar cambios</Button>
                     </div>

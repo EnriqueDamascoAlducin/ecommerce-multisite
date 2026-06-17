@@ -15,7 +15,7 @@ class CategoryController extends ApiController
         $store = $this->resolveStore($request);
 
         $categories = Category::query()
-            ->where('website_id', $store->website_id)
+            ->where('store_id', $store->id)
             ->where('is_active', true)
             ->orderBy('name')
             ->get();

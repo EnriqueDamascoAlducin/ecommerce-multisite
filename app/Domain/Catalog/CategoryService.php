@@ -8,15 +8,15 @@ use Illuminate\Support\Collection;
 class CategoryService
 {
     /**
-     * Construye el árbol de categorías de un website como estructura anidada
+     * Construye el árbol de categorías de una tienda como estructura anidada
      * lista para enviar a Inertia.
      *
      * @return list<array<string, mixed>>
      */
-    public function treeForWebsite(int $websiteId): array
+    public function treeForStore(int $storeId): array
     {
         $categories = Category::query()
-            ->where('website_id', $websiteId)
+            ->where('store_id', $storeId)
             ->orderBy('sort_order')
             ->orderBy('name')
             ->get();
@@ -29,9 +29,9 @@ class CategoryService
      *
      * @return list<array{id: int, label: string}>
      */
-    public function flattenedForWebsite(int $websiteId, ?int $excludeId = null): array
+    public function flattenedForStore(int $storeId, ?int $excludeId = null): array
     {
-        $tree = $this->treeForWebsite($websiteId);
+        $tree = $this->treeForStore($storeId);
         $flat = [];
 
         $this->walk($tree, 0, function (array $node, int $depth) use (&$flat, $excludeId) {

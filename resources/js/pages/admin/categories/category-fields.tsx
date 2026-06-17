@@ -2,11 +2,11 @@ import InputError from '@/components/input-error';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 
-type WebsiteOption = { id: number; name: string };
+type StoreOption = { id: number; name: string };
 type ParentOption = { id: number; label: string };
 
 export type CategoryDefaults = {
-    website_id: number;
+    store_id: number;
     parent_id: number | null;
     name: string;
     slug: string | null;
@@ -23,37 +23,37 @@ const fieldClass =
 
 export function CategoryFields({
     errors,
-    websites,
+    stores,
     parentOptions,
     defaults,
-    lockWebsite = false,
+    lockStore = false,
 }: {
     errors: Record<string, string>;
-    websites: WebsiteOption[];
+    stores: StoreOption[];
     parentOptions: ParentOption[];
     defaults?: CategoryDefaults;
-    lockWebsite?: boolean;
+    lockStore?: boolean;
 }) {
     return (
         <div className="space-y-6">
             <section className="grid gap-4 sm:grid-cols-2">
                 <div className="grid gap-2">
-                    <Label htmlFor="website_id">Website</Label>
+                    <Label htmlFor="store_id">Tienda</Label>
                     <select
-                        id="website_id"
-                        name="website_id"
-                        defaultValue={defaults?.website_id}
-                        disabled={lockWebsite}
+                        id="store_id"
+                        name="store_id"
+                        defaultValue={defaults?.store_id}
+                        disabled={lockStore}
                         className={fieldClass}
                     >
-                        {websites.map((website) => (
-                            <option key={website.id} value={website.id}>
-                                {website.name}
+                        {stores.map((store) => (
+                            <option key={store.id} value={store.id}>
+                                {store.name}
                             </option>
                         ))}
                     </select>
-                    {lockWebsite && <input type="hidden" name="website_id" value={defaults?.website_id} />}
-                    <InputError message={errors.website_id} />
+                    {lockStore && <input type="hidden" name="store_id" value={defaults?.store_id} />}
+                    <InputError message={errors.store_id} />
                 </div>
                 <div className="grid gap-2">
                     <Label htmlFor="parent_id">Categoría padre</Label>

@@ -5,12 +5,12 @@ import categories from '@/routes/admin/categories';
 import { CategoryFields } from './category-fields';
 
 export default function CategoriesCreate({
-    websites,
-    currentWebsiteId,
+    stores,
+    currentStoreId,
     parentOptions,
 }: {
-    websites: { id: number; name: string }[];
-    currentWebsiteId: number | null;
+    stores: { id: number; name: string }[];
+    currentStoreId: number | null;
     parentOptions: { id: number; label: string }[];
 }) {
     return (
@@ -29,10 +29,10 @@ export default function CategoriesCreate({
                     <div className="space-y-6">
                         <CategoryFields
                             errors={errors}
-                            websites={websites}
+                            stores={stores}
                             parentOptions={parentOptions}
                             defaults={{
-                                website_id: currentWebsiteId ?? websites[0]?.id,
+                                store_id: currentStoreId ?? stores[0]?.id,
                                 parent_id: null,
                                 name: '',
                                 slug: null,

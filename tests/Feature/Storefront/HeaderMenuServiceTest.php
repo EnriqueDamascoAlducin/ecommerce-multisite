@@ -71,7 +71,7 @@ test('buildTree nests children under their parent', function () {
 
 test('categoryProducts returns products for a category', function () {
     $store = Store::factory()->create();
-    $category = Category::factory()->create(['website_id' => $store->website_id]);
+    $category = Category::factory()->create(['store_id' => $store->id]);
     $product = Product::factory()->create();
     $product->categories()->attach($category->id);
     $product->storeLinks()->create(['store_id' => $store->id, 'is_active' => true]);
@@ -84,7 +84,7 @@ test('categoryProducts returns products for a category', function () {
 
 test('categoryProducts marks products without managed stock as in stock', function () {
     $store = Store::factory()->create();
-    $category = Category::factory()->create(['website_id' => $store->website_id]);
+    $category = Category::factory()->create(['store_id' => $store->id]);
     $product = Product::factory()->create();
     $product->categories()->attach($category->id);
     $product->storeLinks()->create(['store_id' => $store->id, 'is_active' => true]);
@@ -97,7 +97,7 @@ test('categoryProducts marks products without managed stock as in stock', functi
 
 test('categoryProducts falls back to base price when no store price exists', function () {
     $store = Store::factory()->create();
-    $category = Category::factory()->create(['website_id' => $store->website_id]);
+    $category = Category::factory()->create(['store_id' => $store->id]);
     $product = Product::factory()->create();
     $product->categories()->attach($category->id);
     $product->storeLinks()->create(['store_id' => $store->id, 'is_active' => true]);
@@ -133,7 +133,7 @@ test('buildTree resolves page menu item urls', function () {
 
 test('buildTree loads products when expand_products is true', function () {
     $store = Store::factory()->create();
-    $category = Category::factory()->create(['website_id' => $store->website_id]);
+    $category = Category::factory()->create(['store_id' => $store->id]);
     $product = Product::factory()->create();
     $product->categories()->attach($category->id);
     $product->storeLinks()->create(['store_id' => $store->id, 'is_active' => true]);
