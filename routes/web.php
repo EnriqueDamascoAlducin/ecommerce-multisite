@@ -7,6 +7,8 @@ use App\Http\Controllers\Storefront\StoreInquiryController;
 use App\Http\Controllers\Webhooks\PaymentWebhookController;
 use Illuminate\Support\Facades\Route;
 
+Route::redirect('register', 'admin');
+
 // Storefront público: resuelve el sitio actual (dominio/prefijo) antes de responder.
 Route::middleware('resolve.store')->group(function () {
     // Raíz (tiendas por dominio / tienda de entrada).

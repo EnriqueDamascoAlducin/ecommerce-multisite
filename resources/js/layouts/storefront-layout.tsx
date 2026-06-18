@@ -5,13 +5,23 @@ import { toast } from 'sonner';
 import { CintilloBar } from '@/components/storefront/cintillo';
 import { MegaMenu } from '@/components/storefront/mega-menu';
 import { useStoreUrls } from '@/lib/storefront';
+import { cn } from '@/lib/utils';
 
 export default function StorefrontLayout({
     children,
 }: {
     children: React.ReactNode;
 }) {
-    const { store, customer, cart, flash } = usePage().props;
+    const page = usePage();
+    const { store, customer, cart, flash } = page.props;
+    const contentPage = page.props.contentPage as
+        | { sections?: unknown[] }
+        | null
+        | undefined;
+    const usesCmsHomeSections =
+        page.component === 'storefront/home' &&
+        Array.isArray(contentPage?.sections) &&
+        contentPage.sections.length > 0;
     const urls = useStoreUrls();
     const colors = store?.header.colors;
     const hasCustomHeaderTextColor = Boolean(colors?.header_text_color);
@@ -45,7 +55,7 @@ export default function StorefrontLayout({
     }, [serviceWorkerUrl, store]);
 
     return (
-        <div className="flex min-h-screen flex-col overflow-x-hidden bg-white text-neutral-900 dark:bg-neutral-950 dark:text-neutral-100">
+        <div className="flex min-h-screen flex-col bg-white text-neutral-900 dark:bg-neutral-950 dark:text-neutral-100">
             {store && (
                 <Head>
                     <link
@@ -207,7 +217,14 @@ export default function StorefrontLayout({
                 )}
             </header>
 
-            <main className="mx-auto w-full max-w-6xl flex-1 overflow-x-hidden px-4 py-8">
+            <main
+                className={cn(
+                    'w-full flex-1',
+                    usesCmsHomeSections
+                        ? 'py-0'
+                        : 'mx-auto max-w-6xl px-4 py-8',
+                )}
+            >
                 {children}
             </main>
 

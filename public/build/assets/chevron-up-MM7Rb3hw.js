@@ -1,1 +1,0 @@
-import{kt as e}from"./app-DRh1_VSA.js";var t=e(`ChevronUp`,[[`path`,{d:`m18 15-6-6-6 6`,key:`153udz`}]]);export{t};

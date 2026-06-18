@@ -23,11 +23,11 @@ export default function StorefrontHome({
             />
 
             {contentPage && contentPage.sections.length > 0 ? (
-                <div className="relative left-1/2 -my-8 w-dvw max-w-[100dvw] -translate-x-1/2 overflow-x-hidden">
+                <>
                     {contentPage.sections.map((section) => (
                         <SectionRenderer key={section.id} section={section} />
                     ))}
-                </div>
+                </>
             ) : (
                 <FallbackHome featured={featured} />
             )}
