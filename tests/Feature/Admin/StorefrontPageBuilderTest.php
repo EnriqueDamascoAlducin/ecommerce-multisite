@@ -159,6 +159,7 @@ test('page content can be updated with template section settings', function () {
                     'background_color' => '#ffffff',
                     'content_width' => 'container',
                     'title' => 'Especialidades',
+                    'title_color' => '#1f2937',
                     'items' => [
                         [
                             'title' => 'Electroterapia',
@@ -223,6 +224,7 @@ test('page content can be updated with template section settings', function () {
         ->and($sections[StorefrontPageSection::TYPE_SPECIALTY_GRID]->fresh()->settings['background_color'])->toBe('#ffffff')
         ->and($sections[StorefrontPageSection::TYPE_SPECIALTY_GRID]->fresh()->settings['content_width'])->toBe('container')
         ->and($sections[StorefrontPageSection::TYPE_SPECIALTY_GRID]->fresh()->settings['title'])->toBe('Especialidades')
+        ->and($sections[StorefrontPageSection::TYPE_SPECIALTY_GRID]->fresh()->settings['title_color'])->toBe('#1f2937')
         ->and($sections[StorefrontPageSection::TYPE_SPECIALTY_GRID]->fresh()->settings['items'][0]['highlighted'])->toBeTrue()
         ->and($sections[StorefrontPageSection::TYPE_SPECIALTY_GRID]->fresh()->settings['items'][0]['wide'])->toBeTrue()
         ->and($sections[StorefrontPageSection::TYPE_FEATURE_CARDS]->fresh()->settings['background_color'])->toBe('#f2f2f2')

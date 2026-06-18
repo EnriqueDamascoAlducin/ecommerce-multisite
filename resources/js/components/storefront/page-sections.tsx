@@ -18,7 +18,10 @@ import { ProductCarousel } from '@/components/storefront/product-carousel';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { ProductCard, type ProductCardData } from '@/pages/storefront/product-card';
+import {
+    ProductCard,
+    type ProductCardData,
+} from '@/pages/storefront/product-card';
 
 export type CmsMedia = { id: number; url: string; alt: string | null } | null;
 export type CmsSection = {
@@ -55,11 +58,7 @@ export type CmsHeroSlide = {
     buttons?: CmsButton[];
 };
 
-export function SectionRenderer({
-    section,
-}: {
-    section: CmsSection;
-}) {
+export function SectionRenderer({ section }: { section: CmsSection }) {
     if (section.type === 'hero') return <HeroSection section={section} />;
     if (section.type === 'specialty_grid')
         return <SpecialtyGrid section={section} />;
@@ -104,7 +103,9 @@ function HeroSection({ section }: { section: CmsSection }) {
     }, [hasCarousel, slides.length, activeSlide]);
 
     useEffect(() => {
-        setActiveSlide((current) => Math.min(current, Math.max(slides.length - 1, 0)));
+        setActiveSlide((current) =>
+            Math.min(current, Math.max(slides.length - 1, 0)),
+        );
     }, [slides.length]);
 
     const goToSlide = (index: number) => {
@@ -134,7 +135,9 @@ function HeroSection({ section }: { section: CmsSection }) {
                         </p>
                     )}
                     <h1 className="text-4xl font-black tracking-normal md:text-6xl">
-                        {stringValue(slide?.title)}
+                        <span style={titleColorStyle(settings)}>
+                            {stringValue(slide?.title)}
+                        </span>
                     </h1>
                     <p className="mt-5 max-w-xl text-base leading-7 text-white/85">
                         {stringValue(slide?.subtitle)}
@@ -238,6 +241,7 @@ function SpecialtyGrid({ section }: { section: CmsSection }) {
                 <SectionHeading
                     eyebrow={stringValue(settings.eyebrow)}
                     title={stringValue(settings.title)}
+                    titleColor={stringValue(settings.title_color)}
                 />
                 <div className="mt-10 grid auto-rows-[12rem] grid-cols-1 gap-5 md:grid-cols-4">
                     {items.map((item, index) => (
@@ -353,6 +357,7 @@ function BrandStrip({ section }: { section: CmsSection }) {
                 <SectionHeading
                     eyebrow={stringValue(settings.eyebrow)}
                     title={stringValue(settings.title)}
+                    titleColor={stringValue(settings.title_color)}
                 />
                 <div className="mt-10 flex flex-wrap justify-center gap-5">
                     {brands.map((brand) => (
@@ -374,17 +379,21 @@ function InquirySection({ section }: { section: CmsSection }) {
     const areas = arrayValue<string>(settings.interest_areas);
     const { store } = usePage().props;
     const action = `${store?.pathPrefix ? `/${store.pathPrefix}` : ''}/consulta`;
+    const image = settings.media;
 
     return (
         <section
-            className="bg-white px-4 py-20 text-neutral-950 dark:bg-neutral-950 dark:text-neutral-50 md:py-24"
+            className="bg-white px-4 py-20 text-neutral-950 md:py-24 dark:bg-neutral-950 dark:text-neutral-50"
             style={sectionBackgroundStyle(settings)}
         >
             <div
                 className={`${sectionContentWidthClass(settings)} grid gap-12 lg:grid-cols-[0.75fr_1.25fr] lg:items-start`}
             >
                 <div className="lg:pt-2">
-                    <h2 className="max-w-sm text-4xl leading-[1.05] font-black tracking-normal md:text-5xl">
+                    <h2
+                        className="max-w-sm text-4xl leading-[1.05] font-black tracking-normal md:text-5xl"
+                        style={titleColorStyle(settings)}
+                    >
                         {stringValue(settings.title)}
                     </h2>
                     <p className="mt-8 max-w-md text-sm leading-6 text-neutral-600 dark:text-neutral-400">
@@ -406,11 +415,18 @@ function InquirySection({ section }: { section: CmsSection }) {
                             />
                         )}
                     </div>
+                    {image && (
+                        <img
+                            src={image.url}
+                            alt={image.alt ?? stringValue(settings.title)}
+                            className="mt-10 aspect-[4/3] w-full max-w-md rounded-lg object-cover shadow-lg"
+                        />
+                    )}
                 </div>
                 <Form
                     action={action}
                     method="post"
-                    className="rounded-xl border border-red-900/15 bg-white p-7 shadow-none dark:border-red-200/15 dark:bg-neutral-900 md:p-9"
+                    className="rounded-xl border border-red-900/15 bg-white p-7 shadow-none md:p-9 dark:border-red-200/15 dark:bg-neutral-900"
                 >
                     {({ processing, errors }) => (
                         <div className="grid gap-5">
@@ -439,7 +455,7 @@ function InquirySection({ section }: { section: CmsSection }) {
                                 <select
                                     id="interest_area"
                                     name="interest_area"
-                                    className="h-12 rounded-md border border-red-900/20 bg-white px-3 text-sm text-neutral-800 outline-none transition focus:border-red-800 focus:ring-2 focus:ring-red-800/10 dark:border-red-200/20 dark:bg-neutral-950 dark:text-neutral-100"
+                                    className="h-12 rounded-md border border-red-900/20 bg-white px-3 text-sm text-neutral-800 transition outline-none focus:border-red-800 focus:ring-2 focus:ring-red-800/10 dark:border-red-200/20 dark:bg-neutral-950 dark:text-neutral-100"
                                 >
                                     {areas.map((area) => (
                                         <option key={area} value={area}>
@@ -459,14 +475,14 @@ function InquirySection({ section }: { section: CmsSection }) {
                                 <textarea
                                     id="message"
                                     name="message"
-                                    className="min-h-36 rounded-md border border-red-900/20 bg-white px-3 py-3 text-sm text-neutral-800 outline-none transition placeholder:text-neutral-400 focus:border-red-800 focus:ring-2 focus:ring-red-800/10 dark:border-red-200/20 dark:bg-neutral-950 dark:text-neutral-100"
+                                    className="min-h-36 rounded-md border border-red-900/20 bg-white px-3 py-3 text-sm text-neutral-800 transition outline-none placeholder:text-neutral-400 focus:border-red-800 focus:ring-2 focus:ring-red-800/10 dark:border-red-200/20 dark:bg-neutral-950 dark:text-neutral-100"
                                     placeholder="How can we help you?"
                                 />
                                 <InputError message={errors.message} />
                             </div>
                             <Button
                                 disabled={processing}
-                                className="mt-3 h-12 rounded-md bg-red-800 text-xs font-black tracking-wide uppercase text-white hover:bg-red-900"
+                                className="mt-3 h-12 rounded-md bg-red-800 text-xs font-black tracking-wide text-white uppercase hover:bg-red-900"
                             >
                                 Send inquiry
                             </Button>
@@ -525,7 +541,10 @@ function ImageBanner({ section }: { section: CmsSection }) {
                             {stringValue(settings.eyebrow)}
                         </p>
                     )}
-                    <h2 className="text-3xl font-black tracking-normal md:text-5xl">
+                    <h2
+                        className="text-3xl font-black tracking-normal md:text-5xl"
+                        style={titleColorStyle(settings)}
+                    >
                         {stringValue(settings.title)}
                     </h2>
                     <p
@@ -540,11 +559,10 @@ function ImageBanner({ section }: { section: CmsSection }) {
                     {buttonLabel && (
                         <Button
                             asChild
-                            className="mt-7 rounded-md bg-red-800 px-7 text-xs font-black tracking-wide uppercase text-white hover:bg-red-900"
+                            className="mt-7 rounded-md bg-red-800 px-7 text-xs font-black tracking-wide text-white uppercase hover:bg-red-900"
                         >
                             <Link href={buttonUrl}>
-                                {buttonLabel}{' '}
-                                <ArrowRight className="size-4" />
+                                {buttonLabel} <ArrowRight className="size-4" />
                             </Link>
                         </Button>
                     )}
@@ -573,6 +591,7 @@ function RecommendedProducts({ section }: { section: CmsSection }) {
                 <SectionHeading
                     eyebrow={stringValue(settings.eyebrow)}
                     title={stringValue(settings.title)}
+                    titleColor={stringValue(settings.title_color)}
                 />
                 {stringValue(settings.subtitle) && (
                     <p className="mx-auto mt-5 max-w-2xl text-center text-sm leading-6 text-neutral-600 dark:text-neutral-400">
@@ -612,9 +631,11 @@ function RecommendedProducts({ section }: { section: CmsSection }) {
 function SectionHeading({
     eyebrow,
     title,
+    titleColor,
 }: {
     eyebrow: string;
     title: string;
+    titleColor?: string;
 }) {
     return (
         <div className="text-center">
@@ -623,7 +644,16 @@ function SectionHeading({
                     {eyebrow}
                 </p>
             )}
-            <h2 className="text-3xl font-black tracking-normal">{title}</h2>
+            <h2
+                className="text-3xl font-black tracking-normal text-neutral-950 dark:text-white"
+                style={
+                    isHexColor(titleColor ?? '')
+                        ? { color: titleColor }
+                        : undefined
+                }
+            >
+                {title}
+            </h2>
             <div className="mx-auto mt-5 h-1 w-24 rounded bg-red-800" />
         </div>
     );
@@ -718,13 +748,18 @@ function PageHeaderSection({ section }: { section: CmsSection }) {
             className="bg-neutral-950 px-4 py-20 text-white"
             style={sectionBackgroundStyle(settings)}
         >
-            <div className={`${sectionContentWidthClass(settings)} text-center`}>
+            <div
+                className={`${sectionContentWidthClass(settings)} text-center`}
+            >
                 {stringValue(settings.eyebrow) && (
                     <p className="mb-3 text-xs font-bold tracking-wide text-white/70 uppercase">
                         {stringValue(settings.eyebrow)}
                     </p>
                 )}
-                <h1 className="text-4xl font-black tracking-tight md:text-5xl">
+                <h1
+                    className="text-4xl font-black tracking-tight md:text-5xl"
+                    style={titleColorStyle(settings)}
+                >
                     {stringValue(settings.title)}
                 </h1>
                 {stringValue(settings.subtitle) && (
@@ -779,7 +814,10 @@ function ContactInfoSection({ section }: { section: CmsSection }) {
             >
                 <div>
                     {stringValue(settings.title) && (
-                        <h2 className="text-2xl font-bold text-neutral-950 dark:text-white">
+                        <h2
+                            className="text-2xl font-bold text-neutral-950 dark:text-white"
+                            style={titleColorStyle(settings)}
+                        >
                             {stringValue(settings.title)}
                         </h2>
                     )}
@@ -861,10 +899,10 @@ function arrayValue<T>(value: unknown): T[] {
 function heroSlideHasContent(slide: CmsHeroSlide): boolean {
     return Boolean(
         slide.media ||
-            stringValue(slide.title) ||
-            stringValue(slide.subtitle) ||
-            stringValue(slide.eyebrow) ||
-            arrayValue<CmsButton>(slide.buttons).length > 0,
+        stringValue(slide.title) ||
+        stringValue(slide.subtitle) ||
+        stringValue(slide.eyebrow) ||
+        arrayValue<CmsButton>(slide.buttons).length > 0,
     );
 }
 
@@ -925,6 +963,14 @@ function sectionBackgroundStyle(
     const backgroundColor = stringValue(settings.background_color);
 
     return backgroundColor ? { backgroundColor } : undefined;
+}
+
+function titleColorStyle(
+    settings: Record<string, unknown>,
+): CSSProperties | undefined {
+    const titleColor = stringValue(settings.title_color);
+
+    return isHexColor(titleColor) ? { color: titleColor } : undefined;
 }
 
 function isHexColor(value: string): boolean {

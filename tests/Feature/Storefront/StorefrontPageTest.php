@@ -132,6 +132,7 @@ test('media ids are resolved in template section settings', function () {
         'type' => StorefrontPageSection::TYPE_SPECIALTY_GRID,
         'settings' => [
             'title' => 'Especialidades',
+            'title_color' => '#1f2937',
             'items' => [
                 [
                     'title' => 'Hidroterapia',
@@ -144,6 +145,7 @@ test('media ids are resolved in template section settings', function () {
     $this->get(route('home'))
         ->assertOk()
         ->assertInertia(fn ($inertia) => $inertia
+            ->where('contentPage.sections.0.settings.title_color', '#1f2937')
             ->where('contentPage.sections.0.settings.items.0.media.id', $media->id)
             ->where('contentPage.sections.0.settings.items.0.media.url', $media->url));
 });
@@ -242,6 +244,7 @@ test('a legal page renders its rich text content by slug', function () {
 });
 
 test('a contact page exposes contact info and the inquiry form', function () {
+    $media = Media::factory()->create();
     $page = StorefrontPage::factory()->create([
         'store_id' => $this->store->id,
         'slug' => 'contacto',
@@ -261,7 +264,11 @@ test('a contact page exposes contact info and the inquiry form', function () {
     StorefrontPageSection::factory()->create([
         'storefront_page_id' => $page->id,
         'type' => StorefrontPageSection::TYPE_INQUIRY_FORM,
-        'settings' => ['display_order' => 1, 'title' => 'Escríbenos'],
+        'settings' => [
+            'display_order' => 1,
+            'title' => 'Escríbenos',
+            'media_id' => $media->id,
+        ],
     ]);
 
     $this->get('/contacto')
@@ -269,7 +276,8 @@ test('a contact page exposes contact info and the inquiry form', function () {
         ->assertInertia(fn ($inertia) => $inertia
             ->where('contentPage.sections.0.type', StorefrontPageSection::TYPE_CONTACT_INFO)
             ->where('contentPage.sections.0.settings.email', 'hola@tienda.com')
-            ->where('contentPage.sections.1.type', StorefrontPageSection::TYPE_INQUIRY_FORM));
+            ->where('contentPage.sections.1.type', StorefrontPageSection::TYPE_INQUIRY_FORM)
+            ->where('contentPage.sections.1.settings.media.url', $media->url));
 });
 
 test('home renders controlled extra blocks in saved order', function () {

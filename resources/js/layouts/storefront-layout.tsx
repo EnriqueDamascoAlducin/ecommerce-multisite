@@ -45,7 +45,7 @@ export default function StorefrontLayout({
     }, [serviceWorkerUrl, store]);
 
     return (
-        <div className="flex min-h-screen flex-col bg-white text-neutral-900 dark:bg-neutral-950 dark:text-neutral-100">
+        <div className="flex min-h-screen flex-col overflow-x-hidden bg-white text-neutral-900 dark:bg-neutral-950 dark:text-neutral-100">
             {store && (
                 <Head>
                     <link
@@ -207,7 +207,7 @@ export default function StorefrontLayout({
                 )}
             </header>
 
-            <main className="mx-auto w-full max-w-6xl flex-1 px-4 py-8">
+            <main className="mx-auto w-full max-w-6xl flex-1 overflow-x-hidden px-4 py-8">
                 {children}
             </main>
 

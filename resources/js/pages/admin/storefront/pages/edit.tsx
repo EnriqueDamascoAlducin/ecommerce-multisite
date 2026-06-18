@@ -785,6 +785,13 @@ function SectionPanel({
                                         setSetting('background_color', value)
                                     }
                                 />
+                                <ColorField
+                                    label="Color del título"
+                                    value={text(section.settings.title_color)}
+                                    onChange={(value) =>
+                                        setSetting('title_color', value)
+                                    }
+                                />
                                 <SelectField
                                     label="Ancho del contenido"
                                     value={contentWidthValue(
@@ -2390,12 +2397,19 @@ function PreviewSurface({
 }
 
 function PreviewHeading({ settings }: { settings: SectionSettings }) {
+    const titleColor = text(settings.title_color);
+
     return (
         <div className="text-center">
             <p className="text-[10px] font-bold tracking-wide text-red-800 uppercase">
                 {text(settings.eyebrow) || 'Etiqueta'}
             </p>
-            <h4 className="mt-1 text-lg font-black text-neutral-950">
+            <h4
+                className="mt-1 text-lg font-black text-neutral-950"
+                style={
+                    isHexColor(titleColor) ? { color: titleColor } : undefined
+                }
+            >
                 {text(settings.title) || 'Título'}
             </h4>
             <div className="mx-auto mt-2 h-0.5 w-12 rounded bg-red-800" />

@@ -235,6 +235,7 @@ class StorefrontPageController extends Controller
             'sections.*.settings.content_width' => ['nullable', Rule::in(['container', 'full'])],
             'sections.*.settings.eyebrow' => ['nullable', 'string', 'max:255'],
             'sections.*.settings.title' => ['nullable', 'string', 'max:255'],
+            'sections.*.settings.title_color' => ['nullable', 'hex_color'],
             'sections.*.settings.subtitle' => ['nullable', 'string'],
             'sections.*.settings.text' => ['nullable', 'string'],
             'sections.*.settings.phone' => ['nullable', 'string', 'max:50'],
