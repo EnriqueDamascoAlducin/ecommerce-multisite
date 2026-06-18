@@ -89,6 +89,7 @@ class HeaderMenuService
                 'page_id' => $item->page_id,
                 'is_active' => $item->is_active,
                 'expand_products' => $item->expand_products,
+                'sort_order' => $item->sort_order,
                 'children' => $this->buildAdminBranch($items, $item->id),
                 'products' => [],
             ])
@@ -129,7 +130,7 @@ class HeaderMenuService
     {
         return match ($item->type) {
             HeaderMenuItem::TYPE_LINK => $item->url,
-            HeaderMenuItem::TYPE_ALL_CATEGORIES => $this->storefrontPath($store, '/'),
+            HeaderMenuItem::TYPE_ALL_CATEGORIES => $this->storefrontPath($store, '/buscar'),
             HeaderMenuItem::TYPE_CATEGORY => $item->category
                 ? $this->storefrontPath($store, "/c/{$item->category->slug}")
                 : null,

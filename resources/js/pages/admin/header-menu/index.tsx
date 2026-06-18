@@ -2,6 +2,7 @@ import { Head, router, useForm } from '@inertiajs/react';
 import { GripVertical, Plus, X } from 'lucide-react';
 import { useState } from 'react';
 import type { ChangeEvent } from 'react';
+import { ConfirmDialog } from '@/components/confirm-dialog';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -37,6 +38,7 @@ type MenuItem = {
     page_id: number | null;
     is_active: boolean;
     expand_products: boolean;
+    sort_order: number;
     children: MenuItem[];
     products: unknown[];
 };
@@ -57,6 +59,7 @@ type MenuFormData = {
     page_id: number | null;
     is_active: boolean;
     expand_products: boolean;
+    sort_order: number;
 };
 
 const TYPE_LABELS: Record<LinkType, string> = {
@@ -88,6 +91,8 @@ export default function HeaderMenuIndex({
     const [addingParentId, setAddingParentId] = useState<
         number | 'root' | null
     >(null);
+    const [deleteTarget, setDeleteTarget] = useState<MenuItem | null>(null);
+    const [deleting, setDeleting] = useState(false);
 
     const onStoreChange = (event: ChangeEvent<HTMLSelectElement>) => {
         router.get(
@@ -97,12 +102,18 @@ export default function HeaderMenuIndex({
         );
     };
 
-    const destroyItem = (item: MenuItem) => {
-        if (confirm(`Eliminar "${item.label}" y sus hijos?`)) {
-            router.delete(headerMenu.destroy(item.id).url, {
-                preserveScroll: true,
-            });
+    const destroyItem = () => {
+        if (!deleteTarget) {
+            return;
         }
+
+        setDeleting(true);
+
+        router.delete(headerMenu.destroy(deleteTarget.id).url, {
+            preserveScroll: true,
+            onSuccess: () => setDeleteTarget(null),
+            onFinish: () => setDeleting(false),
+        });
     };
 
     return (
@@ -155,7 +166,7 @@ export default function HeaderMenuIndex({
                                 categories={categories}
                                 products={products}
                                 pages={pages}
-                                onDelete={destroyItem}
+                                onDelete={setDeleteTarget}
                                 editingId={editingId}
                                 setEditingId={setEditingId}
                                 addingParentId={addingParentId}
@@ -170,6 +181,7 @@ export default function HeaderMenuIndex({
                                     categories={categories}
                                     products={products}
                                     pages={pages}
+                                    defaultSortOrder={tree.length}
                                     onDone={() => setAddingParentId(null)}
                                 />
                             </li>
@@ -177,6 +189,33 @@ export default function HeaderMenuIndex({
                     </ul>
                 )}
             </div>
+
+            <ConfirmDialog
+                open={deleteTarget !== null}
+                onOpenChange={(open) => {
+                    if (!open && !deleting) {
+                        setDeleteTarget(null);
+                    }
+                }}
+                onConfirm={destroyItem}
+                loading={deleting}
+                title="Eliminar item del menú"
+                description={
+                    deleteTarget ? (
+                        <>
+                            Vas a eliminar{' '}
+                            <span className="font-semibold text-foreground">
+                                {deleteTarget.label}
+                            </span>
+                            {deleteTarget.children.length > 0
+                                ? ' y todos sus subitems.'
+                                : '.'}{' '}
+                            Esta acción no se puede deshacer.
+                        </>
+                    ) : null
+                }
+                confirmLabel="Eliminar"
+            />
         </>
     );
 }
@@ -294,6 +333,7 @@ function TreeNode({
                         categories={categories}
                         products={products}
                         pages={pages}
+                        defaultSortOrder={item.children.length}
                         onDone={() => setAddingParentId(null)}
                     />
                 </div>
@@ -330,6 +370,7 @@ function AddForm({
     categories,
     products,
     pages,
+    defaultSortOrder,
     onDone,
 }: {
     storeId: number | null;
@@ -337,6 +378,7 @@ function AddForm({
     categories: CategoryOption[];
     products: ProductOption[];
     pages: PageOption[];
+    defaultSortOrder: number;
     onDone: () => void;
 }) {
     const form = useForm<MenuFormData>({
@@ -350,6 +392,7 @@ function AddForm({
         page_id: null,
         is_active: true,
         expand_products: false,
+        sort_order: defaultSortOrder,
     });
 
     const save = () => {
@@ -396,6 +439,7 @@ function EditForm({
         page_id: item.page_id,
         is_active: item.is_active,
         expand_products: item.expand_products,
+        sort_order: item.sort_order,
     });
 
     const update = () => {
@@ -462,7 +506,7 @@ function MenuItemForm({
     };
 
     return (
-        <div className="grid gap-3 md:grid-cols-[minmax(10rem,14rem)_minmax(10rem,1fr)_minmax(12rem,1.2fr)_auto] md:items-end">
+        <div className="grid gap-3 md:grid-cols-[minmax(10rem,14rem)_minmax(5rem,7rem)_minmax(10rem,1fr)_minmax(12rem,1.2fr)_auto] md:items-end">
             <div className="flex flex-col gap-1">
                 <Label className="text-xs">Tipo</Label>
                 <Select value={data.type} onValueChange={changeType}>
@@ -481,6 +525,18 @@ function MenuItemForm({
                         </SelectItem>
                     </SelectContent>
                 </Select>
+            </div>
+
+            <div className="flex flex-col gap-1">
+                <Label className="text-xs">Orden</Label>
+                <Input
+                    type="number"
+                    min={0}
+                    value={data.sort_order}
+                    onChange={(event: ChangeEvent<HTMLInputElement>) =>
+                        setData('sort_order', Number(event.target.value))
+                    }
+                />
             </div>
 
             <div className="flex flex-col gap-1">

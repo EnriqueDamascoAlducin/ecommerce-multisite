@@ -131,6 +131,20 @@ test('buildTree resolves page menu item urls', function () {
     expect($tree[0]['url'])->toBe('/nosotros');
 });
 
+test('buildTree resolves all categories to the catalog search page', function () {
+    $store = Store::factory()->create();
+
+    HeaderMenuItem::factory()->create([
+        'store_id' => $store->id,
+        'type' => HeaderMenuItem::TYPE_ALL_CATEGORIES,
+        'label' => 'Categorias',
+    ]);
+
+    $tree = $this->service->buildTree($store);
+
+    expect($tree[0]['url'])->toBe('/buscar');
+});
+
 test('buildTree loads products when expand_products is true', function () {
     $store = Store::factory()->create();
     $category = Category::factory()->create(['store_id' => $store->id]);

@@ -32,6 +32,7 @@ test('a link item can be created', function () {
         'label' => 'Ofertas',
         'url' => '/ofertas',
         'is_active' => '1',
+        'sort_order' => 20,
     ])->assertRedirect();
 
     $this->assertDatabaseHas('store_header_menu_items', [
@@ -40,6 +41,7 @@ test('a link item can be created', function () {
         'label' => 'Ofertas',
         'url' => '/ofertas',
         'parent_id' => null,
+        'sort_order' => 20,
     ]);
 });
 
@@ -132,12 +134,14 @@ test('an item can be updated', function () {
         'label' => 'Actualizado',
         'url' => '/nuevo-url',
         'expand_products' => '1',
+        'sort_order' => 15,
     ])->assertRedirect();
 
     $this->assertDatabaseHas('store_header_menu_items', [
         'id' => $item->id,
         'label' => 'Actualizado',
         'expand_products' => 1,
+        'sort_order' => 15,
     ]);
 });
 

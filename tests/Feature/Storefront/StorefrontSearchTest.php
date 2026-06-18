@@ -52,7 +52,7 @@ test('search finds products by sku', function () {
             ->where('products.data.0.sku', 'AUD-001'));
 });
 
-test('search excludes products with visibility catalog', function () {
+test('search without a term includes catalog products', function () {
     searchPublishedProduct($this->store, ['name' => 'Visible', 'visibility' => 'both']);
     searchPublishedProduct($this->store, ['name' => 'Solo catalogo', 'visibility' => 'catalog']);
 
@@ -60,12 +60,12 @@ test('search excludes products with visibility catalog', function () {
         ->assertOk()
         ->assertInertia(fn ($page) => $page
             ->component('storefront/search')
-            ->has('products.data', 1)
-            ->where('products.data.0.name', 'Visible'));
+            ->has('products.data', 2));
 });
 
-test('search excludes hidden products', function () {
-    searchPublishedProduct($this->store, ['name' => 'Visible', 'visibility' => 'search']);
+test('search without a term excludes search only and hidden products', function () {
+    searchPublishedProduct($this->store, ['name' => 'Visible', 'visibility' => 'both']);
+    searchPublishedProduct($this->store, ['name' => 'Solo busqueda', 'visibility' => 'search']);
     searchPublishedProduct($this->store, ['name' => 'Oculto', 'visibility' => 'hidden']);
 
     $this->get(route('storefront.search', ['q' => '']))
@@ -101,15 +101,16 @@ test('search excludes products not linked to the store', function () {
             ->where('products.data.0.name', 'En tienda'));
 });
 
-test('search includes products with visibility search', function () {
+test('search with a term includes products with visibility search', function () {
     searchPublishedProduct($this->store, ['name' => 'Visible en ambos', 'visibility' => 'both']);
-    searchPublishedProduct($this->store, ['name' => 'Solo busqueda', 'visibility' => 'search']);
+    searchPublishedProduct($this->store, ['name' => 'Visible busqueda', 'visibility' => 'search']);
 
-    $this->get(route('storefront.search', ['q' => '']))
+    $this->get(route('storefront.search', ['q' => 'Visible']))
         ->assertOk()
         ->assertInertia(fn ($page) => $page
             ->component('storefront/search')
-            ->has('products.data', 2));
+            ->has('products.data', 2)
+            ->where('products.data.0.name', 'Visible en ambos'));
 });
 
 test('search filters by select attribute', function () {

@@ -185,6 +185,8 @@ test('an admin can save footer information', function () {
             'columns' => [
                 [
                     'title' => 'Compañía',
+                    'title_color' => '#991b1b',
+                    'link_color' => '#1f2937',
                     'links' => [
                         ['label' => 'Nosotros', 'url' => '/nosotros'],
                         ['label' => '', 'url' => '/vacio'],
@@ -206,6 +208,8 @@ test('an admin can save footer information', function () {
     expect($settings->footer_settings['description'])->toBe('Equipo medico profesional para clinicas.')
         ->and($settings->footer_settings['background_color'])->toBe('#f5f5f5')
         ->and($settings->footer_settings['columns'][0]['title'])->toBe('Compañía')
+        ->and($settings->footer_settings['columns'][0]['title_color'])->toBe('#991b1b')
+        ->and($settings->footer_settings['columns'][0]['link_color'])->toBe('#1f2937')
         ->and($settings->footer_settings['columns'][0]['links'])->toHaveCount(1)
         ->and($settings->footer_settings['contact'])->toHaveCount(1)
         ->and($settings->footer_settings['social'][0]['platform'])->toBe('facebook');
@@ -218,6 +222,24 @@ test('an invalid footer color is rejected', function () {
             'background_color' => 'gray',
         ],
     ]))->assertSessionHasErrors('footer.background_color');
+});
+
+test('an invalid footer column color is rejected', function () {
+    $this->put(route('admin.header-settings.update'), headerPayload([
+        'website_id' => $this->website->id,
+        'footer' => [
+            'columns' => [
+                [
+                    'title' => 'Compania',
+                    'title_color' => 'red',
+                    'link_color' => '#1f2937',
+                    'links' => [
+                        ['label' => 'Nosotros', 'url' => '/nosotros'],
+                    ],
+                ],
+            ],
+        ],
+    ]))->assertSessionHasErrors('footer.columns.0.title_color');
 });
 
 test('an invalid header color is rejected', function () {

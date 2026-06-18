@@ -279,15 +279,15 @@ class StorefrontController extends Controller
             throw new NotFoundHttpException('Tienda no resuelta.');
         }
 
-        $storeId = $this->context->store()->id;
+        $queryParam = trim((string) $request->input('q', ''));
+        $query = $queryParam === ''
+            ? $this->catalogQuery()
+            : Product::query()
+                ->with(['prices', 'media', 'inventoryStocks', 'labels', 'bundleItems.product.prices', 'bundleItems.product.inventoryStocks'])
+                ->where('status', Product::STATUS_ACTIVE)
+                ->whereIn('visibility', ['both', 'search'])
+                ->whereHas('storeLinks', fn (Builder $q) => $q->where('store_id', $this->context->store()->id)->where('is_active', true));
 
-        $query = Product::query()
-            ->with(['prices', 'media', 'inventoryStocks', 'labels', 'bundleItems.product.prices', 'bundleItems.product.inventoryStocks'])
-            ->where('status', Product::STATUS_ACTIVE)
-            ->whereIn('visibility', ['both', 'search'])
-            ->whereHas('storeLinks', fn (Builder $q) => $q->where('store_id', $storeId)->where('is_active', true));
-
-        $queryParam = $request->input('q');
         if ($queryParam) {
             $query->where(function (Builder $q) use ($queryParam) {
                 $q->where('name', 'like', '%'.$queryParam.'%')
@@ -309,7 +309,7 @@ class StorefrontController extends Controller
 
         return Inertia::render('storefront/search', [
             'filters' => [
-                'q' => $request->input('q', ''),
+                'q' => $queryParam,
                 'attrs' => $attrs,
             ],
             'filterOptions' => [

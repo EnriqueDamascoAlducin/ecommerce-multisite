@@ -46,6 +46,8 @@ class HeaderSettingsRequest extends FormRequest
             'footer.text_color' => ['nullable', 'string', 'regex:/^#[0-9a-fA-F]{6}$/'],
             'footer.columns' => ['nullable', 'array', 'max:4'],
             'footer.columns.*.title' => ['nullable', 'string', 'max:80'],
+            'footer.columns.*.title_color' => ['nullable', 'string', 'regex:/^#[0-9a-fA-F]{6}$/'],
+            'footer.columns.*.link_color' => ['nullable', 'string', 'regex:/^#[0-9a-fA-F]{6}$/'],
             'footer.columns.*.links' => ['nullable', 'array', 'max:8'],
             'footer.columns.*.links.*.label' => ['nullable', 'string', 'max:80'],
             'footer.columns.*.links.*.url' => ['nullable', 'string', 'max:2048'],

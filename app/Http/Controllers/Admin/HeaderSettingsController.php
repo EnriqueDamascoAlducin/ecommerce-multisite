@@ -155,7 +155,7 @@ class HeaderSettingsController extends Controller
 
     /**
      * @param  array<string, mixed>  $footer
-     * @return array{enabled: bool, description: string, copyright: string, background_color: string|null, text_color: string|null, columns: list<array{title: string, links: list<array{label: string, url: string}>}>, contact: list<array{label: string, value: string}>, social: list<array{platform: string, url: string}>}
+     * @return array{enabled: bool, description: string, copyright: string, background_color: string|null, text_color: string|null, columns: list<array{title: string, title_color: string|null, link_color: string|null, links: list<array{label: string, url: string}>}>, contact: list<array{label: string, value: string}>, social: list<array{platform: string, url: string}>}
      */
     private function sanitizeFooter(array $footer): array
     {
@@ -172,7 +172,7 @@ class HeaderSettingsController extends Controller
     }
 
     /**
-     * @return list<array{title: string, links: list<array{label: string, url: string}>}>
+     * @return list<array{title: string, title_color: string|null, link_color: string|null, links: list<array{label: string, url: string}>}>
      */
     private function sanitizeFooterColumns(mixed $columns): array
     {
@@ -198,12 +198,19 @@ class HeaderSettingsController extends Controller
                     ->all();
 
                 $title = trim((string) ($column['title'] ?? ''));
+                $titleColor = trim((string) ($column['title_color'] ?? '')) ?: null;
+                $linkColor = trim((string) ($column['link_color'] ?? '')) ?: null;
 
                 if ($title === '' && $links === []) {
                     return null;
                 }
 
-                return ['title' => $title, 'links' => $links];
+                return [
+                    'title' => $title,
+                    'title_color' => $titleColor,
+                    'link_color' => $linkColor,
+                    'links' => $links,
+                ];
             })
             ->filter()
             ->values()
@@ -232,7 +239,7 @@ class HeaderSettingsController extends Controller
 
     /**
      * @param  array<string, mixed>|null  $footer
-     * @return array{enabled: bool, description: string, copyright: string, background_color: string|null, text_color: string|null, columns: list<array{title: string, links: list<array{label: string, url: string}>}>, contact: list<array{label: string, value: string}>, social: list<array{platform: string, url: string}>}
+     * @return array{enabled: bool, description: string, copyright: string, background_color: string|null, text_color: string|null, columns: list<array{title: string, title_color: string|null, link_color: string|null, links: list<array{label: string, url: string}>}>, contact: list<array{label: string, value: string}>, social: list<array{platform: string, url: string}>}
      */
     private function footerPayload(?array $footer, Website $website): array
     {

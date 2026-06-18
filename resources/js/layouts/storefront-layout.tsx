@@ -227,6 +227,8 @@ type FooterConfig = {
     text_color: string | null;
     columns: {
         title: string;
+        title_color?: string | null;
+        link_color?: string | null;
         links: { label: string; url: string }[];
     }[];
     contact: { label: string; value: string }[];
@@ -327,7 +329,13 @@ function StorefrontFooter({
                                 className="grid content-start gap-3"
                             >
                                 {column.title && (
-                                    <h2 className="text-xs font-semibold tracking-[0.22em] text-red-700 uppercase dark:text-red-400">
+                                    <h2
+                                        className="text-xs font-semibold tracking-[0.22em] text-red-700 uppercase dark:text-red-400"
+                                        style={{
+                                            color:
+                                                column.title_color ?? undefined,
+                                        }}
+                                    >
                                         {column.title}
                                     </h2>
                                 )}
@@ -337,6 +345,11 @@ function StorefrontFooter({
                                             key={`${link.label}-${linkIndex}`}
                                             href={link.url}
                                             className="opacity-75 transition hover:opacity-100"
+                                            style={{
+                                                color:
+                                                    column.link_color ??
+                                                    undefined,
+                                            }}
                                         >
                                             {link.label}
                                         </FooterLink>
@@ -358,14 +371,20 @@ function StorefrontFooter({
 function FooterLink({
     href,
     className,
+    style,
     children,
 }: {
     href: string;
     className: string;
+    style?: React.CSSProperties;
     children: React.ReactNode;
 }) {
     if (!href) {
-        return <span className={className}>{children}</span>;
+        return (
+            <span className={className} style={style}>
+                {children}
+            </span>
+        );
     }
 
     if (/^(https?:|mailto:|tel:)/.test(href)) {
@@ -373,6 +392,7 @@ function FooterLink({
             <a
                 href={href}
                 className={className}
+                style={style}
                 target="_blank"
                 rel="noreferrer"
             >
@@ -382,7 +402,7 @@ function FooterLink({
     }
 
     return (
-        <Link href={href} className={className}>
+        <Link href={href} className={className} style={style}>
             {children}
         </Link>
     );
