@@ -74,6 +74,9 @@ type HeroSlide = {
     eyebrow?: string;
     title?: string;
     subtitle?: string;
+    overlay_enabled?: boolean;
+    overlay_color?: string;
+    overlay_opacity?: number;
     buttons?: BuilderButton[];
 };
 type Section = {
@@ -419,7 +422,9 @@ function EditorShell({
                                     {pageTitle}
                                 </h1>
                                 <Badge
-                                    variant={isPublished ? 'default' : 'outline'}
+                                    variant={
+                                        isPublished ? 'default' : 'outline'
+                                    }
                                     className={
                                         isPublished
                                             ? 'bg-emerald-600 text-white'
@@ -436,7 +441,11 @@ function EditorShell({
                     </div>
                     <div className="flex flex-wrap gap-2">
                         <Button asChild variant="outline" size="sm">
-                            <a href={publicUrl} target="_blank" rel="noreferrer">
+                            <a
+                                href={publicUrl}
+                                target="_blank"
+                                rel="noreferrer"
+                            >
                                 <Eye className="size-4" />
                                 Vista
                             </a>
@@ -492,8 +501,8 @@ function EditorShell({
                             />
                             {templateChanged && (
                                 <p className="text-xs text-amber-600 dark:text-amber-400">
-                                    Al guardar se aplicará la nueva plantilla y se
-                                    añadirán sus secciones fijas.
+                                    Al guardar se aplicará la nueva plantilla y
+                                    se añadirán sus secciones fijas.
                                 </p>
                             )}
                         </div>
@@ -528,7 +537,7 @@ function AddSectionControl({
                 <select
                     value={newSectionType}
                     onChange={(event) => setNewSectionType(event.target.value)}
-                    className="h-9 min-w-0 flex-1 rounded-md border border-neutral-300 bg-white px-2 text-xs outline-none transition focus:border-red-700 focus:ring-2 focus:ring-red-700/10 dark:border-neutral-700 dark:bg-neutral-900"
+                    className="h-9 min-w-0 flex-1 rounded-md border border-neutral-300 bg-white px-2 text-xs transition outline-none focus:border-red-700 focus:ring-2 focus:ring-red-700/10 dark:border-neutral-700 dark:bg-neutral-900"
                 >
                     {extraTypes.map((type) => (
                         <option key={type} value={type}>
@@ -712,7 +721,7 @@ function SectionNavItem({
                             </Badge>
                         </span>
                     </span>
-                    <span className="mt-1 block line-clamp-2 text-xs text-neutral-500 dark:text-neutral-400">
+                    <span className="mt-1 line-clamp-2 block text-xs text-neutral-500 dark:text-neutral-400">
                         {sectionSummary(section)}
                     </span>
                 </span>
@@ -1329,7 +1338,9 @@ function ImageBannerFields({
                             { value: 'left', label: 'Izquierda' },
                             { value: 'background', label: 'Fondo' },
                         ]}
-                        onChange={(value) => setSetting('image_position', value)}
+                        onChange={(value) =>
+                            setSetting('image_position', value)
+                        }
                     />
                     <TextField
                         label="Label boton"
@@ -1460,7 +1471,9 @@ function ItemList({
         <div className="space-y-3">
             <div className="flex items-center justify-between gap-3">
                 <div>
-                    <Label>{type === 'feature_cards' ? 'Cards' : 'Items'}</Label>
+                    <Label>
+                        {type === 'feature_cards' ? 'Cards' : 'Items'}
+                    </Label>
                     <p className="mt-1 text-xs text-neutral-500">
                         {value.length} elemento{value.length === 1 ? '' : 's'}
                     </p>
@@ -1671,7 +1684,12 @@ function HeroSlidesList({
                 eyebrow: text(fallbackSettings.eyebrow),
                 title: text(fallbackSettings.title) || 'Nuevo slide',
                 subtitle: text(fallbackSettings.subtitle),
-                buttons: arrayValue<BuilderButton>(fallbackSettings.buttons).slice(0, 2),
+                buttons: arrayValue<BuilderButton>(
+                    fallbackSettings.buttons,
+                ).slice(0, 2),
+                overlay_enabled: true,
+                overlay_color: '#7f1d1d',
+                overlay_opacity: 75,
             },
         ]);
     };
@@ -1753,6 +1771,45 @@ function HeroSlidesList({
                                     update(index, { ...slide, subtitle })
                                 }
                             />
+                        </div>
+                        <div className="grid gap-3 rounded-md border border-neutral-200 bg-white p-3 md:col-span-2 dark:border-neutral-800 dark:bg-neutral-950">
+                            <label className="flex items-center gap-2 text-sm">
+                                <Checkbox
+                                    checked={slide.overlay_enabled !== false}
+                                    onCheckedChange={(checked) =>
+                                        update(index, {
+                                            ...slide,
+                                            overlay_enabled: checked === true,
+                                        })
+                                    }
+                                />
+                                Aplicar opacidad sobre la imagen
+                            </label>
+                            <div className="grid gap-3 md:grid-cols-[1fr_12rem]">
+                                <ColorField
+                                    label="Color de opacidad"
+                                    value={slide.overlay_color ?? '#7f1d1d'}
+                                    onChange={(overlay_color) =>
+                                        update(index, {
+                                            ...slide,
+                                            overlay_color,
+                                        })
+                                    }
+                                />
+                                <RangeField
+                                    label="Opacidad"
+                                    value={slide.overlay_opacity ?? 75}
+                                    min={0}
+                                    max={100}
+                                    disabled={slide.overlay_enabled === false}
+                                    onChange={(overlay_opacity) =>
+                                        update(index, {
+                                            ...slide,
+                                            overlay_opacity,
+                                        })
+                                    }
+                                />
+                            </div>
                         </div>
                         <div className="md:col-span-2">
                             <ButtonList
@@ -1961,7 +2018,7 @@ function ProductList({
                         onChange={(event) =>
                             setSelectedProductId(event.target.value)
                         }
-                        className="h-10 rounded-md border border-neutral-300 bg-white px-3 text-sm outline-none transition focus:border-red-700 focus:ring-2 focus:ring-red-700/10 dark:border-neutral-700 dark:bg-neutral-900"
+                        className="h-10 rounded-md border border-neutral-300 bg-white px-3 text-sm transition outline-none focus:border-red-700 focus:ring-2 focus:ring-red-700/10 dark:border-neutral-700 dark:bg-neutral-900"
                     >
                         <option value="">Seleccionar</option>
                         {availableProducts.map((product) => (
@@ -2173,7 +2230,7 @@ function PreviewBody({ section }: { section: Section }) {
                     {brands.slice(0, 6).map((brand) => (
                         <span
                             key={brand}
-                            className="rounded bg-neutral-200 px-3 py-2 text-[10px] font-semibold uppercase text-neutral-600"
+                            className="rounded bg-neutral-200 px-3 py-2 text-[10px] font-semibold text-neutral-600 uppercase"
                         >
                             {brand}
                         </span>
@@ -2198,12 +2255,14 @@ function PreviewBody({ section }: { section: Section }) {
                     <div
                         className={cn(
                             'min-h-28 rounded-md bg-neutral-200',
-                            imagePositionValue(section.settings.image_position) ===
-                                'left'
+                            imagePositionValue(
+                                section.settings.image_position,
+                            ) === 'left'
                                 ? 'sm:order-first'
                                 : 'sm:order-last',
-                            imagePositionValue(section.settings.image_position) ===
-                                'background'
+                            imagePositionValue(
+                                section.settings.image_position,
+                            ) === 'background'
                                 ? 'hidden'
                                 : '',
                         )}
@@ -2255,23 +2314,23 @@ function PreviewBody({ section }: { section: Section }) {
                             : '',
                     )}
                 >
-                    {Array.from({ length: Math.min(productIds.length || 4, 8) }).map(
-                        (_, index) => (
-                            <div
-                                key={index}
-                                className={cn(
-                                    'rounded-md border border-neutral-200 bg-white p-2',
-                                    displayType === 'carousel'
-                                        ? 'w-20 shrink-0'
-                                        : '',
-                                )}
-                            >
-                                <div className="aspect-square rounded bg-neutral-200" />
-                                <div className="mt-2 h-2 rounded bg-neutral-300" />
-                                <div className="mt-1 h-2 w-2/3 rounded bg-red-200" />
-                            </div>
-                        ),
-                    )}
+                    {Array.from({
+                        length: Math.min(productIds.length || 4, 8),
+                    }).map((_, index) => (
+                        <div
+                            key={index}
+                            className={cn(
+                                'rounded-md border border-neutral-200 bg-white p-2',
+                                displayType === 'carousel'
+                                    ? 'w-20 shrink-0'
+                                    : '',
+                            )}
+                        >
+                            <div className="aspect-square rounded bg-neutral-200" />
+                            <div className="mt-2 h-2 rounded bg-neutral-300" />
+                            <div className="mt-1 h-2 w-2/3 rounded bg-red-200" />
+                        </div>
+                    ))}
                 </div>
             </PreviewSurface>
         );
@@ -2283,7 +2342,7 @@ function PreviewBody({ section }: { section: Section }) {
         <PreviewSurface settings={section.settings}>
             <div className="grid gap-4 sm:grid-cols-[0.8fr_1.2fr]">
                 <div>
-                    <h4 className="text-xl font-black leading-tight">
+                    <h4 className="text-xl leading-tight font-black">
                         {text(section.settings.title) || 'Título'}
                     </h4>
                     <p className="mt-3 line-clamp-3 text-xs text-neutral-500">
@@ -2506,6 +2565,42 @@ function TextField({
     );
 }
 
+function RangeField({
+    label,
+    value,
+    min,
+    max,
+    disabled,
+    onChange,
+}: {
+    label: string;
+    value: number;
+    min: number;
+    max: number;
+    disabled?: boolean;
+    onChange: (value: number) => void;
+}) {
+    return (
+        <div className="grid gap-1.5">
+            <div className="flex items-center justify-between gap-2">
+                <Label>{label}</Label>
+                <span className="text-xs font-medium text-neutral-500">
+                    {value}%
+                </span>
+            </div>
+            <Input
+                type="range"
+                min={min}
+                max={max}
+                value={value}
+                disabled={disabled}
+                onChange={(event) => onChange(Number(event.target.value))}
+                className="cursor-pointer disabled:cursor-not-allowed disabled:opacity-50"
+            />
+        </div>
+    );
+}
+
 function ColorField({
     label,
     value,
@@ -2554,7 +2649,7 @@ function SelectField({
             <select
                 value={value}
                 onChange={(event) => onChange(event.target.value)}
-                className="h-10 rounded-md border border-neutral-300 bg-white px-3 text-sm outline-none transition focus:border-red-700 focus:ring-2 focus:ring-red-700/10 dark:border-neutral-700 dark:bg-neutral-900"
+                className="h-10 rounded-md border border-neutral-300 bg-white px-3 text-sm transition outline-none focus:border-red-700 focus:ring-2 focus:ring-red-700/10 dark:border-neutral-700 dark:bg-neutral-900"
             >
                 {options.map((option) => (
                     <option key={option.value} value={option.value}>
@@ -2581,7 +2676,7 @@ function TextArea({
             <textarea
                 value={value}
                 onChange={(event) => onChange(event.target.value)}
-                className="min-h-28 rounded-md border border-neutral-300 bg-white px-3 py-2 text-sm outline-none transition focus:border-red-700 focus:ring-2 focus:ring-red-700/10 dark:border-neutral-700 dark:bg-neutral-900"
+                className="min-h-28 rounded-md border border-neutral-300 bg-white px-3 py-2 text-sm transition outline-none focus:border-red-700 focus:ring-2 focus:ring-red-700/10 dark:border-neutral-700 dark:bg-neutral-900"
             />
         </div>
     );
@@ -2677,7 +2772,9 @@ function sectionSummary(section: Section): string {
     }
 
     if (section.type === 'contact_info') {
-        return text(settings.email) || text(settings.phone) || 'Datos de contacto';
+        return (
+            text(settings.email) || text(settings.phone) || 'Datos de contacto'
+        );
     }
 
     return 'Contenido editable';
@@ -2698,7 +2795,9 @@ function contentWidthValue(value: unknown): 'container' | 'full' {
 }
 
 function contentWidthLabel(value: unknown): string {
-    return contentWidthValue(value) === 'full' ? 'Ancho completo' : 'Contenedor';
+    return contentWidthValue(value) === 'full'
+        ? 'Ancho completo'
+        : 'Contenedor';
 }
 
 function imagePositionValue(value: unknown): 'left' | 'right' | 'background' {

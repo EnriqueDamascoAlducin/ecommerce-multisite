@@ -65,7 +65,12 @@ declare module '@inertiajs/core' {
                     logo_url?: string | null;
                     favicon_url?: string | null;
                 };
-                store: { id: number; code: string; name: string };
+                store: {
+                    id: number;
+                    code: string;
+                    name: string;
+                    logo_url: string | null;
+                };
                 locale: string | null;
                 pathPrefix: string;
                 menu: StoreMenuItem[];

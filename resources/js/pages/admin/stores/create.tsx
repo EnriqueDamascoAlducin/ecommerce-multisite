@@ -2,9 +2,16 @@ import { Form, Head, Link } from '@inertiajs/react';
 import StoreController from '@/actions/App/Http/Controllers/Admin/StoreController';
 import { Button } from '@/components/ui/button';
 import stores from '@/routes/admin/stores';
+import type { MediaImage } from '../websites/website-fields';
 import { StoreFields } from './store-fields';
 
-export default function StoresCreate({ websites }: { websites: { id: number; name: string }[] }) {
+export default function StoresCreate({
+    websites,
+    availableImages,
+}: {
+    websites: { id: number; name: string }[];
+    availableImages: MediaImage[];
+}) {
     return (
         <>
             <Head title="Nueva tienda" />
@@ -19,7 +26,11 @@ export default function StoresCreate({ websites }: { websites: { id: number; nam
             <Form {...StoreController.store.form()} className="max-w-2xl">
                 {({ processing, errors }) => (
                     <div className="space-y-6">
-                        <StoreFields errors={errors} websites={websites} />
+                        <StoreFields
+                            errors={errors}
+                            websites={websites}
+                            availableImages={availableImages}
+                        />
                         <Button disabled={processing}>Crear tienda</Button>
                     </div>
                 )}

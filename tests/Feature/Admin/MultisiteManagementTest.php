@@ -1,5 +1,6 @@
 <?php
 
+use App\Models\Media;
 use App\Models\Store;
 use App\Models\StoreDomain;
 use App\Models\User;
@@ -51,6 +52,73 @@ test('a super admin can create a store with domains', function () {
     $store = Store::where('code', 'main')->firstOrFail();
     expect($store->domains)->toHaveCount(2);
     expect($store->domains()->where('is_primary', true)->first()->host)->toBe('interferenciales.com.mx');
+});
+
+test('a super admin can create a store with a library logo', function () {
+    $website = Website::factory()->create();
+    $logo = Media::factory()->create();
+
+    $this->post(route('admin.stores.store'), [
+        'website_id' => $website->id,
+        'code' => 'main',
+        'name' => 'Principal',
+        'is_active' => true,
+        'logo_media_id' => $logo->id,
+    ])->assertRedirect(route('admin.stores.index'));
+
+    $store = Store::where('code', 'main')->firstOrFail();
+
+    $this->assertDatabaseHas('mediables', [
+        'media_id' => $logo->id,
+        'mediable_type' => Store::class,
+        'mediable_id' => $store->id,
+        'collection' => 'logo',
+        'is_primary' => true,
+    ]);
+});
+
+test('a super admin can replace and remove a store logo', function () {
+    $store = Store::factory()->create(['code' => 'main']);
+    $oldLogo = Media::factory()->create();
+    $newLogo = Media::factory()->create();
+
+    $store->syncMediaCollection([$oldLogo->id], 'logo');
+
+    $this->put(route('admin.stores.update', $store), [
+        'website_id' => $store->website_id,
+        'code' => $store->code,
+        'name' => $store->name,
+        'is_active' => true,
+        'logo_media_id' => $newLogo->id,
+    ])->assertRedirect(route('admin.stores.index'));
+
+    $this->assertDatabaseMissing('mediables', [
+        'media_id' => $oldLogo->id,
+        'mediable_type' => Store::class,
+        'mediable_id' => $store->id,
+        'collection' => 'logo',
+    ]);
+    $this->assertDatabaseHas('mediables', [
+        'media_id' => $newLogo->id,
+        'mediable_type' => Store::class,
+        'mediable_id' => $store->id,
+        'collection' => 'logo',
+    ]);
+
+    $this->put(route('admin.stores.update', $store), [
+        'website_id' => $store->website_id,
+        'code' => $store->code,
+        'name' => $store->name,
+        'is_active' => true,
+        'remove_logo' => true,
+    ])->assertRedirect(route('admin.stores.index'));
+
+    $this->assertDatabaseMissing('mediables', [
+        'media_id' => $newLogo->id,
+        'mediable_type' => Store::class,
+        'mediable_id' => $store->id,
+        'collection' => 'logo',
+    ]);
 });
 
 test('a domain already used by another store is rejected', function () {

@@ -1,6 +1,8 @@
 <?php
 
+use App\Domain\Store\StoreContext;
 use App\Models\Category;
+use App\Models\Media;
 use App\Models\Product;
 use App\Models\Store;
 use App\Models\StorefrontPage;
@@ -87,8 +89,8 @@ test('categories are isolated per store', function () {
     dump([
         'main_id' => $this->main->id,
         'sports_id' => $this->sports->id,
-        'ctx_store_after_http' => app(\App\Domain\Store\StoreContext::class)->store()?->id,
-        'ctx_prefix' => app(\App\Domain\Store\StoreContext::class)->pathPrefix(),
+        'ctx_store_after_http' => app(StoreContext::class)->store()?->id,
+        'ctx_prefix' => app(StoreContext::class)->pathPrefix(),
         'all_stores' => Store::all(['id', 'code', 'website_id', 'is_active'])->toArray(),
         'default_websites' => Website::where('is_default', true)->pluck('id')->all(),
         'direct_query' => Category::query()->where('store_id', 2)->where('slug', 'solo-sports')->where('is_active', true)->first()?->id,
@@ -117,4 +119,25 @@ test('a real cms page at root is not shadowed by the store-home fix', function (
         ->assertInertia(fn ($page) => $page
             ->component('storefront/home')
             ->where('contentPage.slug', 'nosotros'));
+});
+
+test('the storefront shared props expose the current store logo', function () {
+    $logo = Media::factory()->create();
+    $this->sports->syncMediaCollection([$logo->id], 'logo');
+
+    $this->get('/sports')
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->component('storefront/home')
+            ->where('store.store.name', $this->sports->name)
+            ->where('store.store.logo_url', $logo->url.'?v='.$logo->updated_at->getTimestamp()));
+});
+
+test('the storefront shared props fall back to the store name when no logo exists', function () {
+    $this->get('/sports')
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->component('storefront/home')
+            ->where('store.store.name', $this->sports->name)
+            ->where('store.store.logo_url', null));
 });

@@ -49,6 +49,9 @@ export type CmsHeroSlide = {
     eyebrow?: string;
     title?: string;
     subtitle?: string;
+    overlay_enabled?: boolean;
+    overlay_color?: string;
+    overlay_opacity?: number | string;
     buttons?: CmsButton[];
 };
 
@@ -120,7 +123,7 @@ function HeroSection({ section }: { section: CmsSection }) {
                     className="absolute inset-0 h-full w-full object-cover transition-opacity duration-500"
                 />
             )}
-            <div className="absolute inset-0 bg-linear-to-r from-red-950/95 via-red-950/75 to-slate-950/85" />
+            <HeroOverlay slide={slide} />
             <div
                 className={`${sectionContentWidthClass(settings)} relative flex min-h-[32rem] items-center px-6 py-20 sm:px-8 lg:px-16 xl:px-24`}
             >
@@ -195,6 +198,30 @@ function HeroSection({ section }: { section: CmsSection }) {
                 </>
             )}
         </section>
+    );
+}
+
+function HeroOverlay({ slide }: { slide?: CmsHeroSlide }) {
+    if (slide?.overlay_enabled === false) {
+        return null;
+    }
+
+    const overlayColor = stringValue(slide?.overlay_color);
+
+    if (!isHexColor(overlayColor)) {
+        return (
+            <div className="absolute inset-0 bg-linear-to-r from-red-950/95 via-red-950/75 to-slate-950/85" />
+        );
+    }
+
+    return (
+        <div
+            className="absolute inset-0"
+            style={{
+                backgroundColor: overlayColor,
+                opacity: overlayOpacity(slide?.overlay_opacity),
+            }}
+        />
     );
 }
 
@@ -817,6 +844,16 @@ function stringValue(value: unknown): string {
     return typeof value === 'string' ? value : '';
 }
 
+function overlayOpacity(value: unknown): number {
+    const opacity = typeof value === 'number' ? value : Number(value);
+
+    if (!Number.isFinite(opacity)) {
+        return 0.75;
+    }
+
+    return Math.min(Math.max(opacity, 0), 100) / 100;
+}
+
 function arrayValue<T>(value: unknown): T[] {
     return Array.isArray(value) ? (value as T[]) : [];
 }
@@ -888,4 +925,8 @@ function sectionBackgroundStyle(
     const backgroundColor = stringValue(settings.background_color);
 
     return backgroundColor ? { backgroundColor } : undefined;
+}
+
+function isHexColor(value: string): boolean {
+    return /^#(?:[0-9a-fA-F]{3}){1,2}$/.test(value);
 }

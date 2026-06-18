@@ -87,7 +87,7 @@ class HandleInertiaRequests extends Middleware
     /**
      * Sitio resuelto para el storefront (null en el admin y rutas sin resolver).
      *
-     * @return array{website: array{id: int, code: string, name: string, logo_url: string|null, favicon_url: string|null}, store: array{id: int, code: string, name: string}, locale: string|null, pathPrefix: string, menu: list<array<string, mixed>>, header: array<string, mixed>}|null
+     * @return array{website: array{id: int, code: string, name: string, logo_url: string|null, favicon_url: string|null}, store: array{id: int, code: string, name: string, logo_url: string|null}, locale: string|null, pathPrefix: string, menu: list<array<string, mixed>>, header: array<string, mixed>}|null
      */
     private function currentStore(): ?array
     {
@@ -99,6 +99,7 @@ class HandleInertiaRequests extends Middleware
 
         $store = $context->store();
         $website = $context->website();
+        $store->loadMissing('media');
         $website->loadMissing('media');
 
         return [
@@ -109,7 +110,12 @@ class HandleInertiaRequests extends Middleware
                 'logo_url' => $this->versionedMediaUrl($website->primaryMedia('logo')),
                 'favicon_url' => $this->versionedMediaUrl($website->primaryMedia('favicon')),
             ],
-            'store' => ['id' => $store->id, 'code' => $store->code, 'name' => $store->name],
+            'store' => [
+                'id' => $store->id,
+                'code' => $store->code,
+                'name' => $store->name,
+                'logo_url' => $this->versionedMediaUrl($store->primaryMedia('logo')),
+            ],
             'locale' => $context->storeView()?->locale,
             'pathPrefix' => $context->pathPrefix(),
             'menu' => $this->buildMenu($store),

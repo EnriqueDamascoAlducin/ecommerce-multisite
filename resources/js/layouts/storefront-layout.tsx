@@ -96,9 +96,9 @@ export default function StorefrontLayout({
                         href={urls.home()}
                         className="flex shrink-0 items-center gap-2 text-lg font-semibold"
                     >
-                        {store?.website.logo_url ? (
+                        {store?.store.logo_url ? (
                             <img
-                                src={store.website.logo_url}
+                                src={store.store.logo_url}
                                 alt={store?.store.name ?? 'Tienda'}
                                 className="h-8 w-auto"
                             />
@@ -256,9 +256,9 @@ function StorefrontFooter({
     );
     const hasRichContent = Boolean(
         footer?.description ||
-            footer?.columns.length ||
-            footer?.contact.length ||
-            footer?.social.length,
+        footer?.columns.length ||
+        footer?.contact.length ||
+        footer?.social.length,
     );
 
     if (!hasRichContent) {
@@ -279,7 +279,10 @@ function StorefrontFooter({
         >
             <div className="mx-auto grid w-full max-w-6xl gap-10 px-4 py-12 lg:grid-cols-[1.2fr_2fr]">
                 <div className="grid content-start gap-4">
-                    <div className="text-base font-semibold text-neutral-950 dark:text-white" style={{ color: 'inherit' }}>
+                    <div
+                        className="text-base font-semibold text-neutral-950 dark:text-white"
+                        style={{ color: 'inherit' }}
+                    >
                         {websiteName}
                     </div>
                     {footer?.description && (
@@ -291,8 +294,12 @@ function StorefrontFooter({
                         <div className="grid gap-2 text-sm">
                             {footer.contact.map((row, index) => (
                                 <div key={`${row.label}-${index}`}>
-                                    <span className="font-medium">{row.label}: </span>
-                                    <span className="opacity-80">{row.value}</span>
+                                    <span className="font-medium">
+                                        {row.label}:{' '}
+                                    </span>
+                                    <span className="opacity-80">
+                                        {row.value}
+                                    </span>
                                 </div>
                             ))}
                         </div>
@@ -303,7 +310,7 @@ function StorefrontFooter({
                                 <FooterLink
                                     key={`${social.platform}-${index}`}
                                     href={social.url}
-                                    className="rounded-full border border-current px-3 py-1 text-xs font-semibold uppercase tracking-[0.18em] opacity-80 transition hover:opacity-100"
+                                    className="rounded-full border border-current px-3 py-1 text-xs font-semibold tracking-[0.18em] uppercase opacity-80 transition hover:opacity-100"
                                 >
                                     {social.platform}
                                 </FooterLink>
@@ -315,9 +322,12 @@ function StorefrontFooter({
                 {footer?.columns.length ? (
                     <div className="grid gap-8 sm:grid-cols-2 lg:grid-cols-3">
                         {footer.columns.map((column, index) => (
-                            <div key={`${column.title}-${index}`} className="grid content-start gap-3">
+                            <div
+                                key={`${column.title}-${index}`}
+                                className="grid content-start gap-3"
+                            >
                                 {column.title && (
-                                    <h2 className="text-xs font-semibold uppercase tracking-[0.22em] text-red-700 dark:text-red-400">
+                                    <h2 className="text-xs font-semibold tracking-[0.22em] text-red-700 uppercase dark:text-red-400">
                                         {column.title}
                                     </h2>
                                 )}
@@ -360,7 +370,12 @@ function FooterLink({
 
     if (/^(https?:|mailto:|tel:)/.test(href)) {
         return (
-            <a href={href} className={className} target="_blank" rel="noreferrer">
+            <a
+                href={href}
+                className={className}
+                target="_blank"
+                rel="noreferrer"
+            >
                 {children}
             </a>
         );

@@ -39,6 +39,9 @@ class StoreStoreRequest extends FormRequest
             'sort_order' => ['integer', 'min:0'],
             'domains' => ['array', $this->uniqueDomainsRule()],
             'domains.*' => ['string', 'max:255', 'regex:/^[a-z0-9.\-]+$/i', 'distinct'],
+            'logo_file' => ['nullable', 'image', 'mimes:png,jpg,jpeg,webp,svg', 'max:2048'],
+            'logo_media_id' => ['nullable', 'integer', 'exists:media,id'],
+            'remove_logo' => ['nullable', 'boolean'],
         ];
     }
 

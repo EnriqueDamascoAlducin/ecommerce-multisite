@@ -5,9 +5,12 @@ namespace App\Http\Controllers\Admin;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Admin\StoreStoreRequest;
 use App\Http\Requests\Admin\UpdateStoreRequest;
+use App\Models\Media;
 use App\Models\Store;
 use App\Models\Website;
 use App\Services\AuditLogger;
+use App\Services\MediaService;
+use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
@@ -16,7 +19,10 @@ use Inertia\Response;
 
 class StoreController extends Controller
 {
-    public function __construct(private readonly AuditLogger $auditLogger) {}
+    public function __construct(
+        private readonly AuditLogger $auditLogger,
+        private readonly MediaService $mediaService,
+    ) {}
 
     public function index(): Response
     {
@@ -45,6 +51,7 @@ class StoreController extends Controller
     {
         return Inertia::render('admin/stores/create', [
             'websites' => $this->websiteOptions(),
+            'availableImages' => $this->availableImages(),
         ]);
     }
 
@@ -56,6 +63,7 @@ class StoreController extends Controller
 
             $this->applyDefault($store);
             $this->syncDomains($store, $data['domains'] ?? []);
+            $this->persistLogo($store, $request);
 
             return $store;
         });
@@ -67,12 +75,17 @@ class StoreController extends Controller
 
     public function edit(Store $store): Response
     {
+        $store->loadMissing('media');
+        $logo = $store->primaryMedia('logo');
+
         return Inertia::render('admin/stores/edit', [
             'store' => [
                 ...$store->only(['id', 'website_id', 'code', 'name', 'is_default', 'is_active', 'sort_order']),
                 'domains' => $store->domains()->orderByDesc('is_primary')->pluck('host'),
+                'logo' => $logo ? ['id' => $logo->id, 'url' => $logo->url] : null,
             ],
             'websites' => $this->websiteOptions(),
+            'availableImages' => $this->availableImages(),
         ]);
     }
 
@@ -84,6 +97,7 @@ class StoreController extends Controller
 
             $this->applyDefault($store);
             $this->syncDomains($store, $data['domains'] ?? []);
+            $this->persistLogo($store, $request);
         });
 
         $this->auditLogger->log('store.updated', $store, "Store {$store->code} actualizado");
@@ -146,6 +160,56 @@ class StoreController extends Controller
                 'is_primary' => $index === 0,
             ]);
         }
+    }
+
+    /**
+     * Resuelve el logo de la tienda: subida directa, selección de biblioteca,
+     * eliminación, o sin cambios.
+     */
+    private function persistLogo(Store $store, FormRequest $request): void
+    {
+        if ($request->hasFile('logo_file')) {
+            $media = $this->mediaService->store(
+                $request->file('logo_file'),
+                'logo',
+                Media::VISIBILITY_PUBLIC,
+                $request->user()?->id,
+            );
+            $this->auditLogger->log('media.uploaded', $media, "Archivo {$media->name} subido");
+            $store->syncMediaCollection([$media->id], 'logo');
+
+            return;
+        }
+
+        if ($request->filled('logo_media_id')) {
+            $store->syncMediaCollection([(int) $request->input('logo_media_id')], 'logo');
+
+            return;
+        }
+
+        if ($request->boolean('remove_logo')) {
+            $store->syncMediaCollection([], 'logo');
+        }
+    }
+
+    /**
+     * Imágenes públicas de la biblioteca, para el selector de logo.
+     *
+     * @return list<array{id: int, url: string, name: string}>
+     */
+    private function availableImages(): array
+    {
+        return Media::query()
+            ->where('is_image', true)
+            ->where('visibility', Media::VISIBILITY_PUBLIC)
+            ->latest()
+            ->get()
+            ->map(fn (Media $media) => [
+                'id' => $media->id,
+                'url' => $media->url,
+                'name' => $media->name,
+            ])
+            ->all();
     }
 
     /**

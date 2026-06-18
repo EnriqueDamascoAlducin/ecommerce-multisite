@@ -451,6 +451,9 @@ test('hero can be saved with slides and strips resolved media objects', function
                 'eyebrow' => 'Campaña',
                 'title' => 'Primer slide',
                 'subtitle' => 'Subtitulo uno',
+                'overlay_enabled' => true,
+                'overlay_color' => '#123456',
+                'overlay_opacity' => 62,
                 'buttons' => [
                     ['label' => 'Ver ofertas', 'url' => '/ofertas'],
                     ['label' => 'Catalogo', 'url' => '/catalogo'],
@@ -476,6 +479,9 @@ test('hero can be saved with slides and strips resolved media objects', function
         ->and($heroSettings['slides'][0]['media_id'])->toBe($first->id)
         ->and($heroSettings['slides'][0]['title'])->toBe('Primer slide')
         ->and($heroSettings['slides'][0]['subtitle'])->toBe('Subtitulo uno')
+        ->and($heroSettings['slides'][0]['overlay_enabled'])->toBeTrue()
+        ->and($heroSettings['slides'][0]['overlay_color'])->toBe('#123456')
+        ->and($heroSettings['slides'][0]['overlay_opacity'])->toBe(62)
         ->and($heroSettings['slides'][0]['buttons'][0]['label'])->toBe('Ver ofertas')
         ->and($heroSettings['slides'][0])->not->toHaveKey('media')
         ->and($heroSettings['slides'][1]['media_id'])->toBe($second->id)
