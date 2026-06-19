@@ -7,6 +7,7 @@ use App\Domain\Catalog\ConfigurableProductService;
 use App\Domain\Catalog\ProductPricingService;
 use App\Domain\Inventory\StockAvailabilityChecker;
 use App\Domain\Store\StoreContext;
+use App\Domain\Storefront\HtmlSanitizer;
 use App\Domain\Storefront\StorefrontPagePresenter;
 use App\Http\Controllers\Controller;
 use App\Models\Attribute;
@@ -181,8 +182,8 @@ class StorefrontController extends Controller
             'sku' => $product->sku,
             'name' => $product->name,
             'slug' => $product->slug,
-            'short_description' => $product->short_description,
-            'description' => $product->description,
+            'short_description' => HtmlSanitizer::clean($product->short_description) ?: null,
+            'description' => HtmlSanitizer::clean($product->description) ?: null,
             'type' => $product->type,
             'price' => match (true) {
                 $product->isConfigurable() => $this->configurable->priceForConfigurable($product, $store->id)

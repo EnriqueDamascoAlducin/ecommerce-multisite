@@ -43,6 +43,13 @@ test('the home shows products active in the store', function () {
         ->assertInertia(fn ($page) => $page->component('storefront/home')->has('featured', 2));
 });
 
+test('the storefront ignores the admin dark appearance preference', function () {
+    $this->withCookie('appearance', 'dark')
+        ->get(route('home'))
+        ->assertOk()
+        ->assertDontSee('class="dark"', false);
+});
+
 test('the home excludes products not enabled in the store', function () {
     publishedProduct($this->store);
 
@@ -274,6 +281,20 @@ test('the product page shows the store-specific price', function () {
         ->assertInertia(fn ($page) => $page
             ->component('storefront/product')
             ->where('product.price.effective_price', '79.90'));
+});
+
+test('the product page exposes sanitized rich text descriptions', function () {
+    $product = publishedProduct($this->store, [
+        'short_description' => '<p><strong>Resumen</strong><script>alert(1)</script></p>',
+        'description' => '<h2>Detalles</h2><p>Contenido <em>formateado</em>.</p>',
+    ]);
+
+    $this->get(route('storefront.product', $product->slug))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->component('storefront/product')
+            ->where('product.short_description', '<p><strong>Resumen</strong></p>')
+            ->where('product.description', '<h2>Detalles</h2><p>Contenido <em>formateado</em>.</p>'));
 });
 
 test('the product page exposes ordered upsell and cross sell products', function () {

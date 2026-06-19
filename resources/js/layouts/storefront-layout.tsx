@@ -57,6 +57,20 @@ export default function StorefrontLayout({
     }, [flash.success, flash.error]);
 
     useEffect(() => {
+        const root = document.documentElement;
+        const wasDark = root.classList.contains('dark');
+        const previousColorScheme = root.style.colorScheme;
+
+        root.classList.remove('dark');
+        root.style.colorScheme = 'light';
+
+        return () => {
+            root.classList.toggle('dark', wasDark);
+            root.style.colorScheme = previousColorScheme;
+        };
+    }, []);
+
+    useEffect(() => {
         if (!store || !('serviceWorker' in navigator)) {
             return;
         }
@@ -67,7 +81,7 @@ export default function StorefrontLayout({
     }, [serviceWorkerUrl, store]);
 
     return (
-        <div className="flex min-h-screen flex-col bg-white text-neutral-900 dark:bg-neutral-950 dark:text-neutral-100">
+        <div className="flex min-h-screen flex-col bg-white text-neutral-900 scheme-light">
             {store && (
                 <Head>
                     <link

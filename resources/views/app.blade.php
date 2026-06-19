@@ -1,5 +1,6 @@
+@php($isStorefront = str_starts_with($page['component'] ?? '', 'storefront/'))
 <!DOCTYPE html>
-<html lang="{{ str_replace('_', '-', app()->getLocale()) }}" @class(['dark' => ($appearance ?? 'system') == 'dark'])>
+<html lang="{{ str_replace('_', '-', app()->getLocale()) }}" @class(['dark' => ! $isStorefront && ($appearance ?? 'system') == 'dark'])>
     <head>
         <meta charset="utf-8">
         <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -8,8 +9,9 @@
         <script>
             (function() {
                 const appearance = '{{ $appearance ?? "system" }}';
+                const isStorefront = @json($isStorefront);
 
-                if (appearance === 'system') {
+                if (!isStorefront && appearance === 'system') {
                     const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
 
                     if (prefersDark) {
