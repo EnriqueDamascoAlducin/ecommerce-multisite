@@ -17,6 +17,7 @@ use App\Http\Controllers\Admin\OrderController;
 use App\Http\Controllers\Admin\PaymentSettingsController;
 use App\Http\Controllers\Admin\PermissionController;
 use App\Http\Controllers\Admin\ProductController;
+use App\Http\Controllers\Admin\ProductImportController;
 use App\Http\Controllers\Admin\ProductLabelController;
 use App\Http\Controllers\Admin\ProductVariantController;
 use App\Http\Controllers\Admin\PromotionController;
@@ -78,6 +79,9 @@ Route::middleware(['auth', 'verified'])->prefix('admin')->name('admin.')->group(
     // Catálogo: productos simples
     Route::middleware('permission:catalog.products.view')->group(function () {
         Route::get('products', [ProductController::class, 'index'])->name('products.index');
+        Route::get('products/import', [ProductImportController::class, 'create'])->middleware('permission:catalog.products.create')->name('products.import.create');
+        Route::post('products/import/validate', [ProductImportController::class, 'validateUpload'])->middleware('permission:catalog.products.create')->name('products.import.validate');
+        Route::post('products/import/confirm', [ProductImportController::class, 'confirm'])->middleware('permission:catalog.products.create')->name('products.import.confirm');
         Route::get('products/create', [ProductController::class, 'create'])->middleware('permission:catalog.products.create')->name('products.create');
         Route::post('products', [ProductController::class, 'store'])->middleware('permission:catalog.products.create')->name('products.store');
         Route::get('products/{product}/edit', [ProductController::class, 'edit'])->middleware('permission:catalog.products.edit')->name('products.edit');

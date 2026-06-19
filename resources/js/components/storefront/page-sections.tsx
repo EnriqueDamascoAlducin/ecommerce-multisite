@@ -46,6 +46,12 @@ export type CmsItem = {
     cta_url?: string;
 };
 export type CmsButton = { label?: string; url?: string };
+export type CmsBrand = {
+    name?: string;
+    media?: CmsMedia;
+    media_id?: number | null;
+};
+export type CmsBrandValue = string | CmsBrand;
 export type CmsHeroSlide = {
     media?: CmsMedia;
     media_id?: number | null;
@@ -346,7 +352,7 @@ function FeatureCards({ section }: { section: CmsSection }) {
 
 function BrandStrip({ section }: { section: CmsSection }) {
     const settings = section.settings;
-    const brands = arrayValue<string>(settings.brands);
+    const brands = arrayValue<CmsBrandValue>(settings.brands).map(brandValue);
 
     return (
         <section
@@ -362,10 +368,18 @@ function BrandStrip({ section }: { section: CmsSection }) {
                 <div className="mt-10 flex flex-wrap justify-center gap-5">
                     {brands.map((brand) => (
                         <div
-                            key={brand}
-                            className="min-w-36 rounded bg-neutral-200 px-6 py-3 text-center text-xs font-semibold tracking-wide text-neutral-600 dark:bg-neutral-800 dark:text-neutral-300"
+                            key={`${brand.name}-${brand.media_id ?? 'text'}`}
+                            className="flex min-h-16 min-w-36 items-center justify-center rounded border border-neutral-200 bg-white px-6 py-3 text-center text-xs font-semibold tracking-wide text-neutral-600 shadow-sm shadow-neutral-950/5 dark:border-neutral-800 dark:bg-neutral-900 dark:text-neutral-300"
                         >
-                            {brand}
+                            {brand.media?.url ? (
+                                <img
+                                    src={brand.media.url}
+                                    alt={brand.media.alt ?? brand.name ?? ''}
+                                    className="max-h-10 max-w-32 object-contain"
+                                />
+                            ) : (
+                                brand.name
+                            )}
                         </div>
                     ))}
                 </div>
@@ -894,6 +908,18 @@ function overlayOpacity(value: unknown): number {
 
 function arrayValue<T>(value: unknown): T[] {
     return Array.isArray(value) ? (value as T[]) : [];
+}
+
+function brandValue(value: CmsBrandValue): CmsBrand {
+    if (typeof value === 'string') {
+        return { name: value, media_id: null };
+    }
+
+    return {
+        name: value.name ?? '',
+        media_id: value.media_id ?? null,
+        media: value.media,
+    };
 }
 
 function heroSlideHasContent(slide: CmsHeroSlide): boolean {

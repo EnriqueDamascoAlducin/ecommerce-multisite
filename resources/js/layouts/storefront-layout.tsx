@@ -28,6 +28,18 @@ export default function StorefrontLayout({
     const headerActionClassName = hasCustomHeaderTextColor
         ? 'transition hover:opacity-80'
         : 'text-neutral-600 transition hover:text-neutral-900 dark:text-neutral-400 dark:hover:text-neutral-100';
+    const hasCustomHeaderColors = Boolean(
+        colors?.header_text_color || colors?.header_background_color,
+    );
+    const headerSearchIconClassName = hasCustomHeaderColors
+        ? 'text-current opacity-60'
+        : 'text-neutral-400';
+    const headerSearchInputClassName = cn(
+        'w-full rounded-full border py-2 pr-4 pl-9 text-sm outline-none',
+        hasCustomHeaderColors
+            ? 'border-current/25 bg-current/10 text-current placeholder-current/60 caret-current focus:border-current/50 focus:bg-current/15'
+            : 'border-neutral-300 bg-neutral-50 focus:border-neutral-500 focus:bg-white dark:border-neutral-700 dark:bg-neutral-900 dark:focus:bg-neutral-950',
+    );
     const [searchQuery, setSearchQuery] = useState('');
     const pwaBase = store?.pathPrefix ? `/${store.pathPrefix}` : '';
     const manifestUrl = `${pwaBase}/manifest.webmanifest`;
@@ -126,13 +138,18 @@ export default function StorefrontLayout({
                             }}
                             className="relative"
                         >
-                            <Search className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-neutral-400" />
+                            <Search
+                                className={cn(
+                                    'pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2',
+                                    headerSearchIconClassName,
+                                )}
+                            />
                             <input
                                 type="text"
                                 value={searchQuery}
                                 onChange={(e) => setSearchQuery(e.target.value)}
                                 placeholder="Buscar por nombre o SKU"
-                                className="w-full rounded-full border border-neutral-300 bg-neutral-50 py-2 pr-4 pl-9 text-sm outline-none focus:border-neutral-500 focus:bg-white dark:border-neutral-700 dark:bg-neutral-900 dark:focus:bg-neutral-950"
+                                className={headerSearchInputClassName}
                             />
                         </form>
                     </div>
@@ -195,13 +212,18 @@ export default function StorefrontLayout({
                         }}
                         className="relative"
                     >
-                        <Search className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-neutral-400" />
+                        <Search
+                            className={cn(
+                                'pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2',
+                                headerSearchIconClassName,
+                            )}
+                        />
                         <input
                             type="text"
                             value={searchQuery}
                             onChange={(e) => setSearchQuery(e.target.value)}
                             placeholder="Buscar por nombre o SKU"
-                            className="w-full rounded-full border border-neutral-300 bg-neutral-50 py-2 pr-4 pl-9 text-sm outline-none focus:border-neutral-500 focus:bg-white dark:border-neutral-700 dark:bg-neutral-900 dark:focus:bg-neutral-950"
+                            className={headerSearchInputClassName}
                         />
                     </form>
                 </div>

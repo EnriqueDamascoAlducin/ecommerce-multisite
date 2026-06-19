@@ -7,6 +7,7 @@ import {
     ImageIcon,
     Pencil,
     Search,
+    Upload,
     X,
 } from 'lucide-react';
 import type { ReactNode } from 'react';
@@ -32,6 +33,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { Input } from '@/components/ui/input';
 import { usePermissions } from '@/hooks/use-permissions';
+import productImport from '@/routes/admin/products/import';
 import products from '@/routes/admin/products';
 
 const COLUMN_STORAGE_KEY = 'admin.products.columns';
@@ -247,9 +249,17 @@ export default function ProductsIndex({
                     </p>
                 </div>
                 {can('catalog.products.create') && (
-                    <Button asChild>
-                        <Link href={products.create()}>Nuevo producto</Link>
-                    </Button>
+                    <div className="flex flex-wrap gap-2">
+                        <Button variant="outline" asChild>
+                            <Link href={productImport.create()}>
+                                <Upload className="size-4" />
+                                Importar CSV
+                            </Link>
+                        </Button>
+                        <Button asChild>
+                            <Link href={products.create()}>Nuevo producto</Link>
+                        </Button>
+                    </div>
                 )}
             </div>
 
@@ -529,7 +539,9 @@ export default function ProductsIndex({
                                                                 ? 'Ocultar variantes'
                                                                 : 'Ver variantes'
                                                         }
-                                                        aria-expanded={isExpanded}
+                                                        aria-expanded={
+                                                            isExpanded
+                                                        }
                                                         className="flex size-6 cursor-pointer items-center justify-center rounded text-neutral-500 transition hover:bg-neutral-200 hover:text-neutral-900 dark:hover:bg-neutral-700 dark:hover:text-neutral-100"
                                                     >
                                                         {isExpanded ? (
@@ -953,7 +965,9 @@ function ProductCell({
         if (!onInlineSave) {
             return (
                 <Badge
-                    variant={product.status === 'active' ? 'default' : 'outline'}
+                    variant={
+                        product.status === 'active' ? 'default' : 'outline'
+                    }
                 >
                     {product.status === 'active' ? 'Activo' : 'Inactivo'}
                 </Badge>
@@ -976,7 +990,9 @@ function ProductCell({
 
     if (column.key === 'visibility') {
         if (!onInlineSave) {
-            return <TruncatedText value={visibilityLabel(product.visibility)} />;
+            return (
+                <TruncatedText value={visibilityLabel(product.visibility)} />
+            );
         }
 
         return (

@@ -62,7 +62,7 @@ type SectionSettings = Record<string, FormDataConvertible> & {
     slides?: HeroSlide[];
     items?: BuilderItem[];
     buttons?: BuilderButton[];
-    brands?: string[];
+    brands?: BrandValue[];
     interest_areas?: string[];
     product_ids?: number[];
     display_type?: string;
@@ -113,6 +113,12 @@ type BuilderItem = {
     cta_url?: string;
 };
 type BuilderButton = { label?: string; url?: string };
+type BuilderBrand = {
+    name?: string;
+    media_id?: number | null;
+    media?: CmsMedia;
+};
+type BrandValue = string | BuilderBrand;
 
 const TYPE_ORDER = [
     'hero',
@@ -838,6 +844,7 @@ function SectionPanel({
                         {section.type === 'brand_strip' && (
                             <BrandStripFields
                                 settings={section.settings}
+                                media={media}
                                 setSetting={setSetting}
                             />
                         )}
@@ -1060,10 +1067,11 @@ function FeatureCardsFields({
 
 function BrandStripFields({
     settings,
+    media,
     setSetting,
 }: {
     settings: SectionSettings;
-    media?: MediaOption[];
+    media: MediaOption[];
     setSetting: (key: string, value: FormDataConvertible) => void;
 }) {
     return (
@@ -1088,12 +1096,12 @@ function BrandStripFields({
             </FieldGroup>
             <FieldGroup
                 title="Marcas"
-                description="Lista de nombres visibles como chips."
+                description="Nombre de respaldo e imagen opcional por marca."
                 icon={Sparkles}
             >
-                <StringList
-                    label="Marcas"
-                    value={arrayValue<string>(settings.brands)}
+                <BrandList
+                    media={media}
+                    value={arrayValue<BrandValue>(settings.brands)}
                     onChange={(value) => setSetting('brands', value)}
                 />
             </FieldGroup>
@@ -1984,6 +1992,80 @@ function StringList({
     );
 }
 
+function BrandList({
+    media,
+    value,
+    onChange,
+}: {
+    media: MediaOption[];
+    value: BrandValue[];
+    onChange: (value: BuilderBrand[]) => void;
+}) {
+    const brands = value.map(normalizeBrandValue);
+    const update = (index: number, brand: BuilderBrand) =>
+        onChange(brands.map((row, i) => (i === index ? brand : row)));
+    const remove = (index: number) =>
+        onChange(brands.filter((_, i) => i !== index));
+    const move = (index: number, direction: -1 | 1) =>
+        onChange(moveItem(brands, index, direction));
+
+    return (
+        <div className="space-y-3">
+            <div className="flex items-center justify-between gap-3">
+                <div>
+                    <Label>Marcas</Label>
+                    <p className="mt-1 text-xs text-neutral-500">
+                        {brands.length} marca{brands.length === 1 ? '' : 's'}
+                    </p>
+                </div>
+                <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() =>
+                        onChange([
+                            ...brands,
+                            { name: 'Nueva marca', media_id: null },
+                        ])
+                    }
+                >
+                    <Plus className="size-4" />
+                    Agregar
+                </Button>
+            </div>
+            {brands.map((brand, index) => (
+                <ListCard
+                    key={index}
+                    title={brand.name || `Marca ${index + 1}`}
+                    index={index}
+                    total={brands.length}
+                    badges={[brand.media_id ? 'Imagen' : null]}
+                    onMoveUp={() => move(index, -1)}
+                    onMoveDown={() => move(index, 1)}
+                    onRemove={() => remove(index)}
+                >
+                    <div className="grid gap-4 md:grid-cols-2">
+                        <TextField
+                            label="Nombre"
+                            value={brand.name ?? ''}
+                            onChange={(name) =>
+                                update(index, { ...brand, name })
+                            }
+                        />
+                        <MediaPicker
+                            label="Imagen"
+                            media={media}
+                            value={brand.media_id ?? null}
+                            onChange={(media_id) =>
+                                update(index, { ...brand, media_id })
+                            }
+                        />
+                    </div>
+                </ListCard>
+            ))}
+        </div>
+    );
+}
+
 function ProductList({
     products,
     value,
@@ -2228,19 +2310,29 @@ function PreviewBody({ section }: { section: Section }) {
     }
 
     if (section.type === 'brand_strip') {
-        const brands = arrayValue<string>(section.settings.brands);
+        const brands = arrayValue<BrandValue>(section.settings.brands).map(
+            normalizeBrandValue,
+        );
 
         return (
             <PreviewSurface settings={section.settings}>
                 <PreviewHeading settings={section.settings} />
                 <div className="mt-4 flex flex-wrap justify-center gap-2">
                     {brands.slice(0, 6).map((brand) => (
-                        <span
-                            key={brand}
-                            className="rounded bg-neutral-200 px-3 py-2 text-[10px] font-semibold text-neutral-600 uppercase"
+                        <div
+                            key={`${brand.name}-${brand.media_id ?? 'text'}`}
+                            className="flex min-h-10 min-w-20 items-center justify-center rounded bg-neutral-200 px-3 py-2 text-[10px] font-semibold text-neutral-600 uppercase"
                         >
-                            {brand}
-                        </span>
+                            {brand.media?.url ? (
+                                <img
+                                    src={brand.media.url}
+                                    alt={brand.media.alt ?? brand.name ?? ''}
+                                    className="h-7 max-w-24 object-contain"
+                                />
+                            ) : (
+                                brand.name
+                            )}
+                        </div>
                     ))}
                 </div>
             </PreviewSurface>
@@ -2757,7 +2849,7 @@ function sectionSummary(section: Section): string {
     }
 
     if (section.type === 'brand_strip') {
-        return `${arrayValue<string>(settings.brands).length} marcas`;
+        return `${arrayValue<BrandValue>(settings.brands).length} marcas`;
     }
 
     if (section.type === 'inquiry_form') {
@@ -2832,6 +2924,18 @@ function numberValue(value: unknown): number | null {
 
 function arrayValue<T>(value: unknown): T[] {
     return Array.isArray(value) ? (value as T[]) : [];
+}
+
+function normalizeBrandValue(value: BrandValue): BuilderBrand {
+    if (typeof value === 'string') {
+        return { name: value, media_id: null };
+    }
+
+    return {
+        name: value.name ?? '',
+        media_id: value.media_id ?? null,
+        media: value.media,
+    };
 }
 
 function isHexColor(value: string): boolean {

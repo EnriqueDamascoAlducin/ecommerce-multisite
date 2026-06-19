@@ -149,11 +149,11 @@ class StorefrontHomeTemplate
                 'eyebrow' => 'Trusted Partners',
                 'title' => 'Our Premier Brands',
                 'brands' => [
-                    'CHATTANOOGA',
-                    'BTL MEDICAL',
-                    'DJO GLOBAL',
-                    'GYMNA',
-                    'STIEGELMEYER',
+                    ['name' => 'CHATTANOOGA', 'media_id' => null],
+                    ['name' => 'BTL MEDICAL', 'media_id' => null],
+                    ['name' => 'DJO GLOBAL', 'media_id' => null],
+                    ['name' => 'GYMNA', 'media_id' => null],
+                    ['name' => 'STIEGELMEYER', 'media_id' => null],
                 ],
             ],
         ];

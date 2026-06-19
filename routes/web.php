@@ -41,7 +41,7 @@ Route::post('webhooks/payments/{gateway}/{website?}', [PaymentWebhookController:
     ->name('webhooks.payments');
 
 Route::middleware(['auth', 'verified'])->group(function () {
-    Route::inertia('dashboard', 'dashboard')->name('dashboard');
+    Route::redirect('dashboard', 'admin')->name('dashboard');
 });
 
 require __DIR__.'/admin.php';

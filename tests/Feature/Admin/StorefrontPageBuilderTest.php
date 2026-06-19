@@ -194,7 +194,14 @@ test('page content can be updated with template section settings', function () {
                     'background_color' => '#fafafa',
                     'eyebrow' => 'Partners',
                     'title' => 'Marcas',
-                    'brands' => ['BTL', 'DJO'],
+                    'brands' => [
+                        [
+                            'name' => 'BTL',
+                            'media_id' => $media->id,
+                            'media' => ['id' => $media->id, 'url' => $media->url, 'alt' => null],
+                        ],
+                        ['name' => 'DJO', 'media_id' => null],
+                    ],
                 ],
             ],
             [
@@ -231,7 +238,10 @@ test('page content can be updated with template section settings', function () {
         ->and($sections[StorefrontPageSection::TYPE_BRAND_STRIP]->fresh()->settings['background_color'])->toBe('#fafafa')
         ->and($sections[StorefrontPageSection::TYPE_BRAND_STRIP]->fresh()->settings['eyebrow'])->toBe('Partners')
         ->and($sections[StorefrontPageSection::TYPE_BRAND_STRIP]->fresh()->settings['title'])->toBe('Marcas')
-        ->and($sections[StorefrontPageSection::TYPE_BRAND_STRIP]->fresh()->settings['brands'])->toBe(['BTL', 'DJO'])
+        ->and($sections[StorefrontPageSection::TYPE_BRAND_STRIP]->fresh()->settings['brands'])->toBe([
+            ['name' => 'BTL', 'media_id' => $media->id],
+            ['name' => 'DJO', 'media_id' => null],
+        ])
         ->and($sections[StorefrontPageSection::TYPE_INQUIRY_FORM]->fresh()->settings['background_color'])->toBe('#ffffff')
         ->and($sections[StorefrontPageSection::TYPE_INQUIRY_FORM]->fresh()->settings['title'])->toBe('Cotiza hoy')
         ->and($sections[StorefrontPageSection::TYPE_INQUIRY_FORM]->fresh()->settings['text'])->toBe('Te ayudamos')

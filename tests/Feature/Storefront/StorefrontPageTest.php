@@ -150,6 +150,36 @@ test('media ids are resolved in template section settings', function () {
             ->where('contentPage.sections.0.settings.items.0.media.url', $media->url));
 });
 
+test('brand strip exposes resolved media and text-only brands', function () {
+    $media = Media::factory()->create();
+    $page = StorefrontPage::factory()->create([
+        'store_id' => $this->store->id,
+        'slug' => StorefrontPage::HOME,
+        'is_published' => true,
+    ]);
+
+    StorefrontPageSection::factory()->create([
+        'storefront_page_id' => $page->id,
+        'type' => StorefrontPageSection::TYPE_BRAND_STRIP,
+        'settings' => [
+            'title' => 'Marcas',
+            'brands' => [
+                ['name' => 'BTL', 'media_id' => $media->id],
+                ['name' => 'DJO', 'media_id' => null],
+            ],
+        ],
+    ]);
+
+    $this->get(route('home'))
+        ->assertOk()
+        ->assertInertia(fn ($inertia) => $inertia
+            ->where('contentPage.sections.0.type', StorefrontPageSection::TYPE_BRAND_STRIP)
+            ->where('contentPage.sections.0.settings.brands.0.name', 'BTL')
+            ->where('contentPage.sections.0.settings.brands.0.media.url', $media->url)
+            ->where('contentPage.sections.0.settings.brands.1.name', 'DJO')
+            ->where('contentPage.sections.0.settings.brands.1.media_id', null));
+});
+
 test('hero slides expose resolved media for each slide', function () {
     $first = Media::factory()->create();
     $second = Media::factory()->create();

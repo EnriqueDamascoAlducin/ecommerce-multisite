@@ -270,7 +270,9 @@ class StorefrontPageController extends Controller
             'sections.*.settings.buttons.*.label' => ['nullable', 'string', 'max:255'],
             'sections.*.settings.buttons.*.url' => ['nullable', 'string', 'max:255'],
             'sections.*.settings.brands' => ['nullable', 'array'],
-            'sections.*.settings.brands.*' => ['nullable', 'string', 'max:255'],
+            'sections.*.settings.brands.*' => ['nullable'],
+            'sections.*.settings.brands.*.name' => ['nullable', 'string', 'max:255'],
+            'sections.*.settings.brands.*.media_id' => ['nullable', 'integer', 'exists:media,id'],
             'sections.*.settings.interest_areas' => ['nullable', 'array'],
             'sections.*.settings.interest_areas.*' => ['nullable', 'string', 'max:255'],
             'sections.*.settings.button_label' => ['nullable', 'string', 'max:255'],
@@ -308,10 +310,18 @@ class StorefrontPageController extends Controller
      */
     private function sanitizeSettings(array $settings): array
     {
+        unset($settings['media']);
+
         if (array_key_exists('html', $settings)) {
             $settings['html'] = HtmlSanitizer::clean(
                 is_string($settings['html']) ? $settings['html'] : null,
             );
+        }
+
+        foreach ($settings as $key => $value) {
+            if (is_array($value)) {
+                $settings[$key] = $this->sanitizeSettings($value);
+            }
         }
 
         return $settings;
