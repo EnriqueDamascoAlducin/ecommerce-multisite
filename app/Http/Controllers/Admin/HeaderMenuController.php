@@ -178,7 +178,7 @@ class HeaderMenuController extends Controller
     private function pageOptions(Store $store): Collection
     {
         return StorefrontPage::query()
-            ->where('store_id', $store->id)
+            ->whereHas('stores', fn ($query) => $query->whereKey($store->id))
             ->where('is_published', true)
             ->orderByRaw("CASE WHEN slug = 'home' THEN 0 ELSE 1 END")
             ->orderBy('title')

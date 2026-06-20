@@ -1,11 +1,13 @@
-import { Head, Link, router, useForm } from '@inertiajs/react';
 import type { FormDataConvertible } from '@inertiajs/core';
+import { Head, Link, router, useForm } from '@inertiajs/react';
 import {
     Activity,
     ArrowDown,
     ArrowLeft,
+    ArrowRight,
     ArrowUp,
     BadgeCheck,
+    ChevronDown,
     Eye,
     Grid3X3,
     Heading,
@@ -24,14 +26,9 @@ import {
     Upload,
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
-import {
-    lazy,
-    Suspense,
-    useRef,
-    useState,
-    type ChangeEvent,
-    type CSSProperties,
-} from 'react';
+import { lazy, Suspense, useRef, useState } from 'react';
+import type { ChangeEvent, CSSProperties } from 'react';
+import { ConfirmDialog } from '@/components/confirm-dialog';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
@@ -42,6 +39,11 @@ import {
     CardTitle,
 } from '@/components/ui/card';
 import { Checkbox } from '@/components/ui/checkbox';
+import {
+    Collapsible,
+    CollapsibleContent,
+    CollapsibleTrigger,
+} from '@/components/ui/collapsible';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { cn } from '@/lib/utils';
@@ -87,6 +89,7 @@ type Section = {
 type Page = {
     id: number;
     store_id: number;
+    store_ids: number[];
     title: string;
     slug: string;
     template: string;
@@ -185,6 +188,7 @@ const SECTION_META: Record<
 };
 
 export default function StorefrontPageEdit({
+    stores,
     currentStoreId,
     page,
     media,
@@ -206,13 +210,19 @@ export default function StorefrontPageEdit({
 }) {
     const pageForm = useForm({
         store_id: currentStoreId,
+        store_ids: page.store_ids,
         title: page.title,
         slug: page.slug,
         is_published: page.is_published,
     });
     const [templateKey, setTemplateKey] = useState(page.template);
     const fixedTypes = template.fixedTypes;
-    const extraTypes = template.extraTypes;
+    const extraTypes =
+        pageForm.data.store_ids.length > 1
+            ? template.extraTypes.filter(
+                  (type) => type !== 'recommended_products',
+              )
+            : template.extraTypes;
     const [sections, setSections] = useState<Section[]>(
         sortSections(page.sections).map((section) => ({
             ...section,
@@ -262,11 +272,29 @@ export default function StorefrontPageEdit({
         }
     };
 
+    const toggleStore = (storeId: number, checked: boolean) => {
+        if (isHome) {
+            return;
+        }
+
+        if (!checked && pageForm.data.store_ids.length === 1) {
+            return;
+        }
+
+        pageForm.setData(
+            'store_ids',
+            checked
+                ? [...new Set([...pageForm.data.store_ids, storeId])]
+                : pageForm.data.store_ids.filter((id) => id !== storeId),
+        );
+    };
+
     const savePage = () => {
         setSaving(true);
         const templateChanged = !isHome && templateKey !== page.template;
         const payload = {
             store_id: pageForm.data.store_id,
+            store_ids: pageForm.data.store_ids,
             title: pageForm.data.title,
             is_published: pageForm.data.is_published,
             ...(isHome
@@ -284,6 +312,7 @@ export default function StorefrontPageEdit({
             preserveScroll: true,
             // Switching template re-seeds the layout server-side; reload to
             // pick up the new section structure with real ids.
+            onError: (errors) => pageForm.setError(errors),
             onSuccess: () => {
                 if (templateChanged) {
                     window.location.reload();
@@ -304,6 +333,12 @@ export default function StorefrontPageEdit({
                     query: { store_id: currentStoreId },
                 })}
                 isHome={isHome}
+                stores={stores}
+                storeIds={pageForm.data.store_ids}
+                storeError={pageForm.errors.store_ids}
+                hasRecommendedProducts={sections.some(
+                    (section) => section.type === 'recommended_products',
+                )}
                 title={pageForm.data.title}
                 slug={pageForm.data.slug}
                 isPublished={pageForm.data.is_published}
@@ -317,6 +352,7 @@ export default function StorefrontPageEdit({
                 onPublishedChange={(published) =>
                     pageForm.setData('is_published', published)
                 }
+                onStoreToggle={toggleStore}
                 onSave={savePage}
             >
                 {sections.length > 0 && activeSection ? (
@@ -332,6 +368,7 @@ export default function StorefrontPageEdit({
                             onRemoveSection={removeSection}
                         />
                         <SectionPanel
+                            key={activeSection.id}
                             section={activeSection}
                             media={media}
                             products={products}
@@ -380,6 +417,10 @@ function EditorShell({
     publicUrl,
     backUrl,
     isHome,
+    stores,
+    storeIds,
+    storeError,
+    hasRecommendedProducts,
     title,
     slug,
     isPublished,
@@ -392,12 +433,17 @@ function EditorShell({
     onTitleChange,
     onSlugChange,
     onPublishedChange,
+    onStoreToggle,
     onSave,
 }: {
     pageTitle: string;
     publicUrl: string;
     backUrl: string;
     isHome: boolean;
+    stores: { id: number; label: string }[];
+    storeIds: number[];
+    storeError?: string;
+    hasRecommendedProducts: boolean;
     title: string;
     slug: string;
     isPublished: boolean;
@@ -410,6 +456,7 @@ function EditorShell({
     onTitleChange: (title: string) => void;
     onSlugChange: (slug: string) => void;
     onPublishedChange: (published: boolean) => void;
+    onStoreToggle: (storeId: number, checked: boolean) => void;
     onSave: () => void;
 }) {
     return (
@@ -494,6 +541,44 @@ function EditorShell({
                             Publicada
                         </label>
                     </div>
+
+                    <div className="mt-4">
+                        <Label>Disponible en tiendas</Label>
+                        <div className="mt-2 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+                            {stores.map((store) => (
+                                <label
+                                    key={store.id}
+                                    className="flex min-w-0 items-center gap-2 rounded-md border border-neutral-200 px-3 py-2 text-sm dark:border-neutral-800"
+                                >
+                                    <Checkbox
+                                        checked={storeIds.includes(store.id)}
+                                        disabled={isHome}
+                                        onCheckedChange={(value) =>
+                                            onStoreToggle(
+                                                store.id,
+                                                value === true,
+                                            )
+                                        }
+                                    />
+                                    <span className="truncate">
+                                        {store.label}
+                                    </span>
+                                </label>
+                            ))}
+                        </div>
+                        {storeError && (
+                            <p className="mt-1 text-xs text-red-600">
+                                {storeError}
+                            </p>
+                        )}
+                        {storeIds.length > 1 && hasRecommendedProducts && (
+                            <p className="mt-2 text-xs text-amber-600 dark:text-amber-400">
+                                Retira la seccion de productos recomendados
+                                antes de compartir esta pagina.
+                            </p>
+                        )}
+                    </div>
+
                     {!isHome && (
                         <div className="mt-4 grid gap-2 md:max-w-sm">
                             <SelectField
@@ -749,6 +834,8 @@ function SectionPanel({
 }) {
     const meta = sectionMeta(section.type);
     const Icon = meta.icon;
+    const [activeHeroSlideIndex, setActiveHeroSlideIndex] = useState(0);
+
     const setSetting = (key: string, value: FormDataConvertible) => {
         onSettingsChange({ ...section.settings, [key]: value });
     };
@@ -824,6 +911,8 @@ function SectionPanel({
                             <HeroFields
                                 settings={section.settings}
                                 media={media}
+                                activeSlideIndex={activeHeroSlideIndex}
+                                onActiveSlideChange={setActiveHeroSlideIndex}
                                 setSetting={setSetting}
                             />
                         )}
@@ -889,7 +978,11 @@ function SectionPanel({
                         )}
                     </div>
 
-                    <MiniPreview section={section} />
+                    <MiniPreview
+                        section={section}
+                        media={media}
+                        heroSlideIndex={activeHeroSlideIndex}
+                    />
                 </CardContent>
             </Card>
         </div>
@@ -930,71 +1023,138 @@ function FieldGroup({
 function HeroFields({
     settings,
     media,
+    activeSlideIndex,
+    onActiveSlideChange,
     setSetting,
 }: {
     settings: SectionSettings;
     media: MediaOption[];
+    activeSlideIndex: number;
+    onActiveSlideChange: (index: number) => void;
     setSetting: (key: string, value: FormDataConvertible) => void;
 }) {
+    const slides = arrayValue<HeroSlide>(settings.slides);
+    const hasSlides = slides.length > 0;
+
     return (
         <>
             <FieldGroup
-                title="Contenido principal"
-                description="Texto visible sobre la imagen o fondo del hero."
-                icon={ImageIcon}
-            >
-                <div className="grid gap-4 md:grid-cols-2">
-                    <TextField
-                        label="Etiqueta"
-                        value={text(settings.eyebrow)}
-                        onChange={(value) => setSetting('eyebrow', value)}
-                    />
-                    <TextField
-                        label="Título"
-                        value={text(settings.title)}
-                        onChange={(value) => setSetting('title', value)}
-                    />
-                    <div className="md:col-span-2">
-                        <TextArea
-                            label="Subtítulo"
-                            value={text(settings.subtitle)}
-                            onChange={(value) => setSetting('subtitle', value)}
-                        />
-                    </div>
-                </div>
-            </FieldGroup>
-            <FieldGroup
-                title="Imagen y acciones"
-                description="Fallback para homes antiguos sin slides configurados."
-                icon={Upload}
-            >
-                <MediaPicker
-                    label="Imagen de fondo fallback"
-                    media={media}
-                    value={numberValue(settings.media_id)}
-                    onChange={(value) => setSetting('media_id', value)}
-                />
-                <ButtonList
-                    value={arrayValue<BuilderButton>(settings.buttons)}
-                    onChange={(value) => setSetting('buttons', value)}
-                />
-            </FieldGroup>
-            <FieldGroup
                 title="Slides del hero"
-                description="Hasta 5 campañas con imagen, texto y botones propios. Con 1 slide se muestra fijo; con 2 o más se activa carrusel."
+                description="Hasta 5 campañas. Selecciona una miniatura para editar únicamente ese slide."
                 icon={Layers3}
             >
                 <HeroSlidesList
                     media={media}
                     fallbackSettings={settings}
-                    value={arrayValue<HeroSlide>(settings.slides)}
+                    value={slides}
+                    activeIndex={activeSlideIndex}
+                    onActiveChange={onActiveSlideChange}
                     onChange={(value) => setSetting('slides', value)}
                 />
             </FieldGroup>
+
+            <Collapsible
+                key={hasSlides ? 'slides-configured' : 'fallback-active'}
+                defaultOpen={!hasSlides}
+                className="overflow-hidden rounded-lg border border-neutral-200 bg-white dark:border-neutral-800 dark:bg-neutral-950"
+            >
+                <CollapsibleTrigger asChild>
+                    <button
+                        type="button"
+                        className="group flex w-full items-center gap-3 p-4 text-left transition hover:bg-neutral-50 dark:hover:bg-neutral-900"
+                    >
+                        <span className="flex size-8 shrink-0 items-center justify-center rounded-md bg-neutral-100 text-neutral-600 dark:bg-neutral-900 dark:text-neutral-300">
+                            <Upload className="size-4" />
+                        </span>
+                        <span className="min-w-0 flex-1">
+                            <span className="block text-sm font-semibold">
+                                Configuración heredada
+                            </span>
+                            <span className="mt-1 block text-xs leading-5 text-neutral-500">
+                                Contenido fallback usado sólo cuando no existen
+                                slides.
+                            </span>
+                        </span>
+                        <Badge variant="outline">
+                            {hasSlides ? 'No visible' : 'En uso'}
+                        </Badge>
+                        <ChevronDown className="size-4 shrink-0 transition-transform group-data-[state=open]:rotate-180" />
+                    </button>
+                </CollapsibleTrigger>
+                <CollapsibleContent className="border-t border-neutral-200 p-4 dark:border-neutral-800">
+                    <div className="grid gap-5">
+                        <section>
+                            <div className="mb-3">
+                                <h4 className="text-sm font-semibold">
+                                    Contenido principal
+                                </h4>
+                                <p className="mt-1 text-xs text-neutral-500">
+                                    Texto mostrado únicamente si el hero no
+                                    tiene slides.
+                                </p>
+                            </div>
+                            <div className="grid gap-4 md:grid-cols-2">
+                                <TextField
+                                    label="Etiqueta"
+                                    value={text(settings.eyebrow)}
+                                    onChange={(value) =>
+                                        setSetting('eyebrow', value)
+                                    }
+                                />
+                                <TextField
+                                    label="Título"
+                                    value={text(settings.title)}
+                                    onChange={(value) =>
+                                        setSetting('title', value)
+                                    }
+                                />
+                                <div className="md:col-span-2">
+                                    <TextArea
+                                        label="Subtítulo"
+                                        value={text(settings.subtitle)}
+                                        onChange={(value) =>
+                                            setSetting('subtitle', value)
+                                        }
+                                    />
+                                </div>
+                            </div>
+                        </section>
+
+                        <section className="border-t border-neutral-200 pt-5 dark:border-neutral-800">
+                            <div className="mb-3">
+                                <h4 className="text-sm font-semibold">
+                                    Imagen y acciones
+                                </h4>
+                                <p className="mt-1 text-xs text-neutral-500">
+                                    Imagen y botones usados por el fallback
+                                    heredado.
+                                </p>
+                            </div>
+                            <div className="space-y-4">
+                                <MediaPicker
+                                    label="Imagen de fondo fallback"
+                                    media={media}
+                                    value={numberValue(settings.media_id)}
+                                    onChange={(value) =>
+                                        setSetting('media_id', value)
+                                    }
+                                />
+                                <ButtonList
+                                    value={arrayValue<BuilderButton>(
+                                        settings.buttons,
+                                    )}
+                                    onChange={(value) =>
+                                        setSetting('buttons', value)
+                                    }
+                                />
+                            </div>
+                        </section>
+                    </div>
+                </CollapsibleContent>
+            </Collapsible>
         </>
     );
 }
-
 function SpecialtyGridFields({
     settings,
     media,
@@ -1679,20 +1839,30 @@ function HeroSlidesList({
     media,
     fallbackSettings,
     value,
+    activeIndex,
+    onActiveChange,
     onChange,
 }: {
     media: MediaOption[];
     fallbackSettings: SectionSettings;
     value: HeroSlide[];
+    activeIndex: number;
+    onActiveChange: (index: number) => void;
     onChange: (value: HeroSlide[]) => void;
 }) {
     const slides = value.slice(0, 5);
+    const selectedIndex = Math.min(activeIndex, Math.max(slides.length - 1, 0));
+    const activeSlide = slides[selectedIndex];
+    const [pendingDeleteIndex, setPendingDeleteIndex] = useState<number | null>(
+        null,
+    );
+
     const add = () => {
         if (slides.length >= 5) {
             return;
         }
 
-        onChange([
+        const next = [
             ...slides,
             {
                 media_id: null,
@@ -1706,143 +1876,375 @@ function HeroSlidesList({
                 overlay_color: '#7f1d1d',
                 overlay_opacity: 75,
             },
-        ]);
+        ];
+
+        onChange(next);
+        onActiveChange(next.length - 1);
     };
-    const update = (index: number, slide: HeroSlide) =>
-        onChange(slides.map((row, i) => (i === index ? slide : row)));
-    const remove = (index: number) =>
-        onChange(slides.filter((_, i) => i !== index));
-    const move = (index: number, direction: -1 | 1) =>
-        onChange(moveItem(slides, index, direction));
+
+    const update = (slide: HeroSlide) =>
+        onChange(
+            slides.map((row, index) => (index === selectedIndex ? slide : row)),
+        );
+
+    const move = (direction: -1 | 1) => {
+        const nextIndex = selectedIndex + direction;
+
+        if (nextIndex < 0 || nextIndex >= slides.length) {
+            return;
+        }
+
+        onChange(moveItem(slides, selectedIndex, direction));
+        onActiveChange(nextIndex);
+    };
+
+    const confirmDelete = () => {
+        if (pendingDeleteIndex === null) {
+            return;
+        }
+
+        const next = slides.filter((_, index) => index !== pendingDeleteIndex);
+        onChange(next);
+        onActiveChange(
+            next.length === 0
+                ? 0
+                : Math.min(pendingDeleteIndex, next.length - 1),
+        );
+        setPendingDeleteIndex(null);
+    };
 
     return (
-        <div className="space-y-3">
-            <div className="flex items-center justify-between gap-3">
-                <div>
-                    <Label>Slides</Label>
-                    <p className="mt-1 text-xs text-neutral-500">
-                        {slides.length === 0
-                            ? 'Sin slides: se usa el contenido fallback.'
-                            : slides.length === 1
-                              ? '1 slide: se mostrara como hero fijo.'
-                              : `${slides.length} slides: se mostraran como carrusel.`}
-                    </p>
+        <>
+            <div className="space-y-4">
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                    <div>
+                        <Label>Slides</Label>
+                        <p className="mt-1 text-xs text-neutral-500">
+                            {slides.length === 0
+                                ? 'Sin slides: se usa la configuración heredada.'
+                                : slides.length === 1
+                                  ? '1 slide: se mostrará como hero fijo.'
+                                  : `${slides.length} slides: se mostrarán como carrusel.`}
+                        </p>
+                    </div>
+                    <Button
+                        variant="outline"
+                        size="sm"
+                        disabled={slides.length >= 5}
+                        onClick={add}
+                    >
+                        <Plus className="size-4" />
+                        Agregar slide
+                    </Button>
                 </div>
-                <Button
-                    variant="outline"
-                    size="sm"
-                    disabled={slides.length >= 5}
-                    onClick={add}
-                >
-                    <Plus className="size-4" />
-                    Agregar slide
-                </Button>
+
+                {slides.length === 0 ? (
+                    <div className="rounded-lg border border-dashed border-neutral-300 bg-neutral-50 px-4 py-8 text-center dark:border-neutral-700 dark:bg-neutral-900">
+                        <ImageIcon className="mx-auto size-8 text-neutral-400" />
+                        <p className="mt-3 text-sm font-medium">
+                            Aún no hay slides configurados
+                        </p>
+                        <p className="mx-auto mt-1 max-w-sm text-xs leading-5 text-neutral-500">
+                            El primer slide copiará el contenido y los botones
+                            de la configuración heredada.
+                        </p>
+                        <Button
+                            type="button"
+                            size="sm"
+                            className="mt-4"
+                            onClick={add}
+                        >
+                            <Plus className="size-4" />
+                            Crear primer slide
+                        </Button>
+                    </div>
+                ) : (
+                    <>
+                        <div
+                            role="tablist"
+                            aria-label="Slides del hero"
+                            className="flex max-w-full gap-2 overflow-x-auto pb-2"
+                        >
+                            {slides.map((slide, index) => {
+                                const selectedMedia =
+                                    slide.media ??
+                                    media.find(
+                                        (item) => item.id === slide.media_id,
+                                    );
+
+                                return (
+                                    <button
+                                        key={index}
+                                        type="button"
+                                        role="tab"
+                                        aria-selected={index === selectedIndex}
+                                        onClick={() => onActiveChange(index)}
+                                        className={cn(
+                                            'w-36 shrink-0 overflow-hidden rounded-md border bg-white text-left transition dark:bg-neutral-950',
+                                            index === selectedIndex
+                                                ? 'border-red-800 ring-2 ring-red-800/20'
+                                                : 'border-neutral-200 hover:border-neutral-400 dark:border-neutral-800',
+                                        )}
+                                    >
+                                        <span className="relative flex aspect-[16/9] items-center justify-center overflow-hidden bg-neutral-100 dark:bg-neutral-900">
+                                            {selectedMedia?.url ? (
+                                                <img
+                                                    src={selectedMedia.url}
+                                                    alt=""
+                                                    className="size-full object-cover"
+                                                />
+                                            ) : (
+                                                <ImageIcon className="size-6 text-neutral-400" />
+                                            )}
+                                            <Badge className="absolute top-1 left-1 h-5 min-w-5 justify-center px-1 text-[10px]">
+                                                {index + 1}
+                                            </Badge>
+                                        </span>
+                                        <span className="block p-2">
+                                            <span className="block truncate text-xs font-semibold">
+                                                {slide.title ||
+                                                    `Slide ${index + 1}`}
+                                            </span>
+                                            <span className="mt-0.5 block text-[10px] text-neutral-500">
+                                                {index === 0
+                                                    ? 'Inicial'
+                                                    : 'Carrusel'}
+                                            </span>
+                                        </span>
+                                    </button>
+                                );
+                            })}
+                        </div>
+
+                        {activeSlide && (
+                            <div className="border-t border-neutral-200 pt-4 dark:border-neutral-800">
+                                <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+                                    <div className="min-w-0">
+                                        <p className="text-xs font-medium text-red-800 dark:text-red-300">
+                                            Editando slide {selectedIndex + 1}{' '}
+                                            de {slides.length}
+                                        </p>
+                                        <h4 className="mt-1 truncate text-base font-semibold">
+                                            {activeSlide.title ||
+                                                `Slide ${selectedIndex + 1}`}
+                                        </h4>
+                                    </div>
+                                    <div className="flex items-center gap-1">
+                                        <Button
+                                            type="button"
+                                            variant="outline"
+                                            size="icon"
+                                            onClick={() => move(-1)}
+                                            disabled={selectedIndex === 0}
+                                            title="Mover a la izquierda"
+                                        >
+                                            <ArrowLeft className="size-4" />
+                                        </Button>
+                                        <Button
+                                            type="button"
+                                            variant="outline"
+                                            size="icon"
+                                            onClick={() => move(1)}
+                                            disabled={
+                                                selectedIndex ===
+                                                slides.length - 1
+                                            }
+                                            title="Mover a la derecha"
+                                        >
+                                            <ArrowRight className="size-4" />
+                                        </Button>
+                                        <Button
+                                            type="button"
+                                            variant="destructive"
+                                            size="icon"
+                                            onClick={() =>
+                                                setPendingDeleteIndex(
+                                                    selectedIndex,
+                                                )
+                                            }
+                                            title="Eliminar slide"
+                                        >
+                                            <Trash2 className="size-4" />
+                                        </Button>
+                                    </div>
+                                </div>
+
+                                <div className="grid gap-5">
+                                    <section>
+                                        <h5 className="mb-3 text-xs font-semibold tracking-wide text-neutral-500 uppercase">
+                                            Imagen
+                                        </h5>
+                                        <MediaPicker
+                                            label="Imagen del slide"
+                                            media={media}
+                                            value={activeSlide.media_id ?? null}
+                                            onChange={(
+                                                media_id,
+                                                selectedMedia,
+                                            ) =>
+                                                update({
+                                                    ...activeSlide,
+                                                    media_id,
+                                                    media: selectedMedia
+                                                        ? {
+                                                              id: selectedMedia.id,
+                                                              url: selectedMedia.url,
+                                                              alt: selectedMedia.label,
+                                                          }
+                                                        : null,
+                                                })
+                                            }
+                                        />
+                                    </section>
+
+                                    <section className="border-t border-neutral-200 pt-5 dark:border-neutral-800">
+                                        <h5 className="mb-3 text-xs font-semibold tracking-wide text-neutral-500 uppercase">
+                                            Contenido
+                                        </h5>
+                                        <div className="grid gap-4 md:grid-cols-2">
+                                            <TextField
+                                                label="Etiqueta"
+                                                value={
+                                                    activeSlide.eyebrow ?? ''
+                                                }
+                                                onChange={(eyebrow) =>
+                                                    update({
+                                                        ...activeSlide,
+                                                        eyebrow,
+                                                    })
+                                                }
+                                            />
+                                            <TextField
+                                                label="Título"
+                                                value={activeSlide.title ?? ''}
+                                                onChange={(title) =>
+                                                    update({
+                                                        ...activeSlide,
+                                                        title,
+                                                    })
+                                                }
+                                            />
+                                            <div className="md:col-span-2">
+                                                <TextArea
+                                                    label="Subtítulo"
+                                                    value={
+                                                        activeSlide.subtitle ??
+                                                        ''
+                                                    }
+                                                    onChange={(subtitle) =>
+                                                        update({
+                                                            ...activeSlide,
+                                                            subtitle,
+                                                        })
+                                                    }
+                                                />
+                                            </div>
+                                        </div>
+                                    </section>
+
+                                    <section className="border-t border-neutral-200 pt-5 dark:border-neutral-800">
+                                        <h5 className="mb-3 text-xs font-semibold tracking-wide text-neutral-500 uppercase">
+                                            Opacidad
+                                        </h5>
+                                        <div className="grid gap-3">
+                                            <label className="flex items-center gap-2 text-sm">
+                                                <Checkbox
+                                                    checked={
+                                                        activeSlide.overlay_enabled !==
+                                                        false
+                                                    }
+                                                    onCheckedChange={(
+                                                        checked,
+                                                    ) =>
+                                                        update({
+                                                            ...activeSlide,
+                                                            overlay_enabled:
+                                                                checked ===
+                                                                true,
+                                                        })
+                                                    }
+                                                />
+                                                Aplicar opacidad sobre la imagen
+                                            </label>
+                                            <div className="grid gap-3 md:grid-cols-[1fr_12rem]">
+                                                <ColorField
+                                                    label="Color de opacidad"
+                                                    value={
+                                                        activeSlide.overlay_color ??
+                                                        '#7f1d1d'
+                                                    }
+                                                    onChange={(overlay_color) =>
+                                                        update({
+                                                            ...activeSlide,
+                                                            overlay_color,
+                                                        })
+                                                    }
+                                                />
+                                                <RangeField
+                                                    label="Opacidad"
+                                                    value={
+                                                        activeSlide.overlay_opacity ??
+                                                        75
+                                                    }
+                                                    min={0}
+                                                    max={100}
+                                                    disabled={
+                                                        activeSlide.overlay_enabled ===
+                                                        false
+                                                    }
+                                                    onChange={(
+                                                        overlay_opacity,
+                                                    ) =>
+                                                        update({
+                                                            ...activeSlide,
+                                                            overlay_opacity,
+                                                        })
+                                                    }
+                                                />
+                                            </div>
+                                        </div>
+                                    </section>
+
+                                    <section className="border-t border-neutral-200 pt-5 dark:border-neutral-800">
+                                        <h5 className="mb-3 text-xs font-semibold tracking-wide text-neutral-500 uppercase">
+                                            Acciones
+                                        </h5>
+                                        <ButtonList
+                                            value={arrayValue<BuilderButton>(
+                                                activeSlide.buttons,
+                                            )}
+                                            maxItems={2}
+                                            description="Hasta 2 acciones para este slide."
+                                            onChange={(buttons) =>
+                                                update({
+                                                    ...activeSlide,
+                                                    buttons,
+                                                })
+                                            }
+                                        />
+                                    </section>
+                                </div>
+                            </div>
+                        )}
+                    </>
+                )}
             </div>
 
-            {slides.map((slide, index) => (
-                <ListCard
-                    key={index}
-                    title={slide.title || `Slide ${index + 1}`}
-                    index={index}
-                    total={slides.length}
-                    badges={[
-                        index === 0 ? 'Inicial' : null,
-                        slide.media_id ? 'Imagen' : null,
-                    ]}
-                    onMoveUp={() => move(index, -1)}
-                    onMoveDown={() => move(index, 1)}
-                    onRemove={() => remove(index)}
-                >
-                    <div className="grid gap-4 md:grid-cols-2">
-                        <div className="md:col-span-2">
-                            <MediaPicker
-                                label="Imagen del slide"
-                                media={media}
-                                value={slide.media_id ?? null}
-                                onChange={(media_id) =>
-                                    update(index, { ...slide, media_id })
-                                }
-                            />
-                        </div>
-                        <TextField
-                            label="Etiqueta"
-                            value={slide.eyebrow ?? ''}
-                            onChange={(eyebrow) =>
-                                update(index, { ...slide, eyebrow })
-                            }
-                        />
-                        <TextField
-                            label="Titulo"
-                            value={slide.title ?? ''}
-                            onChange={(title) =>
-                                update(index, { ...slide, title })
-                            }
-                        />
-                        <div className="md:col-span-2">
-                            <TextArea
-                                label="Subtitulo"
-                                value={slide.subtitle ?? ''}
-                                onChange={(subtitle) =>
-                                    update(index, { ...slide, subtitle })
-                                }
-                            />
-                        </div>
-                        <div className="grid gap-3 rounded-md border border-neutral-200 bg-white p-3 md:col-span-2 dark:border-neutral-800 dark:bg-neutral-950">
-                            <label className="flex items-center gap-2 text-sm">
-                                <Checkbox
-                                    checked={slide.overlay_enabled !== false}
-                                    onCheckedChange={(checked) =>
-                                        update(index, {
-                                            ...slide,
-                                            overlay_enabled: checked === true,
-                                        })
-                                    }
-                                />
-                                Aplicar opacidad sobre la imagen
-                            </label>
-                            <div className="grid gap-3 md:grid-cols-[1fr_12rem]">
-                                <ColorField
-                                    label="Color de opacidad"
-                                    value={slide.overlay_color ?? '#7f1d1d'}
-                                    onChange={(overlay_color) =>
-                                        update(index, {
-                                            ...slide,
-                                            overlay_color,
-                                        })
-                                    }
-                                />
-                                <RangeField
-                                    label="Opacidad"
-                                    value={slide.overlay_opacity ?? 75}
-                                    min={0}
-                                    max={100}
-                                    disabled={slide.overlay_enabled === false}
-                                    onChange={(overlay_opacity) =>
-                                        update(index, {
-                                            ...slide,
-                                            overlay_opacity,
-                                        })
-                                    }
-                                />
-                            </div>
-                        </div>
-                        <div className="md:col-span-2">
-                            <ButtonList
-                                value={arrayValue<BuilderButton>(slide.buttons)}
-                                maxItems={2}
-                                description="Hasta 2 acciones para este slide."
-                                onChange={(buttons) =>
-                                    update(index, { ...slide, buttons })
-                                }
-                            />
-                        </div>
-                    </div>
-                </ListCard>
-            ))}
-        </div>
+            <ConfirmDialog
+                open={pendingDeleteIndex !== null}
+                onOpenChange={(open) => {
+                    if (!open) {
+                        setPendingDeleteIndex(null);
+                    }
+                }}
+                onConfirm={confirmDelete}
+                title="Eliminar slide"
+                description="El slide y su configuración se quitarán del hero al guardar la página."
+                confirmLabel="Eliminar"
+            />
+        </>
     );
 }
-
 function ButtonList({
     value,
     onChange,
@@ -2183,8 +2585,21 @@ function ProductList({
     );
 }
 
-function MiniPreview({ section }: { section: Section }) {
+function MiniPreview({
+    section,
+    media,
+    heroSlideIndex,
+}: {
+    section: Section;
+    media: MediaOption[];
+    heroSlideIndex: number;
+}) {
     const meta = sectionMeta(section.type);
+    const heroSlides = arrayValue<HeroSlide>(section.settings.slides);
+    const selectedHeroSlide = Math.min(
+        heroSlideIndex,
+        Math.max(heroSlides.length - 1, 0),
+    );
 
     return (
         <aside className="xl:sticky xl:top-32 xl:self-start">
@@ -2193,7 +2608,9 @@ function MiniPreview({ section }: { section: Section }) {
                     <div>
                         <h3 className="text-sm font-semibold">Mini preview</h3>
                         <p className="text-xs text-neutral-500">
-                            Vista ligera de {meta.label.toLowerCase()}.
+                            {section.type === 'hero' && heroSlides.length > 0
+                                ? `Slide ${selectedHeroSlide + 1} de ${heroSlides.length}`
+                                : `Vista ligera de ${meta.label.toLowerCase()}.`}
                         </p>
                     </div>
                     <div className="flex flex-wrap justify-end gap-2">
@@ -2206,33 +2623,81 @@ function MiniPreview({ section }: { section: Section }) {
                         </Badge>
                     </div>
                 </div>
-                <PreviewBody section={section} />
+                <PreviewBody
+                    section={section}
+                    media={media}
+                    heroSlideIndex={selectedHeroSlide}
+                />
             </div>
         </aside>
     );
 }
 
-function PreviewBody({ section }: { section: Section }) {
-    if (section.type === 'hero') {
-        const firstSlide = arrayValue<HeroSlide>(section.settings.slides)[0];
-        const previewSettings = firstSlide
-            ? ({ ...section.settings, ...firstSlide } as SectionSettings)
-            : section.settings;
-        const buttons = arrayValue<BuilderButton>(previewSettings.buttons);
+function HeroMiniPreview({
+    settings,
+    slide,
+    media,
+}: {
+    settings: SectionSettings;
+    slide?: HeroSlide;
+    media: MediaOption[];
+}) {
+    const previewSettings = slide
+        ? ({ ...settings, ...slide } as SectionSettings)
+        : settings;
+    const selectedMedia =
+        slide?.media ??
+        media.find((item) => item.id === numberValue(previewSettings.media_id));
+    const buttons = arrayValue<BuilderButton>(previewSettings.buttons);
+    const overlayEnabled = previewSettings.overlay_enabled !== false;
+    const overlayColor = isHexColor(text(previewSettings.overlay_color))
+        ? text(previewSettings.overlay_color)
+        : '#450a0a';
+    const overlayOpacity = Math.min(
+        Math.max(Number(previewSettings.overlay_opacity ?? 75), 0),
+        100,
+    );
+    const titleColor = text(settings.title_color);
 
-        return (
-            <PreviewSurface
-                settings={previewSettings}
-                className="min-h-56 justify-center text-white"
-            >
+    return (
+        <div
+            className="relative flex min-h-56 flex-col justify-center overflow-hidden rounded-lg border border-neutral-200 bg-neutral-950 p-4 text-white shadow-inner"
+            style={{
+                backgroundColor: text(settings.background_color) || '#171717',
+            }}
+        >
+            {selectedMedia?.url && (
+                <img
+                    src={selectedMedia.url}
+                    alt=""
+                    className="absolute inset-0 size-full object-cover"
+                />
+            )}
+            {overlayEnabled && (
+                <div
+                    className="absolute inset-0"
+                    style={{
+                        backgroundColor: overlayColor,
+                        opacity: overlayOpacity / 100,
+                    }}
+                />
+            )}
+            <div className="relative z-10">
                 <p className="w-fit rounded bg-white/15 px-2 py-1 text-[10px] font-bold uppercase">
                     {text(previewSettings.eyebrow) || 'Etiqueta'}
                 </p>
-                <h4 className="mt-3 text-2xl font-black">
-                    {text(section.settings.title) || 'Título del hero'}
+                <h4
+                    className="mt-3 text-2xl font-black"
+                    style={
+                        isHexColor(titleColor)
+                            ? { color: titleColor }
+                            : undefined
+                    }
+                >
+                    {text(previewSettings.title) || 'Título del hero'}
                 </h4>
                 <p className="mt-2 line-clamp-3 text-xs text-white/80">
-                    {text(section.settings.subtitle) || 'Subtítulo del hero'}
+                    {text(previewSettings.subtitle) || 'Subtítulo del hero'}
                 </p>
                 <div className="mt-4 flex flex-wrap gap-2">
                     {buttons.slice(0, 2).map((button, index) => (
@@ -2249,7 +2714,30 @@ function PreviewBody({ section }: { section: Section }) {
                         </span>
                     ))}
                 </div>
-            </PreviewSurface>
+            </div>
+        </div>
+    );
+}
+
+function PreviewBody({
+    section,
+    media,
+    heroSlideIndex,
+}: {
+    section: Section;
+    media: MediaOption[];
+    heroSlideIndex: number;
+}) {
+    if (section.type === 'hero') {
+        const slides = arrayValue<HeroSlide>(section.settings.slides);
+        const slide = slides[heroSlideIndex] ?? slides[0];
+
+        return (
+            <HeroMiniPreview
+                settings={section.settings}
+                slide={slide}
+                media={media}
+            />
         );
     }
 
@@ -2518,7 +3006,7 @@ function MediaPicker({
     label: string;
     media: MediaOption[];
     value: number | null;
-    onChange: (value: number | null) => void;
+    onChange: (value: number | null, media?: MediaOption) => void;
 }) {
     const [uploading, setUploading] = useState(false);
     const [extraMedia, setExtraMedia] = useState<MediaOption[]>([]);
@@ -2529,6 +3017,7 @@ function MediaPicker({
 
     const handleUpload = async (event: ChangeEvent<HTMLInputElement>) => {
         const file = event.target.files?.[0];
+
         if (!file) {
             return;
         }
@@ -2557,11 +3046,12 @@ function MediaPicker({
             };
 
             setExtraMedia((prev) => [...prev, newMedia]);
-            onChange(data.id);
+            onChange(data.id, newMedia);
         } catch {
             // User can retry from same control.
         } finally {
             setUploading(false);
+
             if (inputRef.current) {
                 inputRef.current.value = '';
             }
@@ -2585,7 +3075,7 @@ function MediaPicker({
                         </p>
                         <button
                             type="button"
-                            onClick={() => onChange(null)}
+                            onClick={() => onChange(null, undefined)}
                             className="text-xs font-medium text-red-700 hover:text-red-900"
                         >
                             Quitar
@@ -2624,9 +3114,11 @@ function MediaPicker({
                         <button
                             key={item.id}
                             type="button"
-                            onClick={() =>
-                                onChange(item.id === value ? null : item.id)
-                            }
+                            onClick={() => {
+                                const next =
+                                    item.id === value ? undefined : item;
+                                onChange(next?.id ?? null, next);
+                            }}
                             className={cn(
                                 'flex aspect-square items-center justify-center overflow-hidden rounded-md border bg-neutral-50 p-1 transition-colors dark:bg-neutral-900',
                                 item.id === value
@@ -2797,6 +3289,7 @@ function stripResolvedMedia(settings: SectionSettings): SectionSettings {
         clone.items = clone.items.map((item) => {
             const next = { ...item };
             delete next.media;
+
             return next;
         });
     }
@@ -2806,6 +3299,7 @@ function stripResolvedMedia(settings: SectionSettings): SectionSettings {
             const next = { ...slide };
             delete next.media;
             next.buttons = arrayValue<BuilderButton>(next.buttons).slice(0, 2);
+
             return next;
         });
     }

@@ -1,6 +1,15 @@
 import { Head, Link, router, useForm } from '@inertiajs/react';
-import { Edit, ExternalLink, Plus, Trash2 } from 'lucide-react';
+import {
+    Edit,
+    ExternalLink,
+    Link2Off,
+    Plus,
+    Store,
+    Trash2,
+} from 'lucide-react';
 import type { ChangeEvent } from 'react';
+import { useState } from 'react';
+import { ConfirmDialog } from '@/components/confirm-dialog';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -18,7 +27,12 @@ type PageRow = {
     updated_at: string | null;
     url: string;
     is_home: boolean;
+    stores: StoreOption[];
 };
+type PendingAction = {
+    kind: 'unlink' | 'delete';
+    page: PageRow;
+} | null;
 
 export default function StorefrontPagesIndex({
     stores,
@@ -33,11 +47,14 @@ export default function StorefrontPagesIndex({
 }) {
     const form = useForm({
         store_id: currentStoreId,
+        store_ids: [currentStoreId],
         title: '',
         slug: '',
         template: availableTemplates[0]?.key ?? 'flexible',
         is_published: false,
     });
+    const [pendingAction, setPendingAction] = useState<PendingAction>(null);
+    const [actionProcessing, setActionProcessing] = useState(false);
 
     const selectedTemplate = availableTemplates.find(
         (template) => template.key === form.data.template,
@@ -51,6 +68,15 @@ export default function StorefrontPagesIndex({
         );
     };
 
+    const toggleStore = (storeId: number, checked: boolean) => {
+        form.setData(
+            'store_ids',
+            checked
+                ? [...new Set([...form.data.store_ids, storeId])]
+                : form.data.store_ids.filter((id) => id !== storeId),
+        );
+    };
+
     const createPage = () => {
         form.post(storefrontPages.store.url(), {
             preserveScroll: true,
@@ -58,16 +84,26 @@ export default function StorefrontPagesIndex({
         });
     };
 
-    const destroyPage = (page: PageRow) => {
-        if (page.is_home) {
+    const confirmAction = () => {
+        if (!pendingAction) {
             return;
         }
 
-        if (confirm(`Eliminar pagina "${page.title}"?`)) {
-            router.delete(storefrontPages.destroy.url(page.id), {
-                preserveScroll: true,
-            });
-        }
+        setActionProcessing(true);
+
+        const url =
+            pendingAction.kind === 'unlink'
+                ? storefrontPages.unlink.url({
+                      page: pendingAction.page.id,
+                      store: currentStoreId,
+                  })
+                : storefrontPages.destroy.url(pendingAction.page.id);
+
+        router.delete(url, {
+            preserveScroll: true,
+            onSuccess: () => setPendingAction(null),
+            onFinish: () => setActionProcessing(false),
+        });
     };
 
     return (
@@ -80,8 +116,8 @@ export default function StorefrontPagesIndex({
                         Paginas storefront
                     </h1>
                     <p className="text-sm text-neutral-500">
-                        Crea paginas editables y administra contenido por
-                        tienda.
+                        Crea una pagina una vez y asignala a las tiendas que la
+                        necesiten.
                     </p>
                 </div>
                 <select
@@ -107,8 +143,13 @@ export default function StorefrontPagesIndex({
                             onChange={(event) =>
                                 form.setData('title', event.target.value)
                             }
-                            placeholder="Nosotros"
+                            placeholder="Bolsa de trabajo"
                         />
+                        {form.errors.title && (
+                            <p className="text-xs text-red-600">
+                                {form.errors.title}
+                            </p>
+                        )}
                     </div>
                     <div className="grid gap-1">
                         <Label>Slug</Label>
@@ -120,8 +161,13 @@ export default function StorefrontPagesIndex({
                                     slugify(event.target.value),
                                 )
                             }
-                            placeholder="nosotros"
+                            placeholder="bolsa-de-trabajo"
                         />
+                        {form.errors.slug && (
+                            <p className="text-xs text-red-600">
+                                {form.errors.slug}
+                            </p>
+                        )}
                     </div>
                     <div className="grid gap-1">
                         <Label>Plantilla</Label>
@@ -140,6 +186,34 @@ export default function StorefrontPagesIndex({
                         </select>
                     </div>
                 </div>
+
+                <div className="mt-4">
+                    <Label>Disponible en tiendas</Label>
+                    <div className="mt-2 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+                        {stores.map((store) => (
+                            <label
+                                key={store.id}
+                                className="flex min-w-0 items-center gap-2 rounded-md border border-neutral-200 px-3 py-2 text-sm dark:border-neutral-800"
+                            >
+                                <Checkbox
+                                    checked={form.data.store_ids.includes(
+                                        store.id,
+                                    )}
+                                    onCheckedChange={(value) =>
+                                        toggleStore(store.id, value === true)
+                                    }
+                                />
+                                <span className="truncate">{store.label}</span>
+                            </label>
+                        ))}
+                    </div>
+                    {form.errors.store_ids && (
+                        <p className="mt-1 text-xs text-red-600">
+                            {form.errors.store_ids}
+                        </p>
+                    )}
+                </div>
+
                 <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
                     <p className="text-sm text-neutral-500">
                         {selectedTemplate?.description}
@@ -159,7 +233,8 @@ export default function StorefrontPagesIndex({
                             disabled={
                                 form.processing ||
                                 !form.data.title ||
-                                !form.data.slug
+                                !form.data.slug ||
+                                form.data.store_ids.length === 0
                             }
                         >
                             <Plus className="mr-1 size-4" />
@@ -170,8 +245,9 @@ export default function StorefrontPagesIndex({
             </div>
 
             <div className="overflow-hidden rounded-lg border border-neutral-200 bg-white dark:border-neutral-800 dark:bg-neutral-900">
-                <div className="grid grid-cols-[1fr_8rem_8rem_9rem] gap-3 border-b border-neutral-200 px-4 py-3 text-xs font-semibold text-neutral-500 uppercase dark:border-neutral-800">
+                <div className="hidden grid-cols-[minmax(0,1fr)_minmax(12rem,1fr)_8rem_8rem_11rem] gap-3 border-b border-neutral-200 px-4 py-3 text-xs font-semibold text-neutral-500 uppercase md:grid dark:border-neutral-800">
                     <span>Pagina</span>
+                    <span>Tiendas</span>
                     <span>Estado</span>
                     <span>Actualizada</span>
                     <span className="text-right">Acciones</span>
@@ -179,7 +255,7 @@ export default function StorefrontPagesIndex({
                 {pages.map((page) => (
                     <div
                         key={page.id}
-                        className="grid grid-cols-[1fr_8rem_8rem_9rem] items-center gap-3 border-b border-neutral-100 px-4 py-3 last:border-0 dark:border-neutral-800"
+                        className="grid gap-3 border-b border-neutral-100 px-4 py-4 last:border-0 md:grid-cols-[minmax(0,1fr)_minmax(12rem,1fr)_8rem_8rem_11rem] md:items-center dark:border-neutral-800"
                     >
                         <div className="min-w-0">
                             <div className="flex items-center gap-2">
@@ -190,9 +266,23 @@ export default function StorefrontPagesIndex({
                                     <Badge variant="secondary">Home</Badge>
                                 )}
                             </div>
-                            <p className="text-sm text-neutral-500">
+                            <p className="truncate text-sm text-neutral-500">
                                 {page.url}
                             </p>
+                        </div>
+                        <div className="flex min-w-0 flex-wrap gap-1">
+                            {page.stores.map((store) => (
+                                <Badge
+                                    key={store.id}
+                                    variant="outline"
+                                    className="max-w-full"
+                                >
+                                    <Store className="size-3" />
+                                    <span className="truncate">
+                                        {store.label}
+                                    </span>
+                                </Badge>
+                            ))}
                         </div>
                         <Badge
                             variant={page.is_published ? 'default' : 'outline'}
@@ -203,12 +293,28 @@ export default function StorefrontPagesIndex({
                             {page.updated_at ?? '-'}
                         </span>
                         <div className="flex justify-end gap-2">
-                            <Button asChild variant="outline" size="sm">
-                                <Link href={storefrontPages.edit.url(page.id)}>
+                            <Button
+                                asChild
+                                variant="outline"
+                                size="icon"
+                                title="Editar pagina"
+                            >
+                                <Link
+                                    href={storefrontPages.edit.url(page.id, {
+                                        query: {
+                                            store_id: currentStoreId,
+                                        },
+                                    })}
+                                >
                                     <Edit className="size-4" />
                                 </Link>
                             </Button>
-                            <Button asChild variant="outline" size="sm">
+                            <Button
+                                asChild
+                                variant="outline"
+                                size="icon"
+                                title="Ver pagina"
+                            >
                                 <a
                                     href={page.url}
                                     target="_blank"
@@ -217,11 +323,32 @@ export default function StorefrontPagesIndex({
                                     <ExternalLink className="size-4" />
                                 </a>
                             </Button>
+                            {!page.is_home && page.stores.length > 1 && (
+                                <Button
+                                    variant="outline"
+                                    size="icon"
+                                    title="Desvincular de esta tienda"
+                                    onClick={() =>
+                                        setPendingAction({
+                                            kind: 'unlink',
+                                            page,
+                                        })
+                                    }
+                                >
+                                    <Link2Off className="size-4" />
+                                </Button>
+                            )}
                             <Button
                                 variant="destructive"
-                                size="sm"
+                                size="icon"
+                                title="Eliminar de todas las tiendas"
                                 disabled={page.is_home}
-                                onClick={() => destroyPage(page)}
+                                onClick={() =>
+                                    setPendingAction({
+                                        kind: 'delete',
+                                        page,
+                                    })
+                                }
                             >
                                 <Trash2 className="size-4" />
                             </Button>
@@ -229,6 +356,32 @@ export default function StorefrontPagesIndex({
                     </div>
                 ))}
             </div>
+
+            <ConfirmDialog
+                open={pendingAction !== null}
+                onOpenChange={(open) => {
+                    if (!open && !actionProcessing) {
+                        setPendingAction(null);
+                    }
+                }}
+                onConfirm={confirmAction}
+                title={
+                    pendingAction?.kind === 'unlink'
+                        ? 'Desvincular pagina de esta tienda'
+                        : 'Eliminar pagina de todas las tiendas'
+                }
+                description={
+                    pendingAction?.kind === 'unlink'
+                        ? `La pagina "${pendingAction.page.title}" dejara de estar disponible en esta tienda y se quitaran sus enlaces del menu.`
+                        : `La pagina "${pendingAction?.page.title ?? ''}" y todo su contenido se eliminaran de todas las tiendas asignadas.`
+                }
+                confirmLabel={
+                    pendingAction?.kind === 'unlink'
+                        ? 'Desvincular'
+                        : 'Eliminar globalmente'
+                }
+                loading={actionProcessing}
+            />
         </>
     );
 }

@@ -12,24 +12,32 @@ import headerSettings from '@/routes/admin/header-settings';
 
 type BlockType = 'text' | 'social' | 'image';
 
-type FormBlock = {
-    type: BlockType;
-    text: string;
-    social: { platform: string; url: string }[];
+type FormImage = {
     url: string;
     media_id: number | null;
     alt: string;
     link: string;
 };
 
-type SettingsBlock = {
-    type: BlockType;
-    text?: string | null;
-    social?: { platform: string; url: string }[];
+type SettingsImage = {
     url?: string | null;
     media_id?: number | null;
     alt?: string | null;
     link?: string | null;
+};
+
+type FormBlock = {
+    type: BlockType;
+    text: string;
+    social: { platform: string; url: string }[];
+    images: FormImage[];
+};
+
+type SettingsBlock = SettingsImage & {
+    type: BlockType;
+    text?: string | null;
+    social?: { platform: string; url: string }[];
+    images?: SettingsImage[];
 };
 
 type FooterLink = {
@@ -187,10 +195,23 @@ function CintilloForm({
             type: block.type,
             text: block.text ?? '',
             social: block.social ?? [],
-            url: block.url ?? '',
-            media_id: block.media_id ?? null,
-            alt: block.alt ?? '',
-            link: block.link ?? '',
+            images:
+                block.images?.map((image) => ({
+                    url: image.url ?? '',
+                    media_id: image.media_id ?? null,
+                    alt: image.alt ?? '',
+                    link: image.link ?? '',
+                })) ??
+                (block.url
+                    ? [
+                          {
+                              url: block.url,
+                              media_id: block.media_id ?? null,
+                              alt: block.alt ?? '',
+                              link: block.link ?? '',
+                          },
+                      ]
+                    : []),
         })),
         cintillo_text_color: settings.cintillo_text_color,
         cintillo_background_color: settings.cintillo_background_color,
@@ -231,10 +252,7 @@ function CintilloForm({
                 type: 'text',
                 text: '',
                 social: [],
-                url: '',
-                media_id: null,
-                alt: '',
-                link: '',
+                images: [],
             },
         ]);
     };
@@ -242,7 +260,42 @@ function CintilloForm({
     const removeBlock = (index: number) =>
         updateBlocks(blocks.filter((_, i) => i !== index));
 
-    const uploadImage = async (index: number, file: File) => {
+    const patchImage = (
+        blockIndex: number,
+        imageIndex: number,
+        patch: Partial<FormImage>,
+    ) =>
+        patchBlock(blockIndex, {
+            images: blocks[blockIndex].images.map((image, index) =>
+                index === imageIndex ? { ...image, ...patch } : image,
+            ),
+        });
+
+    const addImage = (blockIndex: number) => {
+        if (blocks[blockIndex].images.length >= 6) {
+            return;
+        }
+
+        patchBlock(blockIndex, {
+            images: [
+                ...blocks[blockIndex].images,
+                { url: '', media_id: null, alt: '', link: '' },
+            ],
+        });
+    };
+
+    const removeImage = (blockIndex: number, imageIndex: number) =>
+        patchBlock(blockIndex, {
+            images: blocks[blockIndex].images.filter(
+                (_, index) => index !== imageIndex,
+            ),
+        });
+
+    const uploadImage = async (
+        blockIndex: number,
+        imageIndex: number,
+        file: File,
+    ) => {
         const form = new FormData();
         form.append('file', file);
 
@@ -265,7 +318,10 @@ function CintilloForm({
         }
 
         const result = (await response.json()) as { id: number; url: string };
-        patchBlock(index, { url: result.url, media_id: result.id });
+        patchImage(blockIndex, imageIndex, {
+            url: result.url,
+            media_id: result.id,
+        });
     };
 
     const addSocial = (index: number) => {
@@ -507,53 +563,112 @@ function CintilloForm({
                         )}
 
                         {block.type === 'image' && (
-                            <div className="grid gap-2">
-                                {block.url && (
-                                    <div className="flex h-12 items-center justify-center overflow-hidden rounded-md border border-neutral-200 bg-neutral-50 p-1 dark:border-neutral-800 dark:bg-neutral-900">
-                                        <img
-                                            src={block.url}
-                                            alt={block.alt}
-                                            className="h-full w-auto object-contain"
+                            <div className="grid gap-3">
+                                <div className="flex items-center justify-between gap-3">
+                                    <p className="text-xs text-neutral-500">
+                                        Logos enlazados (máx. 6)
+                                    </p>
+                                    <Button
+                                        type="button"
+                                        variant="outline"
+                                        size="sm"
+                                        onClick={() => addImage(index)}
+                                        disabled={block.images.length >= 6}
+                                    >
+                                        <Plus className="size-4" /> Agregar logo
+                                    </Button>
+                                </div>
+
+                                {block.images.length === 0 && (
+                                    <p className="text-sm text-neutral-500">
+                                        Agrega una imagen para configurar su
+                                        enlace.
+                                    </p>
+                                )}
+
+                                {block.images.map((image, imageIndex) => (
+                                    <div
+                                        key={imageIndex}
+                                        className="grid gap-2 rounded-md border border-neutral-200 p-3 dark:border-neutral-800"
+                                    >
+                                        <div className="flex items-center gap-3">
+                                            {image.url ? (
+                                                <div className="flex h-12 min-w-24 items-center justify-center overflow-hidden rounded-md border border-neutral-200 bg-neutral-50 p-1 dark:border-neutral-800 dark:bg-neutral-900">
+                                                    <img
+                                                        src={image.url}
+                                                        alt={image.alt}
+                                                        className="h-full max-w-32 object-contain"
+                                                    />
+                                                </div>
+                                            ) : (
+                                                <span className="text-xs text-neutral-500">
+                                                    Sin imagen
+                                                </span>
+                                            )}
+                                            <Button
+                                                type="button"
+                                                variant="ghost"
+                                                size="icon"
+                                                className="ml-auto"
+                                                onClick={() =>
+                                                    removeImage(
+                                                        index,
+                                                        imageIndex,
+                                                    )
+                                                }
+                                            >
+                                                <Trash2 className="size-4" />
+                                            </Button>
+                                        </div>
+                                        <input
+                                            type="file"
+                                            accept="image/*"
+                                            onChange={(e) => {
+                                                const file =
+                                                    e.target.files?.[0];
+                                                if (file) {
+                                                    void uploadImage(
+                                                        index,
+                                                        imageIndex,
+                                                        file,
+                                                    );
+                                                }
+                                            }}
+                                            className="text-sm"
+                                        />
+                                        <Input
+                                            value={image.alt}
+                                            maxLength={255}
+                                            onChange={(e) =>
+                                                patchImage(index, imageIndex, {
+                                                    alt: e.target.value,
+                                                })
+                                            }
+                                            placeholder="Nombre del sitio o texto alternativo"
+                                        />
+                                        <Input
+                                            value={image.link}
+                                            onChange={(e) =>
+                                                patchImage(index, imageIndex, {
+                                                    link: e.target.value,
+                                                })
+                                            }
+                                            placeholder="https://otro-sitio.com"
+                                        />
+                                        <InputError
+                                            message={
+                                                (
+                                                    errors as Record<
+                                                        string,
+                                                        string
+                                                    >
+                                                )[
+                                                    `cintillo_blocks.${index}.images.${imageIndex}.link`
+                                                ]
+                                            }
                                         />
                                     </div>
-                                )}
-                                <input
-                                    type="file"
-                                    accept="image/*"
-                                    onChange={(e) => {
-                                        const file = e.target.files?.[0];
-                                        if (file) {
-                                            void uploadImage(index, file);
-                                        }
-                                    }}
-                                    className="text-sm"
-                                />
-                                <Input
-                                    value={block.alt}
-                                    maxLength={255}
-                                    onChange={(e) =>
-                                        patchBlock(index, {
-                                            alt: e.target.value,
-                                        })
-                                    }
-                                    placeholder="Texto alternativo (accesibilidad)"
-                                />
-                                <Input
-                                    value={block.link}
-                                    onChange={(e) =>
-                                        patchBlock(index, {
-                                            link: e.target.value,
-                                        })
-                                    }
-                                    placeholder="Enlace al hacer clic (opcional) https://…"
-                                />
-                                <InputError
-                                    message={
-                                        (errors as Record<string, string>)[
-                                            `cintillo_blocks.${index}.link`
-                                        ]
-                                    }
-                                />
+                                ))}
                             </div>
                         )}
 

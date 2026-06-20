@@ -47,7 +47,8 @@ class StoreHeaderMenuItemRequest extends FormRequest
             'page_id' => [
                 Rule::requiredIf($this->input('type') === HeaderMenuItem::TYPE_PAGE),
                 'nullable', 'integer',
-                Rule::exists('storefront_pages', 'id')->where('store_id', $this->integer('store_id')),
+                Rule::exists('storefront_page_store', 'storefront_page_id')
+                    ->where('store_id', $this->integer('store_id')),
             ],
             'is_active' => ['boolean'],
             'expand_products' => ['boolean'],

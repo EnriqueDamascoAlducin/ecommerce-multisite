@@ -11,6 +11,13 @@ use Illuminate\Database\Eloquent\Factories\Factory;
  */
 class StorefrontPageFactory extends Factory
 {
+    public function configure(): static
+    {
+        return $this->afterCreating(function (StorefrontPage $page): void {
+            $page->stores()->syncWithoutDetaching([$page->store_id]);
+        });
+    }
+
     /**
      * Define the model's default state.
      *

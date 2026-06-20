@@ -4,13 +4,17 @@ import { cn } from '@/lib/utils';
 
 export type CintilloSocial = { platform: string; url: string };
 
-export type CintilloBlock = {
-    type: 'text' | 'social' | 'image';
-    text?: string | null;
-    social?: CintilloSocial[];
+export type CintilloImage = {
     url?: string | null;
     alt?: string | null;
     link?: string | null;
+};
+
+export type CintilloBlock = CintilloImage & {
+    type: 'text' | 'social' | 'image';
+    text?: string | null;
+    social?: CintilloSocial[];
+    images?: CintilloImage[];
 };
 
 export type CintilloData = {
@@ -29,13 +33,25 @@ const SOCIAL_ICONS: Record<string, LucideIcon> = {
     linkedin: Linkedin,
 };
 
+function blockImages(block: CintilloBlock): CintilloImage[] {
+    if ((block.images?.length ?? 0) > 0) {
+        return block.images?.filter((image) => Boolean(image.url)) ?? [];
+    }
+
+    return block.url
+        ? [{ url: block.url, alt: block.alt, link: block.link }]
+        : [];
+}
+
 function isRenderable(block: CintilloBlock): boolean {
     if (block.type === 'social') {
-        return (block.social ?? []).some((social) => SOCIAL_ICONS[social.platform]);
+        return (block.social ?? []).some(
+            (social) => SOCIAL_ICONS[social.platform],
+        );
     }
 
     if (block.type === 'image') {
-        return Boolean(block.url);
+        return blockImages(block).length > 0;
     }
 
     return Boolean(block.text && block.text.trim() !== '');
@@ -68,11 +84,14 @@ export function CintilloBar({
                 color: cintillo.text_color,
                 backgroundColor: cintillo.background_color,
             }}
-            className={cn('w-full', !cintillo.show_on_mobile && 'hidden md:block')}
+            className={cn(
+                'w-full',
+                !cintillo.show_on_mobile && 'hidden md:block',
+            )}
         >
             <div
                 className={cn(
-                    'mx-auto flex w-full max-w-6xl items-center gap-4 px-4 py-2 text-sm',
+                    'mx-auto flex w-full max-w-6xl flex-wrap items-center gap-4 px-4 py-2 text-sm',
                     blocks.length === 1 ? 'justify-center' : 'justify-between',
                 )}
             >
@@ -96,23 +115,35 @@ function BlockContent({
     }
 
     if (block.type === 'image') {
-        const image = (
-            <img
-                src={block.url ?? ''}
-                alt={block.alt ?? ''}
-                className="h-6 w-auto object-contain"
-            />
+        return (
+            <div className="flex flex-wrap items-center justify-center gap-3">
+                {blockImages(block).map((item, index) => {
+                    const image = (
+                        <img
+                            src={item.url ?? ''}
+                            alt={item.alt ?? ''}
+                            className="h-6 max-w-32 object-contain"
+                        />
+                    );
+
+                    if (item.link && !preview) {
+                        return (
+                            <a
+                                key={`${item.url}-${index}`}
+                                href={item.link}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="transition-opacity hover:opacity-70"
+                            >
+                                {image}
+                            </a>
+                        );
+                    }
+
+                    return <span key={`${item.url}-${index}`}>{image}</span>;
+                })}
+            </div>
         );
-
-        if (block.link && !preview) {
-            return (
-                <a href={block.link} target="_blank" rel="noopener noreferrer">
-                    {image}
-                </a>
-            );
-        }
-
-        return image;
     }
 
     return (

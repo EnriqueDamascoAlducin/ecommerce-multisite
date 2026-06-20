@@ -66,7 +66,10 @@ class WebsiteHeaderSettingsFactory extends Factory
     {
         return $this->state(fn () => [
             'cintillo_blocks' => [
-                ['type' => 'image', 'url' => 'https://cdn.example.com/promo.png', 'alt' => 'Promo', 'link' => 'https://example.com'],
+                ['type' => 'image', 'images' => [
+                    ['url' => 'https://cdn.example.com/promo.png', 'alt' => 'Promo', 'link' => 'https://example.com'],
+                    ['url' => 'https://cdn.example.com/veterinaria.png', 'alt' => 'Veterinaria', 'link' => 'https://veterinaria.example.com'],
+                ]],
             ],
         ]);
     }

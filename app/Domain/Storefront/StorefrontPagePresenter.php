@@ -8,6 +8,7 @@ use App\Domain\Catalog\ProductPricingService;
 use App\Domain\Inventory\StockAvailabilityChecker;
 use App\Models\Media;
 use App\Models\Product;
+use App\Models\Store;
 use App\Models\StorefrontPage;
 use App\Models\StorefrontPageSection;
 use Illuminate\Support\Collection;
@@ -24,7 +25,7 @@ class StorefrontPagePresenter
     /**
      * @return array{id: int, title: string, slug: string, sections: list<array<string, mixed>>}
      */
-    public function present(StorefrontPage $page): array
+    public function present(StorefrontPage $page, ?Store $store = null): array
     {
         return [
             'id' => $page->id,
@@ -34,7 +35,7 @@ class StorefrontPagePresenter
                 ->whereIn('type', StorefrontPageSection::TYPES)
                 ->sortBy(fn (StorefrontPageSection $section) => $this->sectionOrder($section))
                 ->values()
-                ->map(fn (StorefrontPageSection $section) => $this->presentSection($section, $page))
+                ->map(fn (StorefrontPageSection $section) => $this->presentSection($section, $page, $store))
                 ->all(),
         ];
     }
@@ -56,12 +57,12 @@ class StorefrontPagePresenter
     /**
      * @return array<string, mixed>
      */
-    public function presentSection(StorefrontPageSection $section, ?StorefrontPage $page = null): array
+    public function presentSection(StorefrontPageSection $section, ?StorefrontPage $page = null, ?Store $store = null): array
     {
         $settings = $this->resolveMedia($section->settings ?? []);
 
         if ($section->type === StorefrontPageSection::TYPE_RECOMMENDED_PRODUCTS && $page) {
-            $settings['products'] = $this->recommendedProducts($settings, $page);
+            $settings['products'] = $this->recommendedProducts($settings, $page, $store ?? $page->store);
         }
 
         return [
@@ -75,7 +76,7 @@ class StorefrontPagePresenter
      * @param  array<string, mixed>  $settings
      * @return list<array<string, mixed>>
      */
-    private function recommendedProducts(array $settings, StorefrontPage $page): array
+    private function recommendedProducts(array $settings, StorefrontPage $page, Store $store): array
     {
         $productIds = collect($settings['product_ids'] ?? [])
             ->filter(fn (mixed $id) => is_numeric($id))
@@ -88,7 +89,7 @@ class StorefrontPagePresenter
             return [];
         }
 
-        $websiteId = $page->store?->website_id ?? $page->store()->value('website_id');
+        $websiteId = $store->website_id;
 
         $products = Product::query()
             ->with(['prices', 'media', 'inventoryStocks', 'labels', 'bundleItems.product.prices', 'bundleItems.product.inventoryStocks'])
@@ -96,7 +97,7 @@ class StorefrontPagePresenter
             ->where('status', Product::STATUS_ACTIVE)
             ->whereIn('visibility', ['both', 'catalog'])
             ->whereHas('storeLinks', fn ($query) => $query
-                ->where('store_id', $page->store_id)
+                ->where('store_id', $store->id)
                 ->where('is_active', true))
             ->get()
             ->keyBy('id');
@@ -104,7 +105,7 @@ class StorefrontPagePresenter
         return $productIds
             ->map(fn (int $productId) => $products->get($productId))
             ->filter()
-            ->map(fn (Product $product) => $this->productCard($product, $page->store_id, $websiteId))
+            ->map(fn (Product $product) => $this->productCard($product, $store->id, $websiteId))
             ->values()
             ->all();
     }

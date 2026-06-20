@@ -52,15 +52,16 @@ test('mixed blocks expose text and social', function () {
             ->where('store.header.cintillo.blocks.1.social.0.platform', 'facebook'));
 });
 
-test('an image block exposes its url and link', function () {
+test('an image block exposes its linked images', function () {
     WebsiteHeaderSettings::factory()->image()->create(['website_id' => $this->website->id]);
 
     $this->get(route('home'))
         ->assertOk()
         ->assertInertia(fn ($page) => $page
             ->where('store.header.cintillo.blocks.0.type', 'image')
-            ->where('store.header.cintillo.blocks.0.url', 'https://cdn.example.com/promo.png')
-            ->where('store.header.cintillo.blocks.0.link', 'https://example.com'));
+            ->has('store.header.cintillo.blocks.0.images', 2)
+            ->where('store.header.cintillo.blocks.0.images.0.url', 'https://cdn.example.com/promo.png')
+            ->where('store.header.cintillo.blocks.0.images.1.link', 'https://veterinaria.example.com'));
 });
 
 test('the mobile flag is exposed', function () {

@@ -1,5 +1,6 @@
 <?php
 
+use App\Models\HeaderMenuItem;
 use App\Models\Media;
 use App\Models\Product;
 use App\Models\ProductPrice;
@@ -805,4 +806,124 @@ test('section from another page is rejected and not updated', function () {
     ])->assertSessionHasErrors('sections.0.id');
 
     expect($section->fresh()->settings['title'])->toBe('Original');
+});
+
+test('an admin can create one page for multiple stores', function () {
+    $primary = Store::factory()->create();
+    $secondary = Store::factory()->create();
+
+    $this->post(route('admin.storefront.pages.store'), [
+        'store_id' => $primary->id,
+        'store_ids' => [$primary->id, $secondary->id],
+        'title' => 'Bolsa de trabajo',
+        'slug' => 'bolsa-de-trabajo',
+        'template' => 'flexible',
+        'is_published' => true,
+    ])->assertRedirect();
+
+    $page = StorefrontPage::where('slug', 'bolsa-de-trabajo')->firstOrFail();
+
+    $this->assertDatabaseHas('storefront_page_store', [
+        'storefront_page_id' => $page->id,
+        'store_id' => $primary->id,
+    ]);
+    $this->assertDatabaseHas('storefront_page_store', [
+        'storefront_page_id' => $page->id,
+        'store_id' => $secondary->id,
+    ]);
+});
+
+test('a shared slug cannot overlap any selected store', function () {
+    $primary = Store::factory()->create();
+    $secondary = Store::factory()->create();
+
+    StorefrontPage::factory()->create([
+        'store_id' => $primary->id,
+        'slug' => 'vacantes',
+    ]);
+
+    $this->post(route('admin.storefront.pages.store'), [
+        'store_id' => $secondary->id,
+        'store_ids' => [$primary->id, $secondary->id],
+        'title' => 'Otra pagina',
+        'slug' => 'vacantes',
+        'template' => 'flexible',
+        'is_published' => true,
+    ])->assertSessionHasErrors('slug');
+});
+
+test('an admin can unlink a shared page and its menu links from one store', function () {
+    $primary = Store::factory()->create();
+    $secondary = Store::factory()->create();
+    $page = StorefrontPage::factory()->create([
+        'store_id' => $primary->id,
+        'slug' => 'vacantes',
+    ]);
+    $page->stores()->attach($secondary->id);
+
+    HeaderMenuItem::create([
+        'store_id' => $primary->id,
+        'type' => HeaderMenuItem::TYPE_PAGE,
+        'label' => 'Vacantes',
+        'page_id' => $page->id,
+        'is_active' => true,
+        'sort_order' => 0,
+    ]);
+
+    $this->delete(route('admin.storefront.pages.unlink', [$page, $primary]))
+        ->assertRedirect(route('admin.storefront.pages.index', ['store_id' => $primary->id]));
+
+    expect($page->fresh()->store_id)->toBe($secondary->id);
+    $this->assertDatabaseMissing('storefront_page_store', [
+        'storefront_page_id' => $page->id,
+        'store_id' => $primary->id,
+    ]);
+    $this->assertDatabaseMissing('store_header_menu_items', [
+        'store_id' => $primary->id,
+        'page_id' => $page->id,
+    ]);
+});
+
+test('a page with recommended products cannot be shared', function () {
+    $primary = Store::factory()->create();
+    $secondary = Store::factory()->create();
+    $page = StorefrontPage::factory()->create([
+        'store_id' => $primary->id,
+        'slug' => 'seleccion',
+        'template' => 'flexible',
+    ]);
+
+    StorefrontPageSection::factory()->create([
+        'storefront_page_id' => $page->id,
+        'type' => StorefrontPageSection::TYPE_RECOMMENDED_PRODUCTS,
+    ]);
+
+    $this->put(route('admin.storefront.pages.update', $page), [
+        'store_id' => $primary->id,
+        'store_ids' => [$primary->id, $secondary->id],
+        'title' => $page->title,
+        'slug' => $page->slug,
+        'template' => 'flexible',
+        'is_published' => true,
+    ])->assertSessionHasErrors('store_ids');
+});
+
+test('deleting a store preserves pages shared with another store', function () {
+    $remaining = Store::factory()->create();
+    $deleted = Store::factory()->create([
+        'website_id' => $remaining->website_id,
+        'is_default' => false,
+    ]);
+    $page = StorefrontPage::factory()->create([
+        'store_id' => $deleted->id,
+        'slug' => 'equipo',
+    ]);
+    $page->stores()->attach($remaining->id);
+
+    $this->delete(route('admin.stores.destroy', $deleted))->assertRedirect();
+
+    $page->refresh();
+
+    expect($page->exists)->toBeTrue()
+        ->and($page->store_id)->toBe($remaining->id);
 });

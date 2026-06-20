@@ -65,6 +65,12 @@ class Store extends Model
         return $this->belongsToMany(User::class, 'admin_user_store_permissions');
     }
 
+    /** @return BelongsToMany<StorefrontPage, $this> */
+    public function storefrontPages(): BelongsToMany
+    {
+        return $this->belongsToMany(StorefrontPage::class, 'storefront_page_store');
+    }
+
     /**
      * @param  Builder<Store>  $query
      */

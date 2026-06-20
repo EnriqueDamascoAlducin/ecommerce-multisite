@@ -104,7 +104,27 @@ test('empty blocks and social links without a url are dropped on save', function
         ->and($settings->cintillo_blocks[0]['social'])->toHaveCount(1);
 });
 
-test('an admin can save an image block', function () {
+test('an admin can save multiple linked images in one block', function () {
+    $this->put(route('admin.header-settings.update'), headerPayload([
+        'website_id' => $this->website->id,
+        'cintillo_blocks' => [
+            ['type' => 'image', 'images' => [
+                ['url' => 'https://cdn.example.com/sports.png', 'alt' => 'Sports', 'link' => 'https://sports.example.com'],
+                ['url' => 'https://cdn.example.com/vet.png', 'alt' => 'Veterinaria', 'link' => 'https://vet.example.com'],
+            ]],
+        ],
+    ]))->assertRedirect();
+
+    $settings = WebsiteHeaderSettings::firstWhere('website_id', $this->website->id);
+
+    expect($settings->cintillo_blocks)->toHaveCount(1)
+        ->and($settings->cintillo_blocks[0]['type'])->toBe('image')
+        ->and($settings->cintillo_blocks[0]['images'])->toHaveCount(2)
+        ->and($settings->cintillo_blocks[0]['images'][0]['alt'])->toBe('Sports')
+        ->and($settings->cintillo_blocks[0]['images'][1]['link'])->toBe('https://vet.example.com');
+});
+
+test('a legacy image block is normalized when saved', function () {
     $this->put(route('admin.header-settings.update'), headerPayload([
         'website_id' => $this->website->id,
         'cintillo_blocks' => [
@@ -114,16 +134,14 @@ test('an admin can save an image block', function () {
 
     $settings = WebsiteHeaderSettings::firstWhere('website_id', $this->website->id);
 
-    expect($settings->cintillo_blocks)->toHaveCount(1)
-        ->and($settings->cintillo_blocks[0]['type'])->toBe('image')
-        ->and($settings->cintillo_blocks[0]['url'])->toBe('https://cdn.example.com/promo.png')
-        ->and($settings->cintillo_blocks[0]['link'])->toBe('https://example.com');
+    expect($settings->cintillo_blocks[0]['images'][0]['url'])->toBe('https://cdn.example.com/promo.png')
+        ->and($settings->cintillo_blocks[0]['images'][0]['link'])->toBe('https://example.com');
 });
 
 test('an image block without a url is dropped', function () {
     $this->put(route('admin.header-settings.update'), headerPayload([
         'website_id' => $this->website->id,
-        'cintillo_blocks' => [['type' => 'image', 'url' => '']],
+        'cintillo_blocks' => [['type' => 'image', 'images' => [['url' => '']]]],
     ]))->assertRedirect();
 
     $settings = WebsiteHeaderSettings::firstWhere('website_id', $this->website->id);
@@ -135,9 +153,11 @@ test('an invalid image link is rejected', function () {
     $this->put(route('admin.header-settings.update'), headerPayload([
         'website_id' => $this->website->id,
         'cintillo_blocks' => [
-            ['type' => 'image', 'url' => 'https://cdn.example.com/x.png', 'link' => 'not-a-url'],
+            ['type' => 'image', 'images' => [
+                ['url' => 'https://cdn.example.com/x.png', 'link' => 'not-a-url'],
+            ]],
         ],
-    ]))->assertSessionHasErrors('cintillo_blocks.0.link');
+    ]))->assertSessionHasErrors('cintillo_blocks.0.images.0.link');
 });
 
 test('an admin can upload a cintillo image', function () {

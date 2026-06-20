@@ -141,3 +141,23 @@ test('the storefront shared props fall back to the store name when no logo exist
             ->where('store.store.name', $this->sports->name)
             ->where('store.store.logo_url', null));
 });
+
+test('a shared cms page renders for root and prefixed stores', function () {
+    $page = StorefrontPage::factory()->create([
+        'store_id' => $this->main->id,
+        'slug' => 'bolsa-de-trabajo',
+        'title' => 'Bolsa de trabajo',
+        'is_published' => true,
+    ]);
+    $page->stores()->attach($this->sports->id);
+
+    $this->get('/bolsa-de-trabajo')
+        ->assertOk()
+        ->assertInertia(fn ($inertia) => $inertia
+            ->where('contentPage.title', 'Bolsa de trabajo'));
+
+    $this->get('/sports/bolsa-de-trabajo')
+        ->assertOk()
+        ->assertInertia(fn ($inertia) => $inertia
+            ->where('contentPage.title', 'Bolsa de trabajo'));
+});

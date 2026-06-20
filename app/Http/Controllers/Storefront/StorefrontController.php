@@ -341,8 +341,9 @@ class StorefrontController extends Controller
      */
     private function renderPage(string $slug, array $featured): Response
     {
+        $store = $this->context->store();
         $page = StorefrontPage::query()
-            ->where('store_id', $this->context->store()->id)
+            ->whereHas('stores', fn (Builder $query) => $query->whereKey($store->id))
             ->where('slug', $slug)
             ->where('is_published', true)
             ->with('sections')
@@ -352,7 +353,7 @@ class StorefrontController extends Controller
             throw new NotFoundHttpException('Pagina no encontrada.');
         }
 
-        $contentPage = $page ? $this->pagePresenter->present($page) : null;
+        $contentPage = $page ? $this->pagePresenter->present($page, $store) : null;
 
         return Inertia::render('storefront/home', [
             'featured' => $featured,

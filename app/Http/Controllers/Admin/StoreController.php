@@ -7,6 +7,7 @@ use App\Http\Requests\Admin\StoreStoreRequest;
 use App\Http\Requests\Admin\UpdateStoreRequest;
 use App\Models\Media;
 use App\Models\Store;
+use App\Models\StorefrontPage;
 use App\Models\Website;
 use App\Services\AuditLogger;
 use App\Services\MediaService;
@@ -112,7 +113,27 @@ class StoreController extends Controller
         }
 
         $code = $store->code;
-        $store->delete();
+
+        DB::transaction(function () use ($store): void {
+            $store->storefrontPages()
+                ->where('storefront_pages.store_id', $store->id)
+                ->each(function (StorefrontPage $page) use ($store): void {
+                    $replacementStoreId = $page->stores()
+                        ->whereKeyNot($store->id)
+                        ->orderBy('stores.id')
+                        ->value('stores.id');
+
+                    if ($replacementStoreId) {
+                        $page->update(['store_id' => $replacementStoreId]);
+
+                        return;
+                    }
+
+                    $page->delete();
+                });
+
+            $store->delete();
+        });
 
         $this->auditLogger->log('store.deleted', null, "Store {$code} eliminado");
 

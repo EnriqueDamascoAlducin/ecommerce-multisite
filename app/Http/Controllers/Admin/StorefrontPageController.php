@@ -8,6 +8,7 @@ use App\Domain\Storefront\Templates\PageTemplate;
 use App\Domain\Storefront\Templates\PageTemplateRegistry;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Admin\StorefrontPageRequest;
+use App\Models\HeaderMenuItem;
 use App\Models\Media;
 use App\Models\Product;
 use App\Models\Store;
@@ -16,6 +17,7 @@ use App\Models\StorefrontPageSection;
 use App\Services\AuditLogger;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
@@ -38,7 +40,8 @@ class StorefrontPageController extends Controller
             'currentStoreId' => $store->id,
             'availableTemplates' => PageTemplateRegistry::options(),
             'pages' => StorefrontPage::query()
-                ->where('store_id', $store->id)
+                ->whereHas('stores', fn ($query) => $query->whereKey($store->id))
+                ->with('stores.website:id,name')
                 ->orderByRaw("CASE WHEN slug = 'home' THEN 0 ELSE 1 END")
                 ->orderBy('title')
                 ->get()
@@ -48,8 +51,12 @@ class StorefrontPageController extends Controller
                     'slug' => $page->slug,
                     'is_published' => $page->is_published,
                     'updated_at' => $page->updated_at?->toDateString(),
-                    'url' => $this->publicUrl($page),
+                    'url' => $this->publicUrl($page, $store),
                     'is_home' => $page->slug === StorefrontPage::HOME,
+                    'stores' => $page->stores->map(fn (Store $assignedStore) => [
+                        'id' => $assignedStore->id,
+                        'label' => "{$assignedStore->website->name} / {$assignedStore->name}",
+                    ])->values(),
                 ]),
         ]);
     }
@@ -58,17 +65,22 @@ class StorefrontPageController extends Controller
     {
         $validated = $request->validated();
 
-        $page = StorefrontPage::create([
-            'store_id' => $validated['store_id'],
-            'title' => $validated['title'],
-            'slug' => $validated['slug'],
-            'template' => $validated['slug'] === StorefrontPage::HOME
-                ? 'home'
-                : ($validated['template'] ?? 'flexible'),
-            'is_published' => $validated['is_published'] ?? false,
-        ]);
+        $page = DB::transaction(function () use ($validated): StorefrontPage {
+            $page = StorefrontPage::create([
+                'store_id' => (int) $validated['store_ids'][0],
+                'title' => $validated['title'],
+                'slug' => $validated['slug'],
+                'template' => $validated['slug'] === StorefrontPage::HOME
+                    ? 'home'
+                    : ($validated['template'] ?? 'flexible'),
+                'is_published' => $validated['is_published'] ?? false,
+            ]);
 
-        $this->seedFromTemplate($page);
+            $page->stores()->sync($validated['store_ids']);
+            $this->seedFromTemplate($page);
+
+            return $page;
+        });
 
         $this->auditLogger->log('storefront_page.created', $page, "Pagina {$page->title} creada");
 
@@ -76,32 +88,44 @@ class StorefrontPageController extends Controller
             ->with('success', 'Pagina creada.');
     }
 
-    public function edit(StorefrontPage $page): Response
+    public function edit(Request $request, StorefrontPage $page): Response
     {
         $this->ensureFixedSections($page);
 
-        $page->load('store.website', 'sections');
+        $page->load('store.website', 'stores.website', 'sections');
 
+        $requestedStoreId = $request->integer('store_id');
+        $editorStore = $page->stores->firstWhere('id', $requestedStoreId) ?? $page->store;
+        $isShared = $page->stores->count() > 1;
         $template = $this->resolveTemplate($page);
+        $extraTypes = $template?->extraTypes() ?? [];
+
+        if ($isShared) {
+            $extraTypes = array_values(array_filter(
+                $extraTypes,
+                fn (string $type) => $type !== StorefrontPageSection::TYPE_RECOMMENDED_PRODUCTS,
+            ));
+        }
 
         return Inertia::render('admin/storefront/pages/edit', [
             'stores' => $this->storeOptions(),
-            'currentStoreId' => $page->store_id,
+            'currentStoreId' => $editorStore->id,
             'page' => [
-                ...$this->presenter->present($page),
+                ...$this->presenter->present($page, $editorStore),
                 'store_id' => $page->store_id,
+                'store_ids' => $page->stores->pluck('id')->values(),
                 'template' => $page->template,
                 'is_published' => $page->is_published,
             ],
             'media' => $this->mediaOptions(),
-            'products' => $this->productOptions($page->store),
-            'publicUrl' => $this->publicUrl($page),
+            'products' => $isShared ? [] : $this->productOptions($editorStore),
+            'publicUrl' => $this->publicUrl($page, $editorStore),
             'isHome' => $page->slug === StorefrontPage::HOME,
             'template' => [
                 'key' => $template?->key(),
                 'label' => $template?->label(),
                 'fixedTypes' => $template?->fixedTypes() ?? [],
-                'extraTypes' => $template?->extraTypes() ?? [],
+                'extraTypes' => $extraTypes,
             ],
             'availableTemplates' => PageTemplateRegistry::options(),
         ]);
@@ -110,39 +134,45 @@ class StorefrontPageController extends Controller
     public function update(StorefrontPageRequest $request, StorefrontPage $page): RedirectResponse
     {
         $validated = $request->validated();
-
-        $payload = [
-            'title' => $validated['title'],
-            'is_published' => $validated['is_published'] ?? false,
-        ];
-
+        $storeIds = array_map('intval', $validated['store_ids']);
         $templateChanged = false;
 
-        if ($page->slug !== StorefrontPage::HOME) {
-            $payload['slug'] = $validated['slug'];
+        DB::transaction(function () use ($request, $page, $validated, $storeIds, &$templateChanged): void {
+            $payload = [
+                'store_id' => in_array($page->store_id, $storeIds, true) ? $page->store_id : $storeIds[0],
+                'title' => $validated['title'],
+                'is_published' => $validated['is_published'] ?? false,
+            ];
 
-            if (isset($validated['template']) && $validated['template'] !== $page->template) {
-                $payload['template'] = $validated['template'];
-                $templateChanged = true;
+            if ($page->slug !== StorefrontPage::HOME) {
+                $payload['slug'] = $validated['slug'];
+
+                if (isset($validated['template']) && $validated['template'] !== $page->template) {
+                    $payload['template'] = $validated['template'];
+                    $templateChanged = true;
+                }
             }
-        }
 
-        $page->update($payload);
+            $page->update($payload);
+            $page->stores()->sync($storeIds);
 
-        // Switching template re-seeds its missing fixed sections without
-        // destroying existing content; the editor reloads with the new layout.
+            if ($templateChanged) {
+                $page->refresh();
+                $this->ensureFixedSections($page);
+
+                return;
+            }
+
+            if ($request->has('sections')) {
+                $sections = $this->validateSections($request, $page);
+                $this->persistSections($page, $this->resolveTemplate($page), $sections);
+            }
+        });
+
         if ($templateChanged) {
-            $page->refresh();
-            $this->ensureFixedSections($page);
-
             $this->auditLogger->log('storefront_page.updated', $page, "Plantilla de {$page->title} actualizada");
 
             return back()->with('success', 'Plantilla actualizada.');
-        }
-
-        if ($request->has('sections')) {
-            $sections = $this->validateSections($request, $page);
-            $this->persistSections($page, $this->resolveTemplate($page), $sections);
         }
 
         $this->auditLogger->log('storefront_page.updated', $page, "Pagina {$page->title} actualizada");
@@ -161,7 +191,46 @@ class StorefrontPageController extends Controller
         $this->auditLogger->log('storefront_page.deleted', null, "Pagina {$title} eliminada");
 
         return to_route('admin.storefront.pages.index', ['store_id' => $storeId])
-            ->with('success', 'Pagina eliminada.');
+            ->with('success', 'Pagina eliminada de todas las tiendas.');
+    }
+
+    public function unlink(StorefrontPage $page, Store $store): RedirectResponse
+    {
+        abort_if($page->slug === StorefrontPage::HOME, 422, 'Home no se puede desvincular.');
+        abort_unless($page->stores()->whereKey($store->id)->exists(), 404);
+
+        if ($page->stores()->count() <= 1) {
+            throw ValidationException::withMessages([
+                'page' => 'No puedes desvincular la ultima tienda. Elimina la pagina globalmente.',
+            ]);
+        }
+
+        DB::transaction(function () use ($page, $store): void {
+            if ($page->store_id === $store->id) {
+                $replacementStoreId = $page->stores()
+                    ->whereKeyNot($store->id)
+                    ->orderBy('stores.id')
+                    ->value('stores.id');
+
+                $page->update(['store_id' => $replacementStoreId]);
+            }
+
+            HeaderMenuItem::query()
+                ->where('store_id', $store->id)
+                ->where('page_id', $page->id)
+                ->delete();
+
+            $page->stores()->detach($store->id);
+        });
+
+        $this->auditLogger->log(
+            'storefront_page.unlinked',
+            $page,
+            "Pagina {$page->title} desvinculada de {$store->name}",
+        );
+
+        return to_route('admin.storefront.pages.index', ['store_id' => $store->id])
+            ->with('success', 'Pagina desvinculada de la tienda.');
     }
 
     public function home(Request $request): RedirectResponse
@@ -200,9 +269,10 @@ class StorefrontPageController extends Controller
     {
         $page = StorefrontPage::firstOrCreate(
             ['store_id' => $store->id, 'slug' => StorefrontPage::HOME],
-            ['title' => 'Home', 'is_published' => true],
+            ['title' => 'Home', 'template' => 'home', 'is_published' => true],
         );
 
+        $page->stores()->syncWithoutDetaching([$store->id]);
         $this->ensureFixedSections($page);
 
         return $page->load('sections');
@@ -520,9 +590,15 @@ class StorefrontPageController extends Controller
         return PageTemplateRegistry::find($page->template);
     }
 
-    private function publicUrl(StorefrontPage $page): string
+    private function publicUrl(StorefrontPage $page, Store $store): string
     {
-        return $page->slug === StorefrontPage::HOME ? '/' : "/{$page->slug}";
+        $prefix = $store->is_default ? '' : "/{$store->code}";
+
+        if ($page->slug === StorefrontPage::HOME) {
+            return $prefix === '' ? '/' : $prefix;
+        }
+
+        return "{$prefix}/{$page->slug}";
     }
 
     /**

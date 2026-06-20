@@ -97,15 +97,21 @@ class HeaderSettingsController extends Controller
                 }
 
                 if ($type === WebsiteHeaderSettings::TYPE_IMAGE) {
-                    $url = trim((string) ($block['url'] ?? ''));
+                    $images = $this->sanitizeCintilloImages($block['images'] ?? []);
 
-                    return $url === '' ? null : array_filter([
+                    if ($images === []) {
+                        $images = $this->sanitizeCintilloImages([[
+                            'url' => $block['url'] ?? null,
+                            'media_id' => $block['media_id'] ?? null,
+                            'alt' => $block['alt'] ?? null,
+                            'link' => $block['link'] ?? null,
+                        ]]);
+                    }
+
+                    return $images === [] ? null : [
                         'type' => WebsiteHeaderSettings::TYPE_IMAGE,
-                        'url' => $url,
-                        'media_id' => $block['media_id'] ?? null,
-                        'alt' => $block['alt'] ?? null,
-                        'link' => $block['link'] ?? null,
-                    ], fn ($value) => $value !== null);
+                        'images' => $images,
+                    ];
                 }
 
                 $text = trim((string) ($block['text'] ?? ''));
@@ -113,6 +119,28 @@ class HeaderSettingsController extends Controller
                 return $text === '' ? null : ['type' => WebsiteHeaderSettings::TYPE_TEXT, 'text' => $text];
             })
             ->filter()
+            ->values()
+            ->all();
+    }
+
+    /**
+     * @return list<array{url: string, media_id?: int, alt?: string, link?: string}>
+     */
+    private function sanitizeCintilloImages(mixed $images): array
+    {
+        if (! is_array($images)) {
+            return [];
+        }
+
+        return collect($images)
+            ->take(6)
+            ->filter(fn ($image) => is_array($image) && trim((string) ($image['url'] ?? '')) !== '')
+            ->map(fn ($image) => array_filter([
+                'url' => trim((string) $image['url']),
+                'media_id' => $image['media_id'] ?? null,
+                'alt' => trim((string) ($image['alt'] ?? '')) ?: null,
+                'link' => trim((string) ($image['link'] ?? '')) ?: null,
+            ], fn ($value) => $value !== null))
             ->values()
             ->all();
     }
