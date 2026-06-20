@@ -3058,6 +3058,39 @@ function MediaPicker({
         </button>
     );
 
+    const libraryMediaButton = (item: MediaOption) => (
+        <button
+            key={item.id}
+            type="button"
+            onClick={() => selectMedia(item, true)}
+            className={cn(
+                'group grid min-w-0 overflow-hidden rounded-md border bg-white text-left transition-colors dark:bg-neutral-950',
+                item.id === value
+                    ? 'border-red-800 ring-2 ring-red-800'
+                    : 'border-neutral-200 hover:border-neutral-400 dark:border-neutral-800 dark:hover:border-neutral-600',
+            )}
+            title={item.label}
+        >
+            <div className="aspect-video overflow-hidden bg-neutral-100 dark:bg-neutral-900">
+                <img
+                    src={item.url}
+                    alt={item.label}
+                    className="size-full object-cover transition-transform duration-200 group-hover:scale-[1.02]"
+                />
+            </div>
+            <div className="flex min-w-0 items-center justify-between gap-2 border-t border-neutral-200 px-3 py-2 dark:border-neutral-800">
+                <span className="truncate text-xs font-medium text-neutral-700 dark:text-neutral-300">
+                    {item.label}
+                </span>
+                {item.id === value && (
+                    <span className="shrink-0 text-xs font-medium text-red-800 dark:text-red-400">
+                        Seleccionada
+                    </span>
+                )}
+            </div>
+        </button>
+    );
+
     const handleUpload = async (event: ChangeEvent<HTMLInputElement>) => {
         const file = event.target.files?.[0];
 
@@ -3177,15 +3210,15 @@ function MediaPicker({
             )}
 
             <Dialog open={libraryOpen} onOpenChange={setLibraryOpen}>
-                <DialogContent className="sm:max-w-4xl">
+                <DialogContent className="max-h-[90vh] overflow-hidden sm:max-w-6xl">
                     <DialogHeader>
                         <DialogTitle>Biblioteca de imagenes</DialogTitle>
                         <DialogDescription>
                             Selecciona una imagen para este hero.
                         </DialogDescription>
                     </DialogHeader>
-                    <div className="grid max-h-[70vh] grid-cols-3 gap-3 overflow-y-auto pr-1 sm:grid-cols-5 md:grid-cols-7">
-                        {allMedia.map((item) => mediaButton(item, true))}
+                    <div className="grid min-h-0 grid-cols-1 gap-4 overflow-y-auto pr-2 min-[480px]:grid-cols-2 sm:grid-cols-3 lg:grid-cols-4">
+                        {allMedia.map(libraryMediaButton)}
                     </div>
                 </DialogContent>
             </Dialog>
