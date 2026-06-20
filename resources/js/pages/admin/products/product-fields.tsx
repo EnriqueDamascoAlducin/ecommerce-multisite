@@ -24,6 +24,15 @@ import ProductVariantController from '@/actions/App/Http/Controllers/Admin/Produ
 import InputError from '@/components/input-error';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import {
+    Dialog,
+    DialogClose,
+    DialogContent,
+    DialogDescription,
+    DialogFooter,
+    DialogHeader,
+    DialogTitle,
+} from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 
@@ -199,6 +208,11 @@ export function ProductFields({
     );
     const [uploading, setUploading] = useState(false);
     const [uploadError, setUploadError] = useState<string | null>(null);
+    const [mediaLibraryOpen, setMediaLibraryOpen] = useState(false);
+    const recentImages = availableImages.slice(0, 5);
+    const selectedImages = selected
+        .map((id) => availableImages.find((image) => image.id === id))
+        .filter((image): image is ImageOption => image !== undefined);
 
     const patchVariant = (
         id: number,
@@ -470,7 +484,11 @@ export function ProductFields({
                     <Field label="Tipo de producto" htmlFor="type">
                         {defaults?.id ? (
                             <div className="flex h-10 items-center rounded-md border border-neutral-200 bg-neutral-100 px-3 text-sm text-neutral-600 dark:border-neutral-700 dark:bg-neutral-800 dark:text-neutral-400">
-                                <input type="hidden" name="type" value={productType} />
+                                <input
+                                    type="hidden"
+                                    name="type"
+                                    value={productType}
+                                />
                                 {typeLabel(productType)}
                             </div>
                         ) : (
@@ -917,10 +935,7 @@ export function ProductFields({
                             )
                         }
                         onRemove={(productId) =>
-                            removeRelatedProduct(
-                                setUpsellProducts,
-                                productId,
-                            )
+                            removeRelatedProduct(setUpsellProducts, productId)
                         }
                     />
                     <ProductRelationSelector
@@ -990,46 +1005,99 @@ export function ProductFields({
                 {selected.map((id) => (
                     <input key={id} type="hidden" name="media[]" value={id} />
                 ))}
+
                 {availableImages.length === 0 ? (
                     <EmptyState text="No hay imagenes. Subelas en Biblioteca de medios." />
                 ) : (
-                    <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
-                        {availableImages.map((image) => {
-                            const isSelected = selected.includes(image.id);
-                            const order = selected.indexOf(image.id);
+                    <div className="grid gap-5">
+                        {selectedImages.length > 0 && (
+                            <div className="grid gap-2">
+                                <p className="text-sm font-medium">
+                                    Imagenes seleccionadas
+                                </p>
+                                <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
+                                    {selectedImages.map((image, order) => (
+                                        <ProductImageButton
+                                            key={image.id}
+                                            image={image}
+                                            order={order}
+                                            onToggle={toggleImage}
+                                        />
+                                    ))}
+                                </div>
+                            </div>
+                        )}
 
-                            return (
-                                <button
-                                    type="button"
-                                    key={image.id}
-                                    onClick={() => toggleImage(image.id)}
-                                    className={`group relative aspect-square overflow-hidden rounded-lg border-2 bg-neutral-100 transition dark:bg-neutral-900 ${
-                                        isSelected
-                                            ? 'border-red-700 shadow-sm'
-                                            : 'border-neutral-200 hover:border-neutral-400 dark:border-neutral-800'
-                                    }`}
-                                    title={image.name}
-                                >
-                                    <img
-                                        src={image.url}
-                                        alt={image.name}
-                                        className="h-full w-full object-cover"
+                        <div className="grid gap-2">
+                            <div className="flex flex-wrap items-center justify-between gap-2">
+                                <p className="text-sm font-medium">
+                                    Imagenes recientes
+                                </p>
+                                {availableImages.length > 5 && (
+                                    <Button
+                                        type="button"
+                                        variant="outline"
+                                        size="sm"
+                                        onClick={() =>
+                                            setMediaLibraryOpen(true)
+                                        }
+                                    >
+                                        <ImageIcon className="size-4" />
+                                        Ver mas
+                                    </Button>
+                                )}
+                            </div>
+                            <div className="grid grid-cols-2 gap-3 sm:grid-cols-5">
+                                {recentImages.map((image) => (
+                                    <ProductImageButton
+                                        key={image.id}
+                                        image={image}
+                                        order={
+                                            selected.includes(image.id)
+                                                ? selected.indexOf(image.id)
+                                                : null
+                                        }
+                                        onToggle={toggleImage}
                                     />
-                                    <span className="absolute inset-x-0 bottom-0 truncate bg-black/60 px-2 py-1 text-xs text-white opacity-0 transition group-hover:opacity-100">
-                                        {image.name}
-                                    </span>
-                                    {isSelected && (
-                                        <span className="absolute top-2 right-2 rounded-full bg-red-700 px-2 py-0.5 text-xs font-semibold text-white">
-                                            {order === 0
-                                                ? 'Principal'
-                                                : order + 1}
-                                        </span>
-                                    )}
-                                </button>
-                            );
-                        })}
+                                ))}
+                            </div>
+                        </div>
                     </div>
                 )}
+
+                <Dialog
+                    open={mediaLibraryOpen}
+                    onOpenChange={setMediaLibraryOpen}
+                >
+                    <DialogContent className="sm:max-w-5xl">
+                        <DialogHeader>
+                            <DialogTitle>Biblioteca de imagenes</DialogTitle>
+                            <DialogDescription>
+                                Selecciona una o varias imagenes. La primera
+                                seleccionada sera principal.
+                            </DialogDescription>
+                        </DialogHeader>
+                        <div className="grid max-h-[70vh] grid-cols-2 gap-3 overflow-y-auto pr-1 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-8">
+                            {availableImages.map((image) => (
+                                <ProductImageButton
+                                    key={image.id}
+                                    image={image}
+                                    order={
+                                        selected.includes(image.id)
+                                            ? selected.indexOf(image.id)
+                                            : null
+                                    }
+                                    onToggle={toggleImage}
+                                />
+                            ))}
+                        </div>
+                        <DialogFooter>
+                            <DialogClose asChild>
+                                <Button type="button">Listo</Button>
+                            </DialogClose>
+                        </DialogFooter>
+                    </DialogContent>
+                </Dialog>
             </ProductSection>
 
             {(productType !== 'simple' ||
@@ -1084,6 +1152,45 @@ export function ProductFields({
                 </ProductSection>
             )}
         </div>
+    );
+}
+
+function ProductImageButton({
+    image,
+    order,
+    onToggle,
+}: {
+    image: ImageOption;
+    order: number | null;
+    onToggle: (id: number) => void;
+}) {
+    const isSelected = order !== null;
+
+    return (
+        <button
+            type="button"
+            onClick={() => onToggle(image.id)}
+            className={`group relative aspect-square min-w-0 overflow-hidden rounded-lg border-2 bg-neutral-100 transition dark:bg-neutral-900 ${
+                isSelected
+                    ? 'border-red-700 shadow-sm'
+                    : 'border-neutral-200 hover:border-neutral-400 dark:border-neutral-800'
+            }`}
+            title={image.name}
+        >
+            <img
+                src={image.url}
+                alt={image.name}
+                className="size-full object-cover"
+            />
+            <span className="absolute inset-x-0 bottom-0 truncate bg-black/60 px-2 py-1 text-xs text-white opacity-0 transition group-hover:opacity-100">
+                {image.name}
+            </span>
+            {isSelected && (
+                <span className="absolute top-2 right-2 rounded-full bg-red-700 px-2 py-0.5 text-xs font-semibold text-white">
+                    {order === 0 ? 'Principal' : order + 1}
+                </span>
+            )}
+        </button>
     );
 }
 
@@ -1176,7 +1283,8 @@ function ProductRelationSelector({
         .filter((product): product is RelatedProduct => Boolean(product));
     const availableProducts = products.filter(
         (product) =>
-            product.id !== currentProductId && !selectedIds.includes(product.id),
+            product.id !== currentProductId &&
+            !selectedIds.includes(product.id),
     );
 
     return (
@@ -1257,7 +1365,9 @@ function ProductRelationSelector({
                                     type="button"
                                     variant="ghost"
                                     size="icon"
-                                    disabled={index === selectedProducts.length - 1}
+                                    disabled={
+                                        index === selectedProducts.length - 1
+                                    }
                                     onClick={() => onMove(index, 1)}
                                 >
                                     <ChevronDown className="size-4" />
@@ -1633,9 +1743,9 @@ function VariantsManager({
                 </Label>
                 {candidates.length === 0 ? (
                     <p className="mt-2 text-xs text-neutral-500">
-                        No hay productos simple elegibles (mismo sitio, con todos
-                        los atributos configurables y una combinación todavía
-                        libre).
+                        No hay productos simple elegibles (mismo sitio, con
+                        todos los atributos configurables y una combinación
+                        todavía libre).
                     </p>
                 ) : (
                     <div className="mt-2 flex flex-wrap items-center gap-2">
@@ -1680,10 +1790,16 @@ function VariantsManager({
                                     Opciones
                                 </th>
                                 <th className="px-3 py-3 font-medium">SKU</th>
-                                <th className="px-3 py-3 font-medium">Precio</th>
+                                <th className="px-3 py-3 font-medium">
+                                    Precio
+                                </th>
                                 <th className="px-3 py-3 font-medium">Stock</th>
-                                <th className="px-3 py-3 font-medium">Imagen</th>
-                                <th className="px-3 py-3 font-medium">Estado</th>
+                                <th className="px-3 py-3 font-medium">
+                                    Imagen
+                                </th>
+                                <th className="px-3 py-3 font-medium">
+                                    Estado
+                                </th>
                                 <th className="px-3 py-3 text-right font-medium">
                                     Acciones
                                 </th>
@@ -1780,7 +1896,8 @@ function VariantsManager({
                                                     onPatch(
                                                         variant.id,
                                                         'media_id',
-                                                        event.target.value === ''
+                                                        event.target.value ===
+                                                            ''
                                                             ? null
                                                             : Number(
                                                                   event.target
@@ -1816,7 +1933,9 @@ function VariantsManager({
                                                 )
                                             }
                                         >
-                                            <option value="active">Activo</option>
+                                            <option value="active">
+                                                Activo
+                                            </option>
                                             <option value="inactive">
                                                 Inactivo
                                             </option>

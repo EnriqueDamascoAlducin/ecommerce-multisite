@@ -44,6 +44,13 @@ import {
     CollapsibleContent,
     CollapsibleTrigger,
 } from '@/components/ui/collapsible';
+import {
+    Dialog,
+    DialogContent,
+    DialogDescription,
+    DialogHeader,
+    DialogTitle,
+} from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { cn } from '@/lib/utils';
@@ -1134,6 +1141,7 @@ function HeroFields({
                                 <MediaPicker
                                     label="Imagen de fondo fallback"
                                     media={media}
+                                    compactLibrary
                                     value={numberValue(settings.media_id)}
                                     onChange={(value) =>
                                         setSetting('media_id', value)
@@ -2077,6 +2085,7 @@ function HeroSlidesList({
                                         <MediaPicker
                                             label="Imagen del slide"
                                             media={media}
+                                            compactLibrary
                                             value={activeSlide.media_id ?? null}
                                             onChange={(
                                                 media_id,
@@ -3001,19 +3010,53 @@ function MediaPicker({
     label,
     media,
     value,
+    compactLibrary = false,
     onChange,
 }: {
     label: string;
     media: MediaOption[];
     value: number | null;
+    compactLibrary?: boolean;
     onChange: (value: number | null, media?: MediaOption) => void;
 }) {
     const [uploading, setUploading] = useState(false);
+    const [libraryOpen, setLibraryOpen] = useState(false);
     const [extraMedia, setExtraMedia] = useState<MediaOption[]>([]);
     const inputRef = useRef<HTMLInputElement>(null);
 
-    const allMedia = [...media, ...extraMedia];
+    const allMedia = [...extraMedia, ...media];
+    const recentMedia = compactLibrary ? allMedia.slice(0, 5) : allMedia;
     const selected = allMedia.find((item) => item.id === value);
+
+    const selectMedia = (item: MediaOption, closeLibrary = false) => {
+        const next = item.id === value ? undefined : item;
+        onChange(next?.id ?? null, next);
+
+        if (closeLibrary) {
+            setLibraryOpen(false);
+        }
+    };
+
+    const mediaButton = (item: MediaOption, closeLibrary = false) => (
+        <button
+            key={item.id}
+            type="button"
+            onClick={() => selectMedia(item, closeLibrary)}
+            className={cn(
+                'flex aspect-square min-w-0 items-center justify-center overflow-hidden rounded-md border bg-neutral-50 p-1 transition-colors dark:bg-neutral-900',
+                item.id === value
+                    ? 'border-red-800 ring-2 ring-red-800'
+                    : 'border-neutral-200 hover:border-neutral-400 dark:border-neutral-800',
+            )}
+            title={item.label}
+        >
+            <img
+                src={item.url}
+                alt={item.label}
+                className="size-full object-cover"
+            />
+        </button>
+    );
 
     const handleUpload = async (event: ChangeEvent<HTMLInputElement>) => {
         const file = event.target.files?.[0];
@@ -3045,7 +3088,7 @@ function MediaPicker({
                 url: data.url,
             };
 
-            setExtraMedia((prev) => [...prev, newMedia]);
+            setExtraMedia((previous) => [newMedia, ...previous]);
             onChange(data.id, newMedia);
         } catch {
             // User can retry from same control.
@@ -3109,33 +3152,43 @@ function MediaPicker({
             </div>
 
             {allMedia.length > 0 && (
-                <div className="grid max-h-52 grid-cols-5 gap-2 overflow-y-auto rounded-lg border border-neutral-200 bg-white p-2 dark:border-neutral-800 dark:bg-neutral-950">
-                    {allMedia.map((item) => (
-                        <button
-                            key={item.id}
+                <div className="grid gap-2">
+                    <div
+                        className={cn(
+                            'grid grid-cols-5 gap-2 rounded-lg border border-neutral-200 bg-white p-2 dark:border-neutral-800 dark:bg-neutral-950',
+                            !compactLibrary && 'max-h-52 overflow-y-auto',
+                        )}
+                    >
+                        {recentMedia.map((item) => mediaButton(item))}
+                    </div>
+
+                    {compactLibrary && allMedia.length > 5 && (
+                        <Button
                             type="button"
-                            onClick={() => {
-                                const next =
-                                    item.id === value ? undefined : item;
-                                onChange(next?.id ?? null, next);
-                            }}
-                            className={cn(
-                                'flex aspect-square items-center justify-center overflow-hidden rounded-md border bg-neutral-50 p-1 transition-colors dark:bg-neutral-900',
-                                item.id === value
-                                    ? 'border-red-800 ring-2 ring-red-800'
-                                    : 'border-neutral-200 hover:border-neutral-400 dark:border-neutral-800',
-                            )}
-                            title={item.label}
+                            variant="outline"
+                            size="sm"
+                            onClick={() => setLibraryOpen(true)}
                         >
-                            <img
-                                src={item.url}
-                                alt={item.label}
-                                className="size-full object-cover"
-                            />
-                        </button>
-                    ))}
+                            <ImageIcon className="size-4" />
+                            Ver mas
+                        </Button>
+                    )}
                 </div>
             )}
+
+            <Dialog open={libraryOpen} onOpenChange={setLibraryOpen}>
+                <DialogContent className="sm:max-w-4xl">
+                    <DialogHeader>
+                        <DialogTitle>Biblioteca de imagenes</DialogTitle>
+                        <DialogDescription>
+                            Selecciona una imagen para este hero.
+                        </DialogDescription>
+                    </DialogHeader>
+                    <div className="grid max-h-[70vh] grid-cols-3 gap-3 overflow-y-auto pr-1 sm:grid-cols-5 md:grid-cols-7">
+                        {allMedia.map((item) => mediaButton(item, true))}
+                    </div>
+                </DialogContent>
+            </Dialog>
         </div>
     );
 }

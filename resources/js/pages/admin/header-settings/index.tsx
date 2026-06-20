@@ -1,5 +1,6 @@
 import { Head, router, useForm } from '@inertiajs/react';
 import { Plus, Trash2 } from 'lucide-react';
+import { useState } from 'react';
 import InputError from '@/components/input-error';
 import {
     CintilloBar,
@@ -221,6 +222,9 @@ function CintilloForm({
         menu_background_color: settings.menu_background_color,
         footer: normalizeFooter(settings.footer),
     });
+    const [imageUploadError, setImageUploadError] = useState<string | null>(
+        null,
+    );
 
     const blocks = data.cintillo_blocks;
 
@@ -296,6 +300,8 @@ function CintilloForm({
         imageIndex: number,
         file: File,
     ) => {
+        setImageUploadError(null);
+
         const form = new FormData();
         form.append('file', file);
 
@@ -314,6 +320,17 @@ function CintilloForm({
         });
 
         if (!response.ok) {
+            const result = (await response.json().catch(() => null)) as {
+                message?: string;
+                errors?: { file?: string[] };
+            } | null;
+
+            setImageUploadError(
+                result?.errors?.file?.[0] ??
+                    result?.message ??
+                    'No se pudo subir la imagen.',
+            );
+
             return;
         }
 
@@ -585,6 +602,10 @@ function CintilloForm({
                                         enlace.
                                     </p>
                                 )}
+
+                                <InputError
+                                    message={imageUploadError ?? undefined}
+                                />
 
                                 {block.images.map((image, imageIndex) => (
                                     <div

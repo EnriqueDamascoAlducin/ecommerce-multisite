@@ -30,7 +30,7 @@ class HeaderSettingsController extends Controller
     public function uploadImage(Request $request): JsonResponse
     {
         $request->validate([
-            'file' => ['required', 'image', 'mimes:png,jpg,jpeg,webp,svg,gif', 'max:2048'],
+            'file' => ['required', 'image:allow_svg', 'mimes:png,jpg,jpeg,webp,svg,gif', 'max:2048'],
         ]);
 
         $media = $this->mediaService->store($request->file('file'), 'cintillo', Media::VISIBILITY_PUBLIC, $request->user()?->id);

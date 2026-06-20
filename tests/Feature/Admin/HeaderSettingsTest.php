@@ -277,3 +277,22 @@ test('the Soporte role cannot manage the header settings', function () {
         ->get(route('admin.header-settings.edit'))
         ->assertForbidden();
 });
+
+test('an admin can upload an svg cintillo image', function () {
+    Storage::fake('public');
+
+    $svg = <<<'SVG'
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 40">
+        <rect width="120" height="40" fill="#111827"/>
+    </svg>
+    SVG;
+
+    $this->post(route('admin.header-settings.image'), [
+        'file' => UploadedFile::fake()->createWithContent('logo.svg', $svg),
+    ])->assertOk()->assertJsonStructure(['id', 'url']);
+
+    $this->assertDatabaseHas('media', [
+        'extension' => 'svg',
+        'is_image' => true,
+    ]);
+});
