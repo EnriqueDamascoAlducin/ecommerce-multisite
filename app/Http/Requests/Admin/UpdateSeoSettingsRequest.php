@@ -21,6 +21,7 @@ class UpdateSeoSettingsRequest extends FormRequest
             'store_id' => ['required', 'integer', 'exists:stores,id'],
             'indexing_enabled' => ['required', 'boolean'],
             'additional_rules' => ['nullable', 'string', 'max:10000'],
+            'custom_robots' => ['nullable', 'string', 'max:50000'],
         ];
     }
 
@@ -28,7 +29,7 @@ class UpdateSeoSettingsRequest extends FormRequest
     public function after(): array
     {
         return [function (Validator $validator): void {
-            if ($validator->errors()->has('additional_rules')) {
+            if ($validator->errors()->has('additional_rules') || $this->filled('custom_robots')) {
                 return;
             }
 

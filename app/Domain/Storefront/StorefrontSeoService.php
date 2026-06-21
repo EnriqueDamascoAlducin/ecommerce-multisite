@@ -18,6 +18,8 @@ class StorefrontSeoService
 
     public const RULES_KEY = 'seo.robots.additional_rules';
 
+    public const CUSTOM_ROBOTS_KEY = 'seo.robots.custom_text';
+
     private const CACHE_SECONDS = 3600;
 
     public function __construct(private readonly ScopedConfigService $config) {}
@@ -165,7 +167,7 @@ class StorefrontSeoService
         return Cache::remember(
             $this->robotsCacheKey($entryStore),
             self::CACHE_SECONDS,
-            fn (): string => $this->buildRobots($entryStore),
+            fn (): string => $this->customRobots($entryStore) ?: $this->buildRobots($entryStore),
         );
     }
 
@@ -195,7 +197,15 @@ class StorefrontSeoService
         return (string) $this->config->get(self::RULES_KEY, '', $store->website, $store);
     }
 
-    public function saveRobotsSettings(Store $store, bool $indexingEnabled, ?string $additionalRules): void
+    public function customRobots(Store $store): string
+    {
+        $entryStore = $this->entryStoreFor($store);
+        $entryStore->loadMissing('website');
+
+        return (string) $this->config->get(self::CUSTOM_ROBOTS_KEY, '', $entryStore->website, $entryStore);
+    }
+
+    public function saveRobotsSettings(Store $store, bool $indexingEnabled, ?string $additionalRules, ?string $customRobots): void
     {
         $this->config->set(
             ScopedConfigService::SCOPE_STORE,
@@ -208,6 +218,14 @@ class StorefrontSeoService
             $store->id,
             self::RULES_KEY,
             $this->nullableString($additionalRules),
+        );
+
+        $entryStore = $this->entryStoreFor($store);
+        $this->config->set(
+            ScopedConfigService::SCOPE_STORE,
+            $entryStore->id,
+            self::CUSTOM_ROBOTS_KEY,
+            $this->normalizeRobotsText($customRobots),
         );
 
         $this->forget($store);
@@ -400,6 +418,17 @@ class StorefrontSeoService
     private function robotsCacheKey(Store $entryStore): string
     {
         return 'seo:robots:'.md5($this->baseUrl($entryStore));
+    }
+
+    private function normalizeRobotsText(?string $value): ?string
+    {
+        $value = (string) ($value ?? '');
+
+        if (trim($value) === '') {
+            return null;
+        }
+
+        return rtrim(str_replace(["\r\n", "\r"], "\n", $value))."\n";
     }
 
     private function nullableString(mixed $value): ?string

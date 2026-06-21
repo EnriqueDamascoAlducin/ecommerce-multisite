@@ -14,6 +14,7 @@ export default function SeoIndex({
     currentStoreId,
     indexingEnabled,
     additionalRules,
+    customRobots,
     sitemapUrl,
     robotsUrl,
     counts,
@@ -24,6 +25,7 @@ export default function SeoIndex({
     currentStoreId: number;
     indexingEnabled: boolean;
     additionalRules: string;
+    customRobots: string;
     sitemapUrl: string;
     robotsUrl: string;
     counts: Counts;
@@ -34,6 +36,7 @@ export default function SeoIndex({
         store_id: currentStoreId,
         indexing_enabled: indexingEnabled,
         additional_rules: additionalRules,
+        custom_robots: customRobots,
     });
 
     const changeStore = (event: ChangeEvent<HTMLSelectElement>) => {
@@ -137,24 +140,48 @@ export default function SeoIndex({
                 </label>
 
                 <div className="mt-5 grid gap-2">
-                    <Label>Reglas adicionales</Label>
+                    <Label>Robots completo</Label>
                     <textarea
-                        value={form.data.additional_rules}
+                        value={form.data.custom_robots}
                         onChange={(event) =>
-                            form.setData('additional_rules', event.target.value)
+                            form.setData('custom_robots', event.target.value)
                         }
-                        placeholder={'Disallow: /ruta-privada\nAllow: /ruta-publica'}
-                        className="min-h-36 rounded-md border border-neutral-300 bg-white px-3 py-2 font-mono text-sm dark:border-neutral-700 dark:bg-neutral-900"
+                        placeholder={'User-agent: *\nDisallow: /admin\nSitemap: https://example.com/sitemap.xml'}
+                        className="min-h-64 rounded-md border border-neutral-300 bg-white px-3 py-2 font-mono text-sm dark:border-neutral-700 dark:bg-neutral-900"
                     />
                     <p className="text-xs text-neutral-500">
-                        Una regla por línea. Sólo se aceptan Allow: / y Disallow: /.
+                        Si este campo tiene contenido, se publicará exactamente como robots.txt del dominio efectivo. Déjalo vacío para usar el robots generado automáticamente.
                     </p>
-                    {form.errors.additional_rules && (
+                    {form.errors.custom_robots && (
                         <p className="text-xs text-red-600">
-                            {form.errors.additional_rules}
+                            {form.errors.custom_robots}
                         </p>
                     )}
                 </div>
+
+                <details className="mt-5 rounded-md border border-neutral-200 p-4 dark:border-neutral-800">
+                    <summary className="cursor-pointer text-sm font-semibold">
+                        Reglas adicionales del generador automático
+                    </summary>
+                    <div className="mt-4 grid gap-2">
+                        <textarea
+                            value={form.data.additional_rules}
+                            onChange={(event) =>
+                                form.setData('additional_rules', event.target.value)
+                            }
+                            placeholder={'Disallow: /ruta-privada\nAllow: /ruta-publica'}
+                            className="min-h-32 rounded-md border border-neutral-300 bg-white px-3 py-2 font-mono text-sm dark:border-neutral-700 dark:bg-neutral-900"
+                        />
+                        <p className="text-xs text-neutral-500">
+                            Sólo aplica cuando el robots completo está vacío. Una regla por línea; se aceptan Allow: / y Disallow: /.
+                        </p>
+                        {form.errors.additional_rules && (
+                            <p className="text-xs text-red-600">
+                                {form.errors.additional_rules}
+                            </p>
+                        )}
+                    </div>
+                </details>
             </section>
 
             <div className="grid gap-8 py-6 xl:grid-cols-2">

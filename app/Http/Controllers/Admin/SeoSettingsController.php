@@ -31,6 +31,7 @@ class SeoSettingsController extends Controller
             'currentStoreId' => $store->id,
             'indexingEnabled' => $this->seo->indexingEnabled($store),
             'additionalRules' => $this->seo->additionalRules($store),
+            'customRobots' => $this->seo->customRobots($store),
             'sitemapUrl' => $this->seo->sitemapUrl($store),
             'robotsUrl' => $this->seo->robotsUrl($store),
             'counts' => $this->seo->counts($store),
@@ -48,6 +49,7 @@ class SeoSettingsController extends Controller
             $store,
             (bool) $validated['indexing_enabled'],
             $validated['additional_rules'] ?? null,
+            $validated['custom_robots'] ?? null,
         );
 
         $this->auditLogger->log(
