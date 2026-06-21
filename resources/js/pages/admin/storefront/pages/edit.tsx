@@ -162,11 +162,11 @@ const SECTION_META: Record<
     },
     specialty_grid: {
         label: 'Especialidades',
-        description: 'Grid de servicios y áreas clínicas',
+        description: 'Grid de servicios y Ã¡reas clÃ­nicas',
         icon: Grid3X3,
     },
     feature_cards: {
-        label: 'Servicios / Educación',
+        label: 'Servicios / EducaciÃ³n',
         description: 'Cards grandes con imagen y CTA',
         icon: Layers3,
     },
@@ -177,7 +177,7 @@ const SECTION_META: Record<
     },
     inquiry_form: {
         label: 'Formulario contacto',
-        description: 'Texto, datos de contacto y áreas',
+        description: 'Texto, datos de contacto y Ã¡reas',
         icon: MessageSquareText,
     },
     recommended_products: {
@@ -191,8 +191,8 @@ const SECTION_META: Record<
         icon: ImageIcon,
     },
     page_header: {
-        label: 'Encabezado de página',
-        description: 'Título y subtítulo para páginas interiores',
+        label: 'Encabezado de pÃ¡gina',
+        description: 'TÃ­tulo y subtÃ­tulo para pÃ¡ginas interiores',
         icon: Heading,
     },
     rich_text: {
@@ -202,7 +202,7 @@ const SECTION_META: Record<
     },
     contact_info: {
         label: 'Datos de contacto',
-        description: 'Teléfono, email, dirección, horario y mapa',
+        description: 'TelÃ©fono, email, direcciÃ³n, horario y mapa',
         icon: Mail,
     },
 };
@@ -422,8 +422,8 @@ export default function StorefrontPageEdit({
                             <PanelLeft className="mx-auto size-8 text-neutral-400" />
                             <p className="mt-3 text-sm text-neutral-500">
                                 {extraTypes.length > 0
-                                    ? 'Esta página aún no tiene secciones. Agrega la primera:'
-                                    : 'Esta página no tiene secciones de template.'}
+                                    ? 'Esta pÃ¡gina aÃºn no tiene secciones. Agrega la primera:'
+                                    : 'Esta pÃ¡gina no tiene secciones de template.'}
                             </p>
                             {extraTypes.length > 0 && (
                                 <div className="mx-auto mt-4 max-w-xs text-left">
@@ -541,7 +541,7 @@ function EditorShell({
                         </Button>
                         <Button onClick={onSave} disabled={saving} size="sm">
                             <Save className="size-4" />
-                            {saving ? 'Guardando...' : 'Guardar página'}
+                            {saving ? 'Guardando...' : 'Guardar pÃ¡gina'}
                         </Button>
                     </div>
                 </div>
@@ -549,15 +549,15 @@ function EditorShell({
 
             <Card className="rounded-lg">
                 <CardHeader className="gap-1">
-                    <CardTitle>Información de página</CardTitle>
+                    <CardTitle>InformaciÃ³n de pÃ¡gina</CardTitle>
                     <CardDescription>
-                        Datos generales visibles en el admin y publicación.
+                        Datos generales visibles en el admin y publicaciÃ³n.
                     </CardDescription>
                 </CardHeader>
                 <CardContent>
                     <div className="grid gap-4 md:grid-cols-[1fr_1fr_auto] md:items-end">
                         <TextField
-                            label="Título"
+                            label="TÃ­tulo"
                             value={title}
                             onChange={onTitleChange}
                         />
@@ -628,8 +628,8 @@ function EditorShell({
                             />
                             {templateChanged && (
                                 <p className="text-xs text-amber-600 dark:text-amber-400">
-                                    Al guardar se aplicará la nueva plantilla y
-                                    se añadirán sus secciones fijas.
+                                    Al guardar se aplicarÃ¡ la nueva plantilla y
+                                    se aÃ±adirÃ¡n sus secciones fijas.
                                 </p>
                             )}
                         </div>
@@ -671,7 +671,7 @@ function SeoPanel({
             <CardHeader className="gap-1">
                 <div className="flex flex-wrap items-start justify-between gap-3">
                     <div>
-                        <CardTitle>SEO de la p�gina</CardTitle>
+                        <CardTitle>SEO de la página</CardTitle>
                         <CardDescription>
                             Metadatos independientes para cada tienda asignada.
                         </CardDescription>
@@ -704,7 +704,7 @@ function SeoPanel({
             <CardContent className="grid gap-5">
                 <div className="grid gap-4 md:grid-cols-2">
                     <TextField
-                        label="T�tulo SEO"
+                        label="Título SEO"
                         value={value.meta_title ?? ''}
                         onChange={(next) => setField('meta_title', next)}
                     />
@@ -715,7 +715,7 @@ function SeoPanel({
                     />
                 </div>
                 <TextArea
-                    label="Meta descripci�n"
+                    label="Meta descripción"
                     value={value.meta_description ?? ''}
                     onChange={(next) => setField('meta_description', next)}
                 />
@@ -733,7 +733,7 @@ function SeoPanel({
                                 setField('robots_index', checked === true)
                             }
                         />
-                        Indexar p�gina
+                        Indexar página
                     </label>
                     <label className="flex items-center gap-2 text-sm">
                         <Checkbox
@@ -748,12 +748,12 @@ function SeoPanel({
                 <div className="grid gap-4 border-t border-neutral-200 pt-5 md:grid-cols-2 dark:border-neutral-800">
                     <div className="grid content-start gap-4">
                         <TextField
-                            label="T�tulo Open Graph"
+                            label="Título Open Graph"
                             value={value.og_title ?? ''}
                             onChange={(next) => setField('og_title', next)}
                         />
                         <TextArea
-                            label="Descripci�n Open Graph"
+                            label="Descripción Open Graph"
                             value={value.og_description ?? ''}
                             onChange={(next) =>
                                 setField('og_description', next)
@@ -855,10 +855,10 @@ function SectionSidebar({
                 <CardHeader className="px-4">
                     <CardTitle className="flex items-center gap-2 text-sm">
                         <PanelLeft className="size-4 text-red-700 dark:text-red-400" />
-                        Secciones de la página
+                        Secciones de la pÃ¡gina
                     </CardTitle>
                     <CardDescription>
-                        Selecciona una sección para editar su contenido.
+                        Selecciona una secciÃ³n para editar su contenido.
                     </CardDescription>
                 </CardHeader>
                 <CardContent className="px-3">
@@ -889,7 +889,7 @@ function SectionSidebar({
                                             onMoveSection(section.id, -1)
                                         }
                                         disabled={index === 0}
-                                        title="Subir sección"
+                                        title="Subir secciÃ³n"
                                         className="h-auto min-h-0 px-0"
                                     >
                                         <ArrowUp className="size-4" />
@@ -901,7 +901,7 @@ function SectionSidebar({
                                             onMoveSection(section.id, 1)
                                         }
                                         disabled={index === sections.length - 1}
-                                        title="Bajar sección"
+                                        title="Bajar secciÃ³n"
                                         className="h-auto min-h-0 px-0"
                                     >
                                         <ArrowDown className="size-4" />
@@ -1045,7 +1045,7 @@ function SectionPanel({
                     <div className="space-y-5">
                         <FieldGroup
                             title="Apariencia"
-                            description="Color de banda y ancho interno usado por esta sección."
+                            description="Color de banda y ancho interno usado por esta secciÃ³n."
                             icon={Palette}
                         >
                             <div className="grid gap-4 md:grid-cols-2">
@@ -1059,7 +1059,7 @@ function SectionPanel({
                                     }
                                 />
                                 <ColorField
-                                    label="Color del título"
+                                    label="Color del tÃ­tulo"
                                     value={text(section.settings.title_color)}
                                     onChange={(value) =>
                                         setSetting('title_color', value)
@@ -1220,7 +1220,7 @@ function HeroFields({
         <>
             <FieldGroup
                 title="Slides del hero"
-                description="Hasta 5 campañas. Selecciona una miniatura para editar únicamente ese slide."
+                description="Hasta 5 campaÃ±as. Selecciona una miniatura para editar Ãºnicamente ese slide."
                 icon={Layers3}
             >
                 <HeroSlidesList
@@ -1248,10 +1248,10 @@ function HeroFields({
                         </span>
                         <span className="min-w-0 flex-1">
                             <span className="block text-sm font-semibold">
-                                Configuración heredada
+                                ConfiguraciÃ³n heredada
                             </span>
                             <span className="mt-1 block text-xs leading-5 text-neutral-500">
-                                Contenido fallback usado sólo cuando no existen
+                                Contenido fallback usado sÃ³lo cuando no existen
                                 slides.
                             </span>
                         </span>
@@ -1269,7 +1269,7 @@ function HeroFields({
                                     Contenido principal
                                 </h4>
                                 <p className="mt-1 text-xs text-neutral-500">
-                                    Texto mostrado únicamente si el hero no
+                                    Texto mostrado Ãºnicamente si el hero no
                                     tiene slides.
                                 </p>
                             </div>
@@ -1282,7 +1282,7 @@ function HeroFields({
                                     }
                                 />
                                 <TextField
-                                    label="Título"
+                                    label="TÃ­tulo"
                                     value={text(settings.title)}
                                     onChange={(value) =>
                                         setSetting('title', value)
@@ -1290,7 +1290,7 @@ function HeroFields({
                                 />
                                 <div className="md:col-span-2">
                                     <TextArea
-                                        label="Subtítulo"
+                                        label="SubtÃ­tulo"
                                         value={text(settings.subtitle)}
                                         onChange={(value) =>
                                             setSetting('subtitle', value)
@@ -1349,7 +1349,7 @@ function SpecialtyGridFields({
         <>
             <FieldGroup
                 title="Encabezado"
-                description="Título del bloque de especialidades."
+                description="TÃ­tulo del bloque de especialidades."
                 icon={Activity}
             >
                 <div className="grid gap-4 md:grid-cols-2">
@@ -1359,7 +1359,7 @@ function SpecialtyGridFields({
                         onChange={(value) => setSetting('eyebrow', value)}
                     />
                     <TextField
-                        label="Título"
+                        label="TÃ­tulo"
                         value={text(settings.title)}
                         onChange={(value) => setSetting('title', value)}
                     />
@@ -1429,7 +1429,7 @@ function BrandStripFields({
                         onChange={(value) => setSetting('eyebrow', value)}
                     />
                     <TextField
-                        label="Título"
+                        label="TÃ­tulo"
                         value={text(settings.title)}
                         onChange={(value) => setSetting('title', value)}
                     />
@@ -1463,17 +1463,17 @@ function InquiryFormFields({
         <>
             <FieldGroup
                 title="Contenido"
-                description="Texto y datos que acompañan el formulario."
+                description="Texto y datos que acompaÃ±an el formulario."
                 icon={Mail}
             >
                 <div className="grid gap-4 md:grid-cols-2">
                     <TextField
-                        label="Título"
+                        label="TÃ­tulo"
                         value={text(settings.title)}
                         onChange={(value) => setSetting('title', value)}
                     />
                     <TextField
-                        label="Teléfono"
+                        label="TelÃ©fono"
                         value={text(settings.phone)}
                         onChange={(value) => setSetting('phone', value)}
                     />
@@ -1498,12 +1498,12 @@ function InquiryFormFields({
                 </div>
             </FieldGroup>
             <FieldGroup
-                title="Áreas de interés"
+                title="Ãreas de interÃ©s"
                 description="Opciones disponibles en el selector del formulario."
                 icon={MessageSquareText}
             >
                 <StringList
-                    label="Áreas"
+                    label="Ãreas"
                     value={arrayValue<string>(settings.interest_areas)}
                     onChange={(value) => setSetting('interest_areas', value)}
                 />
@@ -1522,7 +1522,7 @@ function PageHeaderFields({
     return (
         <FieldGroup
             title="Encabezado"
-            description="Título y subtítulo del encabezado de la página."
+            description="TÃ­tulo y subtÃ­tulo del encabezado de la pÃ¡gina."
             icon={Heading}
         >
             <div className="grid gap-4 md:grid-cols-2">
@@ -1532,13 +1532,13 @@ function PageHeaderFields({
                     onChange={(value) => setSetting('eyebrow', value)}
                 />
                 <TextField
-                    label="Título"
+                    label="TÃ­tulo"
                     value={text(settings.title)}
                     onChange={(value) => setSetting('title', value)}
                 />
                 <div className="md:col-span-2">
                     <TextArea
-                        label="Subtítulo"
+                        label="SubtÃ­tulo"
                         value={text(settings.subtitle)}
                         onChange={(value) => setSetting('subtitle', value)}
                     />
@@ -1588,17 +1588,17 @@ function ContactInfoFields({
         <>
             <FieldGroup
                 title="Datos de contacto"
-                description="Información visible para los clientes."
+                description="InformaciÃ³n visible para los clientes."
                 icon={Mail}
             >
                 <div className="grid gap-4 md:grid-cols-2">
                     <TextField
-                        label="Título"
+                        label="TÃ­tulo"
                         value={text(settings.title)}
                         onChange={(value) => setSetting('title', value)}
                     />
                     <TextField
-                        label="Teléfono"
+                        label="TelÃ©fono"
                         value={text(settings.phone)}
                         onChange={(value) => setSetting('phone', value)}
                     />
@@ -1614,7 +1614,7 @@ function ContactInfoFields({
                     />
                     <div className="md:col-span-2">
                         <TextArea
-                            label="Dirección"
+                            label="DirecciÃ³n"
                             value={text(settings.address)}
                             onChange={(value) => setSetting('address', value)}
                         />
@@ -1623,7 +1623,7 @@ function ContactInfoFields({
             </FieldGroup>
             <FieldGroup
                 title="Mapa"
-                description="URL de inserción (embed) de Google Maps. Opcional."
+                description="URL de inserciÃ³n (embed) de Google Maps. Opcional."
                 icon={Sparkles}
             >
                 <TextField
@@ -1856,7 +1856,7 @@ function ItemList({
                 >
                     <div className="grid gap-4 md:grid-cols-2">
                         <TextField
-                            label="Título"
+                            label="TÃ­tulo"
                             value={item.title ?? ''}
                             onChange={(title) =>
                                 update(index, { ...item, title })
@@ -1881,14 +1881,14 @@ function ItemList({
                         {type === 'feature_cards' && (
                             <>
                                 <TextField
-                                    label="Texto del botón"
+                                    label="Texto del botÃ³n"
                                     value={item.cta_label ?? ''}
                                     onChange={(cta_label) =>
                                         update(index, { ...item, cta_label })
                                     }
                                 />
                                 <TextField
-                                    label="URL del botón"
+                                    label="URL del botÃ³n"
                                     value={item.cta_url ?? ''}
                                     onChange={(cta_url) =>
                                         update(index, { ...item, cta_url })
@@ -2102,10 +2102,10 @@ function HeroSlidesList({
                         <Label>Slides</Label>
                         <p className="mt-1 text-xs text-neutral-500">
                             {slides.length === 0
-                                ? 'Sin slides: se usa la configuración heredada.'
+                                ? 'Sin slides: se usa la configuraciÃ³n heredada.'
                                 : slides.length === 1
-                                  ? '1 slide: se mostrará como hero fijo.'
-                                  : `${slides.length} slides: se mostrarán como carrusel.`}
+                                  ? '1 slide: se mostrarÃ¡ como hero fijo.'
+                                  : `${slides.length} slides: se mostrarÃ¡n como carrusel.`}
                         </p>
                     </div>
                     <Button
@@ -2123,11 +2123,11 @@ function HeroSlidesList({
                     <div className="rounded-lg border border-dashed border-neutral-300 bg-neutral-50 px-4 py-8 text-center dark:border-neutral-700 dark:bg-neutral-900">
                         <ImageIcon className="mx-auto size-8 text-neutral-400" />
                         <p className="mt-3 text-sm font-medium">
-                            Aún no hay slides configurados
+                            AÃºn no hay slides configurados
                         </p>
                         <p className="mx-auto mt-1 max-w-sm text-xs leading-5 text-neutral-500">
-                            El primer slide copiará el contenido y los botones
-                            de la configuración heredada.
+                            El primer slide copiarÃ¡ el contenido y los botones
+                            de la configuraciÃ³n heredada.
                         </p>
                         <Button
                             type="button"
@@ -2297,7 +2297,7 @@ function HeroSlidesList({
                                                 }
                                             />
                                             <TextField
-                                                label="Título"
+                                                label="TÃ­tulo"
                                                 value={activeSlide.title ?? ''}
                                                 onChange={(title) =>
                                                     update({
@@ -2308,7 +2308,7 @@ function HeroSlidesList({
                                             />
                                             <div className="md:col-span-2">
                                                 <TextArea
-                                                    label="Subtítulo"
+                                                    label="SubtÃ­tulo"
                                                     value={
                                                         activeSlide.subtitle ??
                                                         ''
@@ -2421,7 +2421,7 @@ function HeroSlidesList({
                 }}
                 onConfirm={confirmDelete}
                 title="Eliminar slide"
-                description="El slide y su configuración se quitarán del hero al guardar la página."
+                description="El slide y su configuraciÃ³n se quitarÃ¡n del hero al guardar la pÃ¡gina."
                 confirmLabel="Eliminar"
             />
         </>
@@ -2460,7 +2460,7 @@ function ButtonList({
                     size="sm"
                     disabled={!canAdd}
                     onClick={() =>
-                        onChange([...value, { label: 'Botón', url: '#' }])
+                        onChange([...value, { label: 'BotÃ³n', url: '#' }])
                     }
                 >
                     <Plus className="size-4" />
@@ -2470,7 +2470,7 @@ function ButtonList({
             {value.map((button, index) => (
                 <ListCard
                     key={index}
-                    title={button.label || `Botón ${index + 1}`}
+                    title={button.label || `BotÃ³n ${index + 1}`}
                     index={index}
                     total={value.length}
                     badges={[index === 0 ? 'Principal' : 'Secundario']}
@@ -2876,10 +2876,10 @@ function HeroMiniPreview({
                             : undefined
                     }
                 >
-                    {text(previewSettings.title) || 'Título del hero'}
+                    {text(previewSettings.title) || 'TÃ­tulo del hero'}
                 </h4>
                 <p className="mt-2 line-clamp-3 text-xs text-white/80">
-                    {text(previewSettings.subtitle) || 'Subtítulo del hero'}
+                    {text(previewSettings.subtitle) || 'SubtÃ­tulo del hero'}
                 </p>
                 <div className="mt-4 flex flex-wrap gap-2">
                     {buttons.slice(0, 2).map((button, index) => (
@@ -2892,7 +2892,7 @@ function HeroMiniPreview({
                                     : 'border border-white text-white',
                             )}
                         >
-                            {button.label || 'Botón'}
+                            {button.label || 'BotÃ³n'}
                         </span>
                     ))}
                 </div>
@@ -2970,7 +2970,7 @@ function PreviewBody({
                                 {item.title || 'Card'}
                             </p>
                             <p className="mt-1 line-clamp-2 text-xs text-neutral-500">
-                                {item.text || 'Descripción'}
+                                {item.text || 'DescripciÃ³n'}
                             </p>
                         </div>
                     ))}
@@ -3112,13 +3112,13 @@ function PreviewBody({
             <div className="grid gap-4 sm:grid-cols-[0.8fr_1.2fr]">
                 <div>
                     <h4 className="text-xl leading-tight font-black">
-                        {text(section.settings.title) || 'Título'}
+                        {text(section.settings.title) || 'TÃ­tulo'}
                     </h4>
                     <p className="mt-3 line-clamp-3 text-xs text-neutral-500">
                         {text(section.settings.text) || 'Texto'}
                     </p>
                     <p className="mt-4 text-xs text-neutral-700">
-                        {text(section.settings.phone) || 'Teléfono'}
+                        {text(section.settings.phone) || 'TelÃ©fono'}
                     </p>
                 </div>
                 <div className="rounded-md border border-red-900/15 bg-white p-3">
@@ -3126,7 +3126,7 @@ function PreviewBody({
                         <div className="h-8 rounded border border-red-900/20" />
                         <div className="h-8 rounded border border-red-900/20" />
                         <div className="rounded border border-red-900/20 px-2 py-2 text-[10px] text-neutral-500">
-                            {areas[0] || 'Área de interés'}
+                            {areas[0] || 'Ãrea de interÃ©s'}
                         </div>
                         <div className="h-8 rounded bg-red-800" />
                     </div>
@@ -3172,7 +3172,7 @@ function PreviewHeading({ settings }: { settings: SectionSettings }) {
                     isHexColor(titleColor) ? { color: titleColor } : undefined
                 }
             >
-                {text(settings.title) || 'Título'}
+                {text(settings.title) || 'TÃ­tulo'}
             </h4>
             <div className="mx-auto mt-2 h-0.5 w-12 rounded bg-red-800" />
         </div>
@@ -3577,7 +3577,7 @@ function sectionMeta(type: string): {
     return (
         SECTION_META[type] ?? {
             label: type,
-            description: 'Sección del template',
+            description: 'SecciÃ³n del template',
             icon: Sparkles,
         }
     );
@@ -3593,7 +3593,7 @@ function sectionSummary(section: Section): string {
             return `${slides.length} slide${slides.length === 1 ? '' : 's'}`;
         }
 
-        return text(settings.title) || 'Portada sin título';
+        return text(settings.title) || 'Portada sin tÃ­tulo';
     }
 
     if (section.type === 'specialty_grid') {
@@ -3621,7 +3621,7 @@ function sectionSummary(section: Section): string {
     }
 
     if (section.type === 'page_header') {
-        return text(settings.title) || 'Encabezado de página';
+        return text(settings.title) || 'Encabezado de pÃ¡gina';
     }
 
     if (section.type === 'rich_text') {
@@ -3732,7 +3732,7 @@ function sectionDefaults(type: string): SectionSettings {
         case 'inquiry_form':
             return {
                 ...base,
-                title: 'Escríbenos',
+                title: 'EscrÃ­benos',
                 text: '',
                 phone: '',
                 email: '',
@@ -3754,7 +3754,7 @@ function sectionDefaults(type: string): SectionSettings {
                 ...base,
                 background_color: '#0f172a',
                 eyebrow: '',
-                title: 'Título de la página',
+                title: 'TÃ­tulo de la pÃ¡gina',
                 subtitle: '',
             };
         case 'rich_text':
@@ -3762,7 +3762,7 @@ function sectionDefaults(type: string): SectionSettings {
         case 'contact_info':
             return {
                 ...base,
-                title: 'Información de contacto',
+                title: 'InformaciÃ³n de contacto',
                 phone: '',
                 email: '',
                 address: '',

@@ -64,7 +64,7 @@ export default function SeoIndex({
                 <div>
                     <h1 className="text-2xl font-semibold">SEO y rastreo</h1>
                     <p className="text-sm text-neutral-500">
-                        Sitemap y reglas de indexación de cada tienda.
+                        Sitemap y reglas de indexaciÃ³n de cada tienda.
                     </p>
                 </div>
                 <select
@@ -82,8 +82,8 @@ export default function SeoIndex({
 
             <div className="mt-6 grid gap-4 sm:grid-cols-3">
                 {[
-                    ['Páginas', counts.pages],
-                    ['Categorías', counts.categories],
+                    ['PÃ¡ginas', counts.pages],
+                    ['CategorÃ­as', counts.categories],
                     ['Productos', counts.products],
                 ].map(([label, count]) => (
                     <div
@@ -133,7 +133,7 @@ export default function SeoIndex({
                             form.setData('indexing_enabled', checked === true)
                         }
                     />
-                    Permitir indexación de esta tienda
+                    Permitir indexaciÃ³n de esta tienda
                 </label>
 
                 <div className="mt-5 grid gap-2">
@@ -147,7 +147,7 @@ export default function SeoIndex({
                         className="min-h-36 rounded-md border border-neutral-300 bg-white px-3 py-2 font-mono text-sm dark:border-neutral-700 dark:bg-neutral-900"
                     />
                     <p className="text-xs text-neutral-500">
-                        Una regla por línea. Sólo se aceptan Allow: / y Disallow: /.
+                        Una regla por lÃ­nea. SÃ³lo se aceptan Allow: / y Disallow: /.
                     </p>
                     {form.errors.additional_rules && (
                         <p className="text-xs text-red-600">

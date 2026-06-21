@@ -238,7 +238,7 @@ export default function StorefrontPagesIndex({
                     </summary>
                     <div className="mt-4 grid gap-4 md:grid-cols-2">
                         <div className="grid gap-1">
-                            <Label>Título SEO</Label>
+                            <Label>TÃ­tulo SEO</Label>
                             <Input
                                 value={form.data.seo.meta_title}
                                 onChange={(event) =>
@@ -262,7 +262,7 @@ export default function StorefrontPagesIndex({
                             />
                         </div>
                         <div className="grid gap-1 md:col-span-2">
-                            <Label>Meta descripción</Label>
+                            <Label>Meta descripciÃ³n</Label>
                             <textarea
                                 value={form.data.seo.meta_description}
                                 onChange={(event) =>
@@ -287,7 +287,7 @@ export default function StorefrontPagesIndex({
                             />
                         </div>
                         <div className="grid gap-1">
-                            <Label>Título Open Graph</Label>
+                            <Label>TÃ­tulo Open Graph</Label>
                             <Input
                                 value={form.data.seo.og_title}
                                 onChange={(event) =>
@@ -321,7 +321,7 @@ export default function StorefrontPagesIndex({
                             </select>
                         </div>
                         <div className="grid gap-1 md:col-span-2">
-                            <Label>Descripción Open Graph</Label>
+                            <Label>DescripciÃ³n Open Graph</Label>
                             <textarea
                                 value={form.data.seo.og_description}
                                 onChange={(event) =>
