@@ -32,7 +32,20 @@ export type CmsSection = {
         products?: ProductCardData[];
     };
 };
-export type CmsPage = { title: string; sections: CmsSection[] } | null;
+export type CmsPage = {
+    title: string;
+    sections: CmsSection[];
+    seo?: {
+        title: string;
+        description: string | null;
+        keywords: string | null;
+        canonical_url: string;
+        robots: string;
+        og_title: string;
+        og_description: string | null;
+        og_image: string | null;
+    };
+} | null;
 export type CmsItem = {
     title?: string;
     text?: string;

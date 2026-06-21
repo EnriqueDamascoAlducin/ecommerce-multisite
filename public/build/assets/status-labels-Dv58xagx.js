@@ -1,1 +1,0 @@
-var e={pending:`Pendiente`,paid:`Pagada`,cancelled:`Cancelada`,refunded:`Reembolsada`};function t(t){return e[t]??t}export{t};

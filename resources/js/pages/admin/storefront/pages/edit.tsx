@@ -93,6 +93,18 @@ type Section = {
     type: string;
     settings: SectionSettings;
 };
+type SeoSettings = {
+    meta_title: string | null;
+    meta_description: string | null;
+    meta_keywords: string | null;
+    robots_index: boolean;
+    robots_follow: boolean;
+    canonical_url: string | null;
+    og_title: string | null;
+    og_description: string | null;
+    og_media_id: number | null;
+    og_media?: CmsMedia | null;
+};
 type Page = {
     id: number;
     store_id: number;
@@ -101,6 +113,7 @@ type Page = {
     slug: string;
     template: string;
     is_published: boolean;
+    seo: SeoSettings;
     sections: Section[];
 };
 type TemplateInfo = {
@@ -222,6 +235,7 @@ export default function StorefrontPageEdit({
         slug: page.slug,
         is_published: page.is_published,
     });
+    const [seo, setSeo] = useState<SeoSettings>(page.seo);
     const [templateKey, setTemplateKey] = useState(page.template);
     const fixedTypes = template.fixedTypes;
     const extraTypes =
@@ -284,7 +298,7 @@ export default function StorefrontPageEdit({
             return;
         }
 
-        if (!checked && pageForm.data.store_ids.length === 1) {
+        if (!checked && (storeId === currentStoreId || pageForm.data.store_ids.length === 1)) {
             return;
         }
 
@@ -303,6 +317,11 @@ export default function StorefrontPageEdit({
             store_id: pageForm.data.store_id,
             store_ids: pageForm.data.store_ids,
             title: pageForm.data.title,
+            seo_store_id: currentStoreId,
+            seo: {
+                ...seo,
+                og_media: undefined,
+            },
             is_published: pageForm.data.is_published,
             ...(isHome
                 ? {}
@@ -362,6 +381,16 @@ export default function StorefrontPageEdit({
                 onStoreToggle={toggleStore}
                 onSave={savePage}
             >
+                <SeoPanel
+                    pageId={page.id}
+                    stores={stores}
+                    storeIds={pageForm.data.store_ids}
+                    currentStoreId={currentStoreId}
+                    publicUrl={publicUrl}
+                    media={media}
+                    value={seo}
+                    onChange={setSeo}
+                />
                 {sections.length > 0 && activeSection ? (
                     <div className="grid gap-5 lg:grid-cols-[20rem_minmax(0,1fr)]">
                         <SectionSidebar
@@ -612,6 +641,150 @@ function EditorShell({
         </div>
     );
 }
+
+function SeoPanel({
+    pageId,
+    stores,
+    storeIds,
+    currentStoreId,
+    publicUrl,
+    media,
+    value,
+    onChange,
+}: {
+    pageId: number;
+    stores: { id: number; label: string }[];
+    storeIds: number[];
+    currentStoreId: number;
+    publicUrl: string;
+    media: MediaOption[];
+    value: SeoSettings;
+    onChange: (value: SeoSettings) => void;
+}) {
+    const setField = <K extends keyof SeoSettings>(
+        field: K,
+        fieldValue: SeoSettings[K],
+    ) => onChange({ ...value, [field]: fieldValue });
+
+    return (
+        <Card className="rounded-lg">
+            <CardHeader className="gap-1">
+                <div className="flex flex-wrap items-start justify-between gap-3">
+                    <div>
+                        <CardTitle>SEO de la página</CardTitle>
+                        <CardDescription>
+                            Metadatos independientes para cada tienda asignada.
+                        </CardDescription>
+                    </div>
+                    <select
+                        value={currentStoreId}
+                        onChange={(event) =>
+                            router.get(
+                                storefrontPages.edit.url(pageId, {
+                                    query: {
+                                        store_id: Number(event.target.value),
+                                    },
+                                }),
+                                {},
+                                { preserveState: false },
+                            )
+                        }
+                        className="h-9 rounded-md border border-neutral-300 bg-white px-3 text-sm dark:border-neutral-700 dark:bg-neutral-800"
+                    >
+                        {stores
+                            .filter((store) => storeIds.includes(store.id))
+                            .map((store) => (
+                                <option key={store.id} value={store.id}>
+                                    {store.label}
+                                </option>
+                            ))}
+                    </select>
+                </div>
+            </CardHeader>
+            <CardContent className="grid gap-5">
+                <div className="grid gap-4 md:grid-cols-2">
+                    <TextField
+                        label="Título SEO"
+                        value={value.meta_title ?? ''}
+                        onChange={(next) => setField('meta_title', next)}
+                    />
+                    <TextField
+                        label="Palabras clave"
+                        value={value.meta_keywords ?? ''}
+                        onChange={(next) => setField('meta_keywords', next)}
+                    />
+                </div>
+                <TextArea
+                    label="Meta descripción"
+                    value={value.meta_description ?? ''}
+                    onChange={(next) => setField('meta_description', next)}
+                />
+                <TextField
+                    label="Canonical personalizado"
+                    value={value.canonical_url ?? ''}
+                    placeholder={publicUrl}
+                    onChange={(next) => setField('canonical_url', next)}
+                />
+                <div className="flex flex-wrap gap-4">
+                    <label className="flex items-center gap-2 text-sm">
+                        <Checkbox
+                            checked={value.robots_index}
+                            onCheckedChange={(checked) =>
+                                setField('robots_index', checked === true)
+                            }
+                        />
+                        Indexar página
+                    </label>
+                    <label className="flex items-center gap-2 text-sm">
+                        <Checkbox
+                            checked={value.robots_follow}
+                            onCheckedChange={(checked) =>
+                                setField('robots_follow', checked === true)
+                            }
+                        />
+                        Seguir enlaces
+                    </label>
+                </div>
+                <div className="grid gap-4 border-t border-neutral-200 pt-5 md:grid-cols-2 dark:border-neutral-800">
+                    <div className="grid content-start gap-4">
+                        <TextField
+                            label="Título Open Graph"
+                            value={value.og_title ?? ''}
+                            onChange={(next) => setField('og_title', next)}
+                        />
+                        <TextArea
+                            label="Descripción Open Graph"
+                            value={value.og_description ?? ''}
+                            onChange={(next) =>
+                                setField('og_description', next)
+                            }
+                        />
+                    </div>
+                    <MediaPicker
+                        label="Imagen Open Graph"
+                        media={media}
+                        compactLibrary
+                        value={value.og_media_id}
+                        onChange={(mediaId, selectedMedia) =>
+                            onChange({
+                                ...value,
+                                og_media_id: mediaId,
+                                og_media: selectedMedia
+                                    ? {
+                                          id: selectedMedia.id,
+                                          url: selectedMedia.url,
+                                          alt: selectedMedia.label,
+                                      }
+                                    : null,
+                            })
+                        }
+                    />
+                </div>
+            </CardContent>
+        </Card>
+    );
+}
+
 
 function AddSectionControl({
     extraTypes,
@@ -3230,12 +3403,14 @@ function TextField({
     label,
     value,
     disabled,
+    placeholder,
     onChange,
 }: {
     label: string;
     value: string;
     disabled?: boolean;
     onChange: (value: string) => void;
+    placeholder?: string;
 }) {
     return (
         <div className="grid gap-1.5">
@@ -3244,6 +3419,7 @@ function TextField({
                 value={value}
                 disabled={disabled}
                 onChange={(event) => onChange(event.target.value)}
+                placeholder={placeholder}
             />
         </div>
     );

@@ -8,6 +8,7 @@ use App\Domain\Catalog\ProductPricingService;
 use App\Domain\Inventory\StockAvailabilityChecker;
 use App\Domain\Store\StoreContext;
 use App\Domain\Storefront\HtmlSanitizer;
+use App\Domain\Storefront\StorefrontSeoService;
 use App\Domain\Storefront\StorefrontPagePresenter;
 use App\Http\Controllers\Controller;
 use App\Models\Attribute;
@@ -28,6 +29,7 @@ class StorefrontController extends Controller
         private readonly StoreContext $context,
         private readonly ProductPricingService $pricing,
         private readonly ConfigurableProductService $configurable,
+        private readonly StorefrontSeoService $seo,
         private readonly BundleService $bundles,
         private readonly StockAvailabilityChecker $availability,
         private readonly StorefrontPagePresenter $pagePresenter,
@@ -354,6 +356,10 @@ class StorefrontController extends Controller
         }
 
         $contentPage = $page ? $this->pagePresenter->present($page, $store) : null;
+
+        if ($page && $contentPage) {
+            $contentPage['seo'] = $this->seo->pageMeta($page, $store);
+        }
 
         return Inertia::render('storefront/home', [
             'featured' => $featured,

@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\Admin\MediaController;
 use App\Http\Controllers\Storefront\PwaController;
+use App\Http\Controllers\Storefront\SeoController;
 use App\Http\Controllers\Storefront\StorefrontController;
 use App\Http\Controllers\Storefront\StoreInquiryController;
 use App\Http\Controllers\Webhooks\PaymentWebhookController;
@@ -13,6 +14,8 @@ Route::redirect('register', 'admin');
 Route::middleware('resolve.store')->group(function () {
     // Raíz (tiendas por dominio / tienda de entrada).
     Route::get('/', [StorefrontController::class, 'home'])->name('home');
+    Route::get('sitemap.xml', [SeoController::class, 'sitemap'])->name('storefront.seo.sitemap');
+    Route::get('robots.txt', [SeoController::class, 'robots'])->name('storefront.seo.robots');
     Route::get('c/{slug}', [StorefrontController::class, 'category'])->name('storefront.category');
     Route::get('p/{slug}', [StorefrontController::class, 'product'])->name('storefront.product');
     Route::get('manifest.webmanifest', [PwaController::class, 'manifest'])->name('storefront.pwa.manifest');
@@ -52,6 +55,7 @@ require __DIR__.'/settings.php';
 // reservados, para no capturar /admin, /cuenta, /login, etc.
 Route::middleware('resolve.store')->prefix('{store_code}')->name('storefront.store.')->group(function () {
     Route::get('/', [StorefrontController::class, 'home'])->name('home');
+    Route::get('sitemap.xml', [SeoController::class, 'sitemap'])->name('seo.sitemap');
     Route::get('c/{slug}', [StorefrontController::class, 'category'])->name('category');
     Route::get('p/{slug}', [StorefrontController::class, 'product'])->name('product');
     Route::get('manifest.webmanifest', [PwaController::class, 'manifest'])->name('pwa.manifest');

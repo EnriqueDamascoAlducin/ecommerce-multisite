@@ -13,14 +13,65 @@ export default function StorefrontHome({
     contentPage?: CmsPage;
 }) {
     const { store } = usePage().props;
+    const seo = contentPage?.seo;
 
     return (
         <>
             <Head
                 title={
-                    contentPage?.title ?? (store ? store.store.name : 'Inicio')
+                    seo?.title ??
+                    contentPage?.title ??
+                    (store ? store.store.name : 'Inicio')
                 }
-            />
+            >
+                {seo?.description && (
+                    <meta head-key="description" name="description" content={seo.description} />
+                )}
+                {seo?.keywords && (
+                    <meta head-key="keywords" name="keywords" content={seo.keywords} />
+                )}
+                {seo && <meta head-key="robots" name="robots" content={seo.robots} />}
+                {seo?.canonical_url && (
+                    <link head-key="canonical" rel="canonical" href={seo.canonical_url} />
+                )}
+                {seo && <meta head-key="og-title" property="og:title" content={seo.og_title} />}
+                {seo?.og_description && (
+                    <meta head-key="og-description" property="og:description" content={seo.og_description} />
+                )}
+                {seo?.og_image && (
+                    <meta head-key="og-image" property="og:image" content={seo.og_image} />
+                )}
+                {seo?.canonical_url && (
+                    <meta head-key="og-url" property="og:url" content={seo.canonical_url} />
+                )}
+                <meta head-key="og-type" property="og:type" content="website" />
+                <meta
+                    head-key="twitter-card"
+                    name="twitter:card"
+                    content={seo?.og_image ? 'summary_large_image' : 'summary'}
+                />
+                {seo && (
+                    <meta
+                        head-key="twitter-title"
+                        name="twitter:title"
+                        content={seo.og_title}
+                    />
+                )}
+                {seo?.og_description && (
+                    <meta
+                        head-key="twitter-description"
+                        name="twitter:description"
+                        content={seo.og_description}
+                    />
+                )}
+                {seo?.og_image && (
+                    <meta
+                        head-key="twitter-image"
+                        name="twitter:image"
+                        content={seo.og_image}
+                    />
+                )}
+            </Head>
 
             {contentPage && contentPage.sections.length > 0 ? (
                 <>

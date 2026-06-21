@@ -59,6 +59,17 @@ class StorefrontPageRequest extends FormRequest
                 Rule::notIn(self::RESERVED_SLUGS),
             ],
             'is_published' => ['boolean'],
+            'seo_store_id' => ['nullable', 'integer', 'exists:stores,id'],
+            'seo' => ['nullable', 'array'],
+            'seo.meta_title' => ['nullable', 'string', 'max:255'],
+            'seo.meta_description' => ['nullable', 'string', 'max:1000'],
+            'seo.meta_keywords' => ['nullable', 'string', 'max:255'],
+            'seo.robots_index' => ['boolean'],
+            'seo.robots_follow' => ['boolean'],
+            'seo.canonical_url' => ['nullable', 'url', 'max:2048'],
+            'seo.og_title' => ['nullable', 'string', 'max:255'],
+            'seo.og_description' => ['nullable', 'string', 'max:1000'],
+            'seo.og_media_id' => ['nullable', 'integer', 'exists:media,id'],
         ];
     }
 
@@ -78,6 +89,14 @@ class StorefrontPageRequest extends FormRequest
             $slug = $page instanceof StorefrontPage && $page->slug === StorefrontPage::HOME
                 ? StorefrontPage::HOME
                 : (string) $this->input('slug');
+
+            if (! in_array($this->integer('store_id'), $storeIds, true)) {
+                $validator->errors()->add('store_ids', 'La tienda principal debe estar asignada a la pagina.');
+            }
+
+            if ($this->filled('seo_store_id') && ! in_array($this->integer('seo_store_id'), $storeIds, true)) {
+                $validator->errors()->add('seo_store_id', 'La tienda SEO debe estar asignada a la pagina.');
+            }
 
             if ($slug === StorefrontPage::HOME
                 && (count($storeIds) !== 1 || $storeIds[0] !== $this->integer('store_id'))) {

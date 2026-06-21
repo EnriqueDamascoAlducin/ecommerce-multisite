@@ -19,6 +19,7 @@ import storefrontPages from '@/routes/admin/storefront/pages';
 
 type StoreOption = { id: number; label: string };
 type TemplateOption = { key: string; label: string; description: string };
+type MediaOption = { id: number; label: string; url: string };
 type PageRow = {
     id: number;
     title: string;
@@ -39,11 +40,13 @@ export default function StorefrontPagesIndex({
     currentStoreId,
     availableTemplates,
     pages,
+    media,
 }: {
     stores: StoreOption[];
     currentStoreId: number;
     availableTemplates: TemplateOption[];
     pages: PageRow[];
+    media: MediaOption[];
 }) {
     const form = useForm({
         store_id: currentStoreId,
@@ -52,6 +55,17 @@ export default function StorefrontPagesIndex({
         slug: '',
         template: availableTemplates[0]?.key ?? 'flexible',
         is_published: false,
+        seo: {
+            meta_title: '',
+            meta_description: '',
+            meta_keywords: '',
+            robots_index: true,
+            robots_follow: true,
+            canonical_url: '',
+            og_title: '',
+            og_description: '',
+            og_media_id: null as number | null,
+        },
     });
     const [pendingAction, setPendingAction] = useState<PendingAction>(null);
     const [actionProcessing, setActionProcessing] = useState(false);
@@ -69,6 +83,10 @@ export default function StorefrontPagesIndex({
     };
 
     const toggleStore = (storeId: number, checked: boolean) => {
+        if (!checked && storeId === currentStoreId) {
+            return;
+        }
+
         form.setData(
             'store_ids',
             checked
@@ -80,7 +98,7 @@ export default function StorefrontPagesIndex({
     const createPage = () => {
         form.post(storefrontPages.store.url(), {
             preserveScroll: true,
-            onSuccess: () => form.reset('title', 'slug'),
+            onSuccess: () => form.reset('title', 'slug', 'seo'),
         });
     };
 
@@ -214,7 +232,138 @@ export default function StorefrontPagesIndex({
                     )}
                 </div>
 
+                <details className="mt-4 rounded-md border border-neutral-200 p-4 dark:border-neutral-800">
+                    <summary className="cursor-pointer text-sm font-semibold">
+                        Metadatos SEO iniciales
+                    </summary>
+                    <div className="mt-4 grid gap-4 md:grid-cols-2">
+                        <div className="grid gap-1">
+                            <Label>Título SEO</Label>
+                            <Input
+                                value={form.data.seo.meta_title}
+                                onChange={(event) =>
+                                    form.setData('seo', {
+                                        ...form.data.seo,
+                                        meta_title: event.target.value,
+                                    })
+                                }
+                            />
+                        </div>
+                        <div className="grid gap-1">
+                            <Label>Palabras clave</Label>
+                            <Input
+                                value={form.data.seo.meta_keywords}
+                                onChange={(event) =>
+                                    form.setData('seo', {
+                                        ...form.data.seo,
+                                        meta_keywords: event.target.value,
+                                    })
+                                }
+                            />
+                        </div>
+                        <div className="grid gap-1 md:col-span-2">
+                            <Label>Meta descripción</Label>
+                            <textarea
+                                value={form.data.seo.meta_description}
+                                onChange={(event) =>
+                                    form.setData('seo', {
+                                        ...form.data.seo,
+                                        meta_description: event.target.value,
+                                    })
+                                }
+                                className="min-h-24 rounded-md border border-neutral-300 bg-white px-3 py-2 text-sm dark:border-neutral-700 dark:bg-neutral-800"
+                            />
+                        </div>
+                        <div className="grid gap-1 md:col-span-2">
+                            <Label>Canonical personalizado</Label>
+                            <Input
+                                value={form.data.seo.canonical_url}
+                                onChange={(event) =>
+                                    form.setData('seo', {
+                                        ...form.data.seo,
+                                        canonical_url: event.target.value,
+                                    })
+                                }
+                            />
+                        </div>
+                        <div className="grid gap-1">
+                            <Label>Título Open Graph</Label>
+                            <Input
+                                value={form.data.seo.og_title}
+                                onChange={(event) =>
+                                    form.setData('seo', {
+                                        ...form.data.seo,
+                                        og_title: event.target.value,
+                                    })
+                                }
+                            />
+                        </div>
+                        <div className="grid gap-1">
+                            <Label>Imagen Open Graph</Label>
+                            <select
+                                value={form.data.seo.og_media_id ?? ''}
+                                onChange={(event) =>
+                                    form.setData('seo', {
+                                        ...form.data.seo,
+                                        og_media_id: event.target.value
+                                            ? Number(event.target.value)
+                                            : null,
+                                    })
+                                }
+                                className="h-9 rounded-md border border-neutral-300 bg-white px-3 text-sm dark:border-neutral-700 dark:bg-neutral-800"
+                            >
+                                <option value="">Sin imagen</option>
+                                {media.map((item) => (
+                                    <option key={item.id} value={item.id}>
+                                        {item.label}
+                                    </option>
+                                ))}
+                            </select>
+                        </div>
+                        <div className="grid gap-1 md:col-span-2">
+                            <Label>Descripción Open Graph</Label>
+                            <textarea
+                                value={form.data.seo.og_description}
+                                onChange={(event) =>
+                                    form.setData('seo', {
+                                        ...form.data.seo,
+                                        og_description: event.target.value,
+                                    })
+                                }
+                                className="min-h-20 rounded-md border border-neutral-300 bg-white px-3 py-2 text-sm dark:border-neutral-700 dark:bg-neutral-800"
+                            />
+                        </div>
+                        <div className="flex flex-wrap gap-4 md:col-span-2">
+                            <label className="flex items-center gap-2 text-sm">
+                                <Checkbox
+                                    checked={form.data.seo.robots_index}
+                                    onCheckedChange={(checked) =>
+                                        form.setData('seo', {
+                                            ...form.data.seo,
+                                            robots_index: checked === true,
+                                        })
+                                    }
+                                />
+                                Indexar
+                            </label>
+                            <label className="flex items-center gap-2 text-sm">
+                                <Checkbox
+                                    checked={form.data.seo.robots_follow}
+                                    onCheckedChange={(checked) =>
+                                        form.setData('seo', {
+                                            ...form.data.seo,
+                                            robots_follow: checked === true,
+                                        })
+                                    }
+                                />
+                                Seguir enlaces
+                            </label>
+                        </div>
+                    </div>
+                </details>
                 <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
+
+
                     <p className="text-sm text-neutral-500">
                         {selectedTemplate?.description}
                     </p>

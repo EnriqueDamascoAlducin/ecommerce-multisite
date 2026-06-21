@@ -68,7 +68,18 @@ class Store extends Model
     /** @return BelongsToMany<StorefrontPage, $this> */
     public function storefrontPages(): BelongsToMany
     {
-        return $this->belongsToMany(StorefrontPage::class, 'storefront_page_store');
+        return $this->belongsToMany(StorefrontPage::class, 'storefront_page_store')
+            ->withPivot([
+                'meta_title',
+                'meta_description',
+                'meta_keywords',
+                'robots_index',
+                'robots_follow',
+                'canonical_url',
+                'og_title',
+                'og_description',
+                'og_media_id',
+            ]);
     }
 
     /**

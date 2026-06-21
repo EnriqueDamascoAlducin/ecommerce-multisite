@@ -1,1 +1,0 @@
-function e(e){return{pending:`Pendiente`,shipped:`Enviado`,delivered:`Entregado`,cancelled:`Cancelado`}[e]??e}export{e as t};

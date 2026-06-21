@@ -8,6 +8,13 @@ use App\Domain\Payment\Gateways\OpenpayGateway;
 use App\Domain\Payment\PaymentGatewayRegistry;
 use App\Domain\Payment\PaymentSettings;
 use App\Domain\Store\StoreContext;
+use App\Models\Category;
+use App\Models\Product;
+use App\Models\ProductStore;
+use App\Models\Store;
+use App\Models\StoreDomain;
+use App\Models\StorefrontPage;
+use App\Observers\StorefrontSeoCacheObserver;
 use Carbon\CarbonImmutable;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Date;
@@ -45,6 +52,13 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
+        Category::observe(StorefrontSeoCacheObserver::class);
+        Product::observe(StorefrontSeoCacheObserver::class);
+        ProductStore::observe(StorefrontSeoCacheObserver::class);
+        Store::observe(StorefrontSeoCacheObserver::class);
+        StoreDomain::observe(StorefrontSeoCacheObserver::class);
+        StorefrontPage::observe(StorefrontSeoCacheObserver::class);
+
         $this->configureDefaults();
     }
 

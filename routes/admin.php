@@ -23,6 +23,7 @@ use App\Http\Controllers\Admin\ProductVariantController;
 use App\Http\Controllers\Admin\PromotionController;
 use App\Http\Controllers\Admin\ReportController;
 use App\Http\Controllers\Admin\RoleController;
+use App\Http\Controllers\Admin\SeoSettingsController;
 use App\Http\Controllers\Admin\ShipmentController;
 use App\Http\Controllers\Admin\ShippingMethodController;
 use App\Http\Controllers\Admin\StoreConfigurationController;
@@ -250,6 +251,10 @@ Route::middleware(['auth', 'verified'])->prefix('admin')->name('admin.')->group(
         Route::put('header-menu/{headerMenuItem}', [HeaderMenuController::class, 'update'])->name('header-menu.update');
         Route::delete('header-menu/{headerMenuItem}', [HeaderMenuController::class, 'destroy'])->name('header-menu.destroy');
         Route::post('header-menu/reorder', [HeaderMenuController::class, 'reorder'])->name('header-menu.reorder');
+
+        Route::get('seo', [SeoSettingsController::class, 'index'])->name('seo.index');
+        Route::put('seo', [SeoSettingsController::class, 'update'])->name('seo.update');
+        Route::post('seo/regenerate', [SeoSettingsController::class, 'regenerate'])->name('seo.regenerate');
 
         Route::get('storefront/pages/home', [StorefrontPageController::class, 'home'])->name('storefront.pages.home');
         Route::put('storefront/pages/home', [StorefrontPageController::class, 'updateHome'])->name('storefront.pages.home.update');

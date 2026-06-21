@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Domain\Storefront\HtmlSanitizer;
+use App\Domain\Storefront\StorefrontSeoService;
 use App\Domain\Storefront\StorefrontPagePresenter;
 use App\Domain\Storefront\Templates\PageTemplate;
 use App\Domain\Storefront\Templates\PageTemplateRegistry;
@@ -27,6 +28,7 @@ class StorefrontPageController extends Controller
 {
     public function __construct(
         private readonly StorefrontPagePresenter $presenter,
+        private readonly StorefrontSeoService $seo,
         private readonly AuditLogger $auditLogger,
     ) {}
 
@@ -39,6 +41,7 @@ class StorefrontPageController extends Controller
             'stores' => $this->storeOptions(),
             'currentStoreId' => $store->id,
             'availableTemplates' => PageTemplateRegistry::options(),
+            'media' => $this->mediaOptions(),
             'pages' => StorefrontPage::query()
                 ->whereHas('stores', fn ($query) => $query->whereKey($store->id))
                 ->with('stores.website:id,name')
@@ -76,11 +79,16 @@ class StorefrontPageController extends Controller
                 'is_published' => $validated['is_published'] ?? false,
             ]);
 
-            $page->stores()->sync($validated['store_ids']);
+            $seo = $this->seo->normalizePageMeta($validated['seo'] ?? []);
+            $assignments = collect($validated['store_ids'])
+                ->mapWithKeys(fn ($storeId) => [(int) $storeId => $seo]);
+            $page->stores()->sync($assignments);
             $this->seedFromTemplate($page);
 
             return $page;
         });
+        $page->load('stores');
+        $page->stores->each(fn (Store $store) => $this->seo->forget($store));
 
         $this->auditLogger->log('storefront_page.created', $page, "Pagina {$page->title} creada");
 
@@ -116,6 +124,7 @@ class StorefrontPageController extends Controller
                 'store_ids' => $page->stores->pluck('id')->values(),
                 'template' => $page->template,
                 'is_published' => $page->is_published,
+                'seo' => $this->seo->editablePageMeta($page, $editorStore),
             ],
             'media' => $this->mediaOptions(),
             'products' => $isShared ? [] : $this->productOptions($editorStore),
@@ -156,6 +165,13 @@ class StorefrontPageController extends Controller
             $page->update($payload);
             $page->stores()->sync($storeIds);
 
+            if ($request->has('seo') && $request->filled('seo_store_id')) {
+                $page->stores()->updateExistingPivot(
+                    $request->integer('seo_store_id'),
+                    $this->seo->normalizePageMeta($validated['seo'] ?? []),
+                );
+            }
+
             if ($templateChanged) {
                 $page->refresh();
                 $this->ensureFixedSections($page);
@@ -168,6 +184,8 @@ class StorefrontPageController extends Controller
                 $this->persistSections($page, $this->resolveTemplate($page), $sections);
             }
         });
+        $page->load('stores');
+        $page->stores->each(fn (Store $store) => $this->seo->forget($store));
 
         if ($templateChanged) {
             $this->auditLogger->log('storefront_page.updated', $page, "Plantilla de {$page->title} actualizada");
@@ -186,7 +204,9 @@ class StorefrontPageController extends Controller
 
         $storeId = $page->store_id;
         $title = $page->title;
+        $stores = $page->stores()->get();
         $page->delete();
+        $stores->each(fn (Store $store) => $this->seo->forget($store));
 
         $this->auditLogger->log('storefront_page.deleted', null, "Pagina {$title} eliminada");
 
@@ -222,6 +242,7 @@ class StorefrontPageController extends Controller
 
             $page->stores()->detach($store->id);
         });
+        $this->seo->forget($store);
 
         $this->auditLogger->log(
             'storefront_page.unlinked',
@@ -255,6 +276,7 @@ class StorefrontPageController extends Controller
             'title' => (string) $request->string('title'),
             'is_published' => $request->boolean('is_published'),
         ]);
+        $this->seo->forget($store);
 
         return back()->with('success', 'Home actualizado.');
     }
@@ -592,13 +614,7 @@ class StorefrontPageController extends Controller
 
     private function publicUrl(StorefrontPage $page, Store $store): string
     {
-        $prefix = $store->is_default ? '' : "/{$store->code}";
-
-        if ($page->slug === StorefrontPage::HOME) {
-            return $prefix === '' ? '/' : $prefix;
-        }
-
-        return "{$prefix}/{$page->slug}";
+        return $this->seo->pageUrl($page, $store);
     }
 
     /**

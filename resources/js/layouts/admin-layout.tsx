@@ -17,6 +17,7 @@ import {
     Percent,
     Receipt,
     ScrollText,
+    SearchCheck,
     Settings,
     ShieldCheck,
     Store,
@@ -75,6 +76,7 @@ import productLabels from '@/routes/admin/product-labels';
 import products from '@/routes/admin/products';
 import promotions from '@/routes/admin/promotions';
 import roles from '@/routes/admin/roles';
+import seo from '@/routes/admin/seo';
 import shipments from '@/routes/admin/shipments';
 import shipping from '@/routes/admin/shipping';
 import storefrontPages from '@/routes/admin/storefront/pages';
@@ -228,6 +230,12 @@ const navGroups: AdminNavGroup[] = [
                 title: 'Menú del header',
                 href: headerMenu.index(),
                 icon: Menu,
+                permission: 'settings.storefront',
+            },
+            {
+                title: 'SEO y rastreo',
+                href: seo.index(),
+                icon: SearchCheck,
                 permission: 'settings.storefront',
             },
             {
