@@ -4,6 +4,7 @@ namespace App\Http\Middleware;
 
 use App\Domain\Cart\CartService;
 use App\Domain\Store\AdminScopeManager;
+use App\Domain\Store\FooterSettingsService;
 use App\Domain\Store\HeaderMenuService;
 use App\Domain\Store\StoreContext;
 use App\Models\Media;
@@ -152,7 +153,7 @@ class HandleInertiaRequests extends Middleware
                 'menu_text_color' => $settings?->menu_text_color,
                 'menu_background_color' => $settings?->menu_background_color,
             ],
-            'footer' => $this->footerConfig($settings?->footer_settings, $website),
+            'footer' => app(FooterSettingsService::class)->resolvedFor($website, $store, $settings?->footer_settings),
         ];
     }
 

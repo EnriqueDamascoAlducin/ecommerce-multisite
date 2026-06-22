@@ -45,9 +45,27 @@ type SettingsBlock = SettingsImage & {
     images?: SettingsImage[];
 };
 
+type FooterLinkType =
+    | 'page'
+    | 'category'
+    | 'product'
+    | 'all_categories'
+    | 'custom';
+
 type FooterLink = {
     label: string;
-    url: string;
+    type?: FooterLinkType;
+    url?: string | null;
+    category_id?: number | null;
+    product_id?: number | null;
+    page_id?: number | null;
+};
+
+type FooterLinkOption = { id: number; label: string };
+type FooterLinkOptions = {
+    categories: FooterLinkOption[];
+    products: FooterLinkOption[];
+    pages: FooterLinkOption[];
 };
 
 type FooterColumn = {
@@ -95,6 +113,7 @@ type CintilloForm = {
     website_id: number;
     store_id: number | null;
     cintillo_mode: CintilloMode;
+    footer_mode: CintilloMode;
     cintillo_enabled: boolean;
     cintillo_show_on_mobile: boolean;
     cintillo_blocks: FormBlock[];
@@ -119,8 +138,12 @@ export default function HeaderSettingsPage({
     currentWebsiteId,
     currentStoreId,
     cintilloMode,
+    footerMode,
     settings,
     inheritedCintillo,
+    inheritedFooter,
+    linkOptions,
+    linkOptionsStore,
     platforms,
 }: {
     websites: { id: number; label: string }[];
@@ -128,8 +151,12 @@ export default function HeaderSettingsPage({
     currentWebsiteId: number | null;
     currentStoreId: number | null;
     cintilloMode: CintilloMode;
+    footerMode: CintilloMode;
     settings: Settings | null;
     inheritedCintillo: CintilloData | null;
+    inheritedFooter: FooterSettings | null;
+    linkOptions: FooterLinkOptions;
+    linkOptionsStore: StoreOption | null;
     platforms: string[];
 }) {
     const onWebsiteChange = (event: React.ChangeEvent<HTMLSelectElement>) => {
@@ -217,12 +244,16 @@ export default function HeaderSettingsPage({
 
             {settings && currentWebsiteId !== null ? (
                 <CintilloForm
-                    key={`${currentWebsiteId}-${currentStoreId ?? 'website'}-${cintilloMode}`}
+                    key={`${currentWebsiteId}-${currentStoreId ?? 'website'}-${cintilloMode}-${footerMode}`}
                     websiteId={currentWebsiteId}
                     storeId={currentStoreId}
                     mode={cintilloMode}
+                    footerMode={footerMode}
                     settings={settings}
                     inheritedCintillo={inheritedCintillo}
+                    inheritedFooter={inheritedFooter}
+                    linkOptions={linkOptions}
+                    linkOptionsStore={linkOptionsStore}
                     platforms={platforms}
                 />
             ) : (
@@ -238,21 +269,30 @@ function CintilloForm({
     websiteId,
     storeId,
     mode,
+    footerMode,
     settings,
     inheritedCintillo,
+    inheritedFooter,
+    linkOptions,
+    linkOptionsStore,
     platforms,
 }: {
     websiteId: number;
     storeId: number | null;
     mode: CintilloMode;
+    footerMode: CintilloMode;
     settings: Settings;
     inheritedCintillo: CintilloData | null;
+    inheritedFooter: FooterSettings | null;
+    linkOptions: FooterLinkOptions;
+    linkOptionsStore: StoreOption | null;
     platforms: string[];
 }) {
     const { data, setData, put, processing, errors } = useForm<CintilloForm>({
         website_id: websiteId,
         store_id: storeId,
         cintillo_mode: mode,
+        footer_mode: footerMode,
         cintillo_enabled: settings.cintillo_enabled,
         cintillo_show_on_mobile: settings.cintillo_show_on_mobile,
         cintillo_blocks: settings.cintillo_blocks.map((block) => ({
@@ -468,7 +508,7 @@ function CintilloForm({
                     title: 'Nueva columna',
                     title_color: null,
                     link_color: null,
-                    links: [{ label: '', url: '' }],
+                    links: [emptyFooterLink()],
                 },
             ],
         });
@@ -489,7 +529,7 @@ function CintilloForm({
         updateFooterColumn(columnIndex, {
             links: [
                 ...data.footer.columns[columnIndex].links,
-                { label: '', url: '' },
+                emptyFooterLink(),
             ],
         });
 
@@ -554,6 +594,47 @@ function CintilloForm({
 
     const setCintilloMode = (nextMode: 'inherit' | 'custom') => {
         setData('cintillo_mode', nextMode);
+    };
+
+    const setFooterMode = (nextMode: 'inherit' | 'custom') => {
+        setData('footer_mode', nextMode);
+        if (nextMode === 'custom' && inheritedFooter) {
+            setFooter(normalizeFooter(inheritedFooter));
+        }
+    };
+
+    const changeFooterLinkType = (
+        columnIndex: number,
+        linkIndex: number,
+        type: FooterLinkType,
+    ) => {
+        updateFooterLink(columnIndex, linkIndex, {
+            ...emptyFooterLink(),
+            type,
+            label: type === 'all_categories' ? 'Todas las categorias' : '',
+        });
+    };
+
+    const changeFooterLinkTarget = (
+        columnIndex: number,
+        linkIndex: number,
+        value: string,
+    ) => {
+        const link = data.footer.columns[columnIndex].links[linkIndex];
+        const id = Number(value);
+        const options = footerOptionsForType(
+            link.type ?? 'custom',
+            linkOptions,
+        );
+        const option = options.find((candidate) => candidate.id === id);
+        const targetKey = `${link.type}_id` as
+            | 'category_id'
+            | 'product_id'
+            | 'page_id';
+        updateFooterLink(columnIndex, linkIndex, {
+            [targetKey]: id,
+            label: option?.label ?? link.label,
+        });
     };
 
     const submit = () => put(headerSettings.update().url);
@@ -930,8 +1011,8 @@ function CintilloForm({
                 </div>
             </fieldset>
 
-            {!isStoreTarget && (
-                <>
+            <>
+                {!isStoreTarget && (
                     <div className="grid gap-4 border-t border-neutral-200 pt-6 dark:border-neutral-800">
                         <div>
                             <h2 className="text-sm font-semibold">
@@ -1015,240 +1096,289 @@ function CintilloForm({
                             </div>
                         )}
                     </div>
+                )}
 
-                    <div className="grid gap-5 border-t border-neutral-200 pt-6 dark:border-neutral-800">
+                {isStoreTarget && (
+                    <div className="grid gap-3 border-t border-neutral-200 pt-6 dark:border-neutral-800">
                         <div>
                             <h2 className="text-sm font-semibold">
-                                Información del footer
+                                Modo de footer
                             </h2>
-                            <p className="text-xs text-neutral-500">
-                                Edita el texto, columnas de enlaces, contacto,
-                                redes y colores del pie de página.
+                            <p className="mt-1 text-xs text-neutral-500">
+                                Usa el footer del website o crea uno propio para
+                                esta tienda.
                             </p>
                         </div>
+                        <div className="flex flex-wrap gap-3">
+                            <label className="flex items-center gap-2 text-sm">
+                                <input
+                                    type="radio"
+                                    name="footer_mode"
+                                    checked={data.footer_mode === 'inherit'}
+                                    onChange={() => setFooterMode('inherit')}
+                                    className="size-4"
+                                />
+                                Heredar del website
+                            </label>
+                            <label className="flex items-center gap-2 text-sm">
+                                <input
+                                    type="radio"
+                                    name="footer_mode"
+                                    checked={data.footer_mode === 'custom'}
+                                    onChange={() => setFooterMode('custom')}
+                                    className="size-4"
+                                />
+                                Usar footer propio
+                            </label>
+                        </div>
+                    </div>
+                )}
 
-                        <label className="flex items-center gap-2 text-sm font-medium">
-                            <input
-                                type="checkbox"
-                                checked={data.footer.enabled}
+                <fieldset
+                    disabled={isStoreTarget && data.footer_mode === 'inherit'}
+                    className="grid gap-5 border-t border-neutral-200 pt-6 disabled:opacity-60 dark:border-neutral-800"
+                >
+                    <div>
+                        <h2 className="text-sm font-semibold">
+                            Información del footer
+                        </h2>
+                        <p className="text-xs text-neutral-500">
+                            Edita el texto, columnas de enlaces, contacto, redes
+                            y colores del pie de página.
+                        </p>
+                    </div>
+
+                    <label className="flex items-center gap-2 text-sm font-medium">
+                        <input
+                            type="checkbox"
+                            checked={data.footer.enabled}
+                            onChange={(e) =>
+                                patchFooter({ enabled: e.target.checked })
+                            }
+                            className="size-4 rounded"
+                        />
+                        Mostrar footer personalizado
+                    </label>
+
+                    <div className="grid gap-4">
+                        <div className="grid gap-2">
+                            <Label>Descripción</Label>
+                            <textarea
+                                value={data.footer.description}
+                                maxLength={500}
                                 onChange={(e) =>
-                                    patchFooter({ enabled: e.target.checked })
+                                    patchFooter({
+                                        description: e.target.value,
+                                    })
                                 }
-                                className="size-4 rounded"
+                                placeholder="Breve descripción de la tienda o empresa"
+                                className={textareaClass}
                             />
-                            Mostrar footer personalizado
-                        </label>
-
-                        <div className="grid gap-4">
-                            <div className="grid gap-2">
-                                <Label>Descripción</Label>
-                                <textarea
-                                    value={data.footer.description}
-                                    maxLength={500}
-                                    onChange={(e) =>
-                                        patchFooter({
-                                            description: e.target.value,
-                                        })
-                                    }
-                                    placeholder="Breve descripción de la tienda o empresa"
-                                    className={textareaClass}
-                                />
-                                <InputError
-                                    message={
-                                        (errors as Record<string, string>)[
-                                            'footer.description'
-                                        ]
-                                    }
-                                />
-                            </div>
-
-                            <div className="grid gap-2">
-                                <Label>Copyright</Label>
-                                <Input
-                                    value={data.footer.copyright}
-                                    maxLength={255}
-                                    onChange={(e) =>
-                                        patchFooter({
-                                            copyright: e.target.value,
-                                        })
-                                    }
-                                    placeholder="© {year} Mi empresa. Todos los derechos reservados."
-                                />
-                                <p className="text-xs text-neutral-500">
-                                    Usa {'{year}'} para mostrar el año actual.
-                                </p>
-                                <InputError
-                                    message={
-                                        (errors as Record<string, string>)[
-                                            'footer.copyright'
-                                        ]
-                                    }
-                                />
-                            </div>
+                            <InputError
+                                message={
+                                    (errors as Record<string, string>)[
+                                        'footer.description'
+                                    ]
+                                }
+                            />
                         </div>
 
-                        <label className="flex items-center gap-2 text-sm">
-                            <input
-                                type="checkbox"
-                                checked={footerCustom}
+                        <div className="grid gap-2">
+                            <Label>Copyright</Label>
+                            <Input
+                                value={data.footer.copyright}
+                                maxLength={255}
                                 onChange={(e) =>
-                                    setFooterCustom(e.target.checked)
+                                    patchFooter({
+                                        copyright: e.target.value,
+                                    })
                                 }
-                                className="size-4 rounded"
+                                placeholder="© {year} Mi empresa. Todos los derechos reservados."
                             />
-                            Personalizar colores del footer
-                        </label>
-                        {footerCustom && (
-                            <div className="grid gap-4 sm:grid-cols-2">
-                                <ColorField
-                                    label="Fondo del footer"
-                                    value={
-                                        data.footer.background_color ??
-                                        '#f5f5f5'
-                                    }
-                                    onChange={(value) =>
-                                        patchFooter({ background_color: value })
-                                    }
-                                    error={
-                                        (errors as Record<string, string>)[
-                                            'footer.background_color'
-                                        ]
-                                    }
-                                />
-                                <ColorField
-                                    label="Texto del footer"
-                                    value={data.footer.text_color ?? '#404040'}
-                                    onChange={(value) =>
-                                        patchFooter({ text_color: value })
-                                    }
-                                    error={
-                                        (errors as Record<string, string>)[
-                                            'footer.text_color'
-                                        ]
-                                    }
-                                />
-                            </div>
-                        )}
+                            <p className="text-xs text-neutral-500">
+                                Usa {'{year}'} para mostrar el año actual.
+                            </p>
+                            <InputError
+                                message={
+                                    (errors as Record<string, string>)[
+                                        'footer.copyright'
+                                    ]
+                                }
+                            />
+                        </div>
+                    </div>
 
-                        <FooterListHeader
-                            title="Columnas de enlaces"
-                            actionLabel="Agregar columna"
-                            disabled={data.footer.columns.length >= 4}
-                            onAdd={addFooterColumn}
+                    <label className="flex items-center gap-2 text-sm">
+                        <input
+                            type="checkbox"
+                            checked={footerCustom}
+                            onChange={(e) => setFooterCustom(e.target.checked)}
+                            className="size-4 rounded"
                         />
-                        <div className="grid gap-3">
-                            {data.footer.columns.length === 0 && (
-                                <p className="text-sm text-neutral-500">
-                                    Sin columnas. Puedes agregar hasta 4 grupos
-                                    de links.
-                                </p>
-                            )}
-                            {data.footer.columns.map((column, columnIndex) => (
-                                <div
-                                    key={columnIndex}
-                                    className="grid gap-3 rounded-md border border-neutral-200 p-4 dark:border-neutral-800"
-                                >
-                                    <div className="flex items-center gap-2">
-                                        <span className="text-xs font-medium text-neutral-500">
-                                            Columna {columnIndex + 1}
-                                        </span>
-                                        <Button
-                                            type="button"
-                                            variant="ghost"
-                                            size="icon"
-                                            className="ml-auto"
-                                            onClick={() =>
-                                                removeFooterColumn(columnIndex)
-                                            }
-                                        >
-                                            <Trash2 className="size-4" />
-                                        </Button>
-                                    </div>
-                                    <Input
-                                        value={column.title}
-                                        maxLength={80}
-                                        onChange={(e) =>
+                        Personalizar colores del footer
+                    </label>
+                    {footerCustom && (
+                        <div className="grid gap-4 sm:grid-cols-2">
+                            <ColorField
+                                label="Fondo del footer"
+                                value={
+                                    data.footer.background_color ?? '#f5f5f5'
+                                }
+                                onChange={(value) =>
+                                    patchFooter({ background_color: value })
+                                }
+                                error={
+                                    (errors as Record<string, string>)[
+                                        'footer.background_color'
+                                    ]
+                                }
+                            />
+                            <ColorField
+                                label="Texto del footer"
+                                value={data.footer.text_color ?? '#404040'}
+                                onChange={(value) =>
+                                    patchFooter({ text_color: value })
+                                }
+                                error={
+                                    (errors as Record<string, string>)[
+                                        'footer.text_color'
+                                    ]
+                                }
+                            />
+                        </div>
+                    )}
+
+                    <FooterListHeader
+                        title="Columnas de enlaces"
+                        actionLabel="Agregar columna"
+                        disabled={data.footer.columns.length >= 4}
+                        onAdd={addFooterColumn}
+                    />
+                    <div className="grid gap-3">
+                        {data.footer.columns.length === 0 && (
+                            <p className="text-sm text-neutral-500">
+                                Sin columnas. Puedes agregar hasta 4 grupos de
+                                links.
+                            </p>
+                        )}
+                        {data.footer.columns.map((column, columnIndex) => (
+                            <div
+                                key={columnIndex}
+                                className="grid gap-3 rounded-md border border-neutral-200 p-4 dark:border-neutral-800"
+                            >
+                                <div className="flex items-center gap-2">
+                                    <span className="text-xs font-medium text-neutral-500">
+                                        Columna {columnIndex + 1}
+                                    </span>
+                                    <Button
+                                        type="button"
+                                        variant="ghost"
+                                        size="icon"
+                                        className="ml-auto"
+                                        onClick={() =>
+                                            removeFooterColumn(columnIndex)
+                                        }
+                                    >
+                                        <Trash2 className="size-4" />
+                                    </Button>
+                                </div>
+                                <Input
+                                    value={column.title}
+                                    maxLength={80}
+                                    onChange={(e) =>
+                                        updateFooterColumn(columnIndex, {
+                                            title: e.target.value,
+                                        })
+                                    }
+                                    placeholder="Compañía"
+                                />
+                                <div className="grid gap-4 sm:grid-cols-2">
+                                    <ColorField
+                                        label="Color del título"
+                                        value={column.title_color ?? '#b91c1c'}
+                                        onChange={(value) =>
                                             updateFooterColumn(columnIndex, {
-                                                title: e.target.value,
+                                                title_color: value,
                                             })
                                         }
-                                        placeholder="Compañía"
+                                        error={
+                                            (errors as Record<string, string>)[
+                                                `footer.columns.${columnIndex}.title_color`
+                                            ]
+                                        }
                                     />
-                                    <div className="grid gap-4 sm:grid-cols-2">
-                                        <ColorField
-                                            label="Color del título"
-                                            value={
-                                                column.title_color ?? '#b91c1c'
-                                            }
-                                            onChange={(value) =>
-                                                updateFooterColumn(
-                                                    columnIndex,
-                                                    {
-                                                        title_color: value,
-                                                    },
-                                                )
-                                            }
-                                            error={
-                                                (
-                                                    errors as Record<
-                                                        string,
-                                                        string
-                                                    >
-                                                )[
-                                                    `footer.columns.${columnIndex}.title_color`
-                                                ]
-                                            }
-                                        />
-                                        <ColorField
-                                            label="Color de links"
-                                            value={
-                                                column.link_color ??
-                                                data.footer.text_color ??
-                                                '#404040'
-                                            }
-                                            onChange={(value) =>
-                                                updateFooterColumn(
-                                                    columnIndex,
-                                                    {
-                                                        link_color: value,
-                                                    },
-                                                )
-                                            }
-                                            error={
-                                                (
-                                                    errors as Record<
-                                                        string,
-                                                        string
-                                                    >
-                                                )[
-                                                    `footer.columns.${columnIndex}.link_color`
-                                                ]
-                                            }
-                                        />
-                                    </div>
-                                    <div className="grid gap-2">
-                                        {column.links.map((link, linkIndex) => (
-                                            <div
-                                                key={linkIndex}
-                                                className="grid gap-2 sm:grid-cols-[1fr_1fr_auto]"
+                                    <ColorField
+                                        label="Color de links"
+                                        value={
+                                            column.link_color ??
+                                            data.footer.text_color ??
+                                            '#404040'
+                                        }
+                                        onChange={(value) =>
+                                            updateFooterColumn(columnIndex, {
+                                                link_color: value,
+                                            })
+                                        }
+                                        error={
+                                            (errors as Record<string, string>)[
+                                                `footer.columns.${columnIndex}.link_color`
+                                            ]
+                                        }
+                                    />
+                                </div>
+                                <div className="grid gap-2">
+                                    {column.links.map((link, linkIndex) => (
+                                        <div
+                                            key={linkIndex}
+                                            className="grid gap-2 sm:grid-cols-[10rem_1fr_1fr_auto]"
+                                        >
+                                            <select
+                                                value={link.type ?? 'custom'}
+                                                onChange={(e) =>
+                                                    changeFooterLinkType(
+                                                        columnIndex,
+                                                        linkIndex,
+                                                        e.target
+                                                            .value as FooterLinkType,
+                                                    )
+                                                }
+                                                className={fieldClass}
                                             >
+                                                <option value="page">
+                                                    Pagina
+                                                </option>
+                                                <option value="category">
+                                                    Categoria
+                                                </option>
+                                                <option value="product">
+                                                    Producto
+                                                </option>
+                                                <option value="all_categories">
+                                                    Todas las categorias
+                                                </option>
+                                                <option value="custom">
+                                                    Personalizado
+                                                </option>
+                                            </select>
+                                            <Input
+                                                value={link.label}
+                                                maxLength={80}
+                                                onChange={(e) =>
+                                                    updateFooterLink(
+                                                        columnIndex,
+                                                        linkIndex,
+                                                        {
+                                                            label: e.target
+                                                                .value,
+                                                        },
+                                                    )
+                                                }
+                                                placeholder="Etiqueta"
+                                            />
+                                            {(link.type ?? 'custom') ===
+                                            'custom' ? (
                                                 <Input
-                                                    value={link.label}
-                                                    maxLength={80}
-                                                    onChange={(e) =>
-                                                        updateFooterLink(
-                                                            columnIndex,
-                                                            linkIndex,
-                                                            {
-                                                                label: e.target
-                                                                    .value,
-                                                            },
-                                                        )
-                                                    }
-                                                    placeholder="Etiqueta"
-                                                />
-                                                <Input
-                                                    value={link.url}
+                                                    value={link.url ?? ''}
                                                     onChange={(e) =>
                                                         updateFooterLink(
                                                             columnIndex,
@@ -1261,149 +1391,181 @@ function CintilloForm({
                                                     }
                                                     placeholder="/nosotros o https://..."
                                                 />
-                                                <Button
-                                                    type="button"
-                                                    variant="ghost"
-                                                    size="icon"
-                                                    onClick={() =>
-                                                        removeFooterLink(
+                                            ) : link.type ===
+                                              'all_categories' ? (
+                                                <Input
+                                                    value="Catalogo de la tienda"
+                                                    disabled
+                                                />
+                                            ) : (
+                                                <select
+                                                    value={
+                                                        footerTargetId(link) ??
+                                                        ''
+                                                    }
+                                                    onChange={(e) =>
+                                                        changeFooterLinkTarget(
                                                             columnIndex,
                                                             linkIndex,
+                                                            e.target.value,
                                                         )
                                                     }
+                                                    className={fieldClass}
                                                 >
-                                                    <Trash2 className="size-4" />
-                                                </Button>
-                                            </div>
-                                        ))}
-                                        <Button
-                                            type="button"
-                                            variant="outline"
-                                            size="sm"
-                                            className="w-fit"
-                                            onClick={() =>
-                                                addFooterLink(columnIndex)
-                                            }
-                                            disabled={column.links.length >= 8}
-                                        >
-                                            <Plus className="size-4" /> Agregar
-                                            link
-                                        </Button>
-                                    </div>
-                                </div>
-                            ))}
-                        </div>
-
-                        <FooterListHeader
-                            title="Contacto"
-                            actionLabel="Agregar dato"
-                            onAdd={addFooterContact}
-                        />
-                        <div className="grid gap-2">
-                            {data.footer.contact.map((row, index) => (
-                                <div
-                                    key={index}
-                                    className="grid gap-2 sm:grid-cols-[1fr_1fr_auto]"
-                                >
-                                    <Input
-                                        value={row.label}
-                                        maxLength={80}
-                                        onChange={(e) =>
-                                            updateFooterContact(index, {
-                                                label: e.target.value,
-                                            })
-                                        }
-                                        placeholder="Teléfono"
-                                    />
-                                    <Input
-                                        value={row.value}
-                                        maxLength={160}
-                                        onChange={(e) =>
-                                            updateFooterContact(index, {
-                                                value: e.target.value,
-                                            })
-                                        }
-                                        placeholder="+52 55 1234 5678"
-                                    />
-                                    <Button
-                                        type="button"
-                                        variant="ghost"
-                                        size="icon"
-                                        onClick={() =>
-                                            removeFooterContact(index)
-                                        }
-                                    >
-                                        <Trash2 className="size-4" />
-                                    </Button>
-                                </div>
-                            ))}
-                            {data.footer.contact.length === 0 && (
-                                <p className="text-sm text-neutral-500">
-                                    Sin datos de contacto visibles.
-                                </p>
-                            )}
-                        </div>
-
-                        <FooterListHeader
-                            title="Redes sociales"
-                            actionLabel="Agregar red"
-                            onAdd={addFooterSocial}
-                        />
-                        <div className="grid gap-2">
-                            {data.footer.social.map((social, index) => (
-                                <div
-                                    key={index}
-                                    className="grid gap-2 sm:grid-cols-[10rem_1fr_auto]"
-                                >
-                                    <select
-                                        value={social.platform}
-                                        onChange={(e) =>
-                                            updateFooterSocial(index, {
-                                                platform: e.target.value,
-                                            })
-                                        }
-                                        className={`${fieldClass} capitalize`}
-                                    >
-                                        {platforms.map((platform) => (
-                                            <option
-                                                key={platform}
-                                                value={platform}
-                                                className="capitalize"
+                                                    <option value="">
+                                                        Selecciona destino
+                                                    </option>
+                                                    {footerOptionsForType(
+                                                        link.type ?? 'custom',
+                                                        linkOptions,
+                                                    ).map((option) => (
+                                                        <option
+                                                            key={option.id}
+                                                            value={option.id}
+                                                        >
+                                                            {option.label}
+                                                        </option>
+                                                    ))}
+                                                </select>
+                                            )}
+                                            <Button
+                                                type="button"
+                                                variant="ghost"
+                                                size="icon"
+                                                title="Eliminar link"
+                                                onClick={() =>
+                                                    removeFooterLink(
+                                                        columnIndex,
+                                                        linkIndex,
+                                                    )
+                                                }
                                             >
-                                                {platform}
-                                            </option>
-                                        ))}
-                                    </select>
-                                    <Input
-                                        value={social.url}
-                                        onChange={(e) =>
-                                            updateFooterSocial(index, {
-                                                url: e.target.value,
-                                            })
-                                        }
-                                        placeholder="https://..."
-                                    />
+                                                <Trash2 className="size-4" />
+                                            </Button>
+                                        </div>
+                                    ))}
                                     <Button
                                         type="button"
-                                        variant="ghost"
-                                        size="icon"
+                                        variant="outline"
+                                        size="sm"
+                                        className="w-fit"
                                         onClick={() =>
-                                            removeFooterSocial(index)
+                                            addFooterLink(columnIndex)
                                         }
+                                        disabled={column.links.length >= 8}
                                     >
-                                        <Trash2 className="size-4" />
+                                        <Plus className="size-4" /> Agregar link
                                     </Button>
                                 </div>
-                            ))}
-                            {data.footer.social.length === 0 && (
-                                <p className="text-sm text-neutral-500">
-                                    Sin redes sociales visibles en el footer.
-                                </p>
-                            )}
-                        </div>
+                            </div>
+                        ))}
                     </div>
-                </>
-            )}
+
+                    <FooterListHeader
+                        title="Contacto"
+                        actionLabel="Agregar dato"
+                        onAdd={addFooterContact}
+                    />
+                    <div className="grid gap-2">
+                        {data.footer.contact.map((row, index) => (
+                            <div
+                                key={index}
+                                className="grid gap-2 sm:grid-cols-[1fr_1fr_auto]"
+                            >
+                                <Input
+                                    value={row.label}
+                                    maxLength={80}
+                                    onChange={(e) =>
+                                        updateFooterContact(index, {
+                                            label: e.target.value,
+                                        })
+                                    }
+                                    placeholder="Teléfono"
+                                />
+                                <Input
+                                    value={row.value}
+                                    maxLength={160}
+                                    onChange={(e) =>
+                                        updateFooterContact(index, {
+                                            value: e.target.value,
+                                        })
+                                    }
+                                    placeholder="+52 55 1234 5678"
+                                />
+                                <Button
+                                    type="button"
+                                    variant="ghost"
+                                    size="icon"
+                                    onClick={() => removeFooterContact(index)}
+                                >
+                                    <Trash2 className="size-4" />
+                                </Button>
+                            </div>
+                        ))}
+                        {data.footer.contact.length === 0 && (
+                            <p className="text-sm text-neutral-500">
+                                Sin datos de contacto visibles.
+                            </p>
+                        )}
+                    </div>
+
+                    <FooterListHeader
+                        title="Redes sociales"
+                        actionLabel="Agregar red"
+                        onAdd={addFooterSocial}
+                    />
+                    <div className="grid gap-2">
+                        {data.footer.social.map((social, index) => (
+                            <div
+                                key={index}
+                                className="grid gap-2 sm:grid-cols-[10rem_1fr_auto]"
+                            >
+                                <select
+                                    value={social.platform}
+                                    onChange={(e) =>
+                                        updateFooterSocial(index, {
+                                            platform: e.target.value,
+                                        })
+                                    }
+                                    className={`${fieldClass} capitalize`}
+                                >
+                                    {platforms.map((platform) => (
+                                        <option
+                                            key={platform}
+                                            value={platform}
+                                            className="capitalize"
+                                        >
+                                            {platform}
+                                        </option>
+                                    ))}
+                                </select>
+                                <Input
+                                    value={social.url}
+                                    onChange={(e) =>
+                                        updateFooterSocial(index, {
+                                            url: e.target.value,
+                                        })
+                                    }
+                                    placeholder="https://..."
+                                />
+                                <Button
+                                    type="button"
+                                    variant="ghost"
+                                    size="icon"
+                                    onClick={() => removeFooterSocial(index)}
+                                >
+                                    <Trash2 className="size-4" />
+                                </Button>
+                            </div>
+                        ))}
+                        {data.footer.social.length === 0 && (
+                            <p className="text-sm text-neutral-500">
+                                Sin redes sociales visibles en el footer.
+                            </p>
+                        )}
+                    </div>
+                </fieldset>
+            </>
 
             {isStoreTarget && (
                 <p className="rounded-md border border-neutral-200 bg-neutral-50 p-3 text-xs text-neutral-500 dark:border-neutral-800 dark:bg-neutral-900/40">
@@ -1480,6 +1642,34 @@ function FooterListHeader({
     );
 }
 
+function emptyFooterLink(): FooterLink {
+    return {
+        label: '',
+        type: 'custom',
+        url: '',
+        category_id: null,
+        product_id: null,
+        page_id: null,
+    };
+}
+
+function footerTargetId(link: FooterLink): number | null {
+    if (link.type === 'category') return link.category_id ?? null;
+    if (link.type === 'product') return link.product_id ?? null;
+    if (link.type === 'page') return link.page_id ?? null;
+    return null;
+}
+
+function footerOptionsForType(
+    type: FooterLinkType,
+    options: FooterLinkOptions,
+): FooterLinkOption[] {
+    if (type === 'category') return options.categories;
+    if (type === 'product') return options.products;
+    if (type === 'page') return options.pages;
+    return [];
+}
+
 function normalizeFooter(footer?: FooterSettings | null): FooterSettings {
     return {
         enabled: footer?.enabled ?? true,
@@ -1495,7 +1685,11 @@ function normalizeFooter(footer?: FooterSettings | null): FooterSettings {
             link_color: column.link_color ?? null,
             links: (column.links ?? []).map((link) => ({
                 label: link.label ?? '',
+                type: link.type ?? 'custom',
                 url: link.url ?? '',
+                category_id: link.category_id ?? null,
+                product_id: link.product_id ?? null,
+                page_id: link.page_id ?? null,
             })),
         })),
         contact: (footer?.contact ?? []).map((row) => ({

@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Admin;
 
+use App\Domain\Store\FooterSettingsService;
 use App\Domain\Store\ScopedConfigService;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Admin\HeaderSettingsRequest;
@@ -33,6 +34,7 @@ class HeaderSettingsController extends Controller
     public function __construct(
         private readonly AuditLogger $auditLogger,
         private readonly MediaService $mediaService,
+        private readonly FooterSettingsService $footerSettings,
     ) {}
 
     /**
@@ -56,6 +58,8 @@ class HeaderSettingsController extends Controller
         $store = $website ? $this->resolveStore($website, $request->integer('store_id')) : null;
         $baseSettings = $website ? $this->present($website) : null;
         $storeOverride = $store ? $this->storeCintilloOverride($store) : null;
+        $footerOverride = $store ? $this->footerSettings->override($store) : null;
+        $optionsStore = $store ?? $website?->defaultStore();
 
         return Inertia::render('admin/header-settings/index', [
             'websites' => $this->websiteOptions(),
@@ -63,8 +67,12 @@ class HeaderSettingsController extends Controller
             'currentWebsiteId' => $website?->id,
             'currentStoreId' => $store?->id,
             'cintilloMode' => $store ? ($storeOverride ? self::MODE_CUSTOM : self::MODE_INHERIT) : self::MODE_WEBSITE,
-            'settings' => $website ? $this->present($website, $storeOverride) : null,
+            'footerMode' => $store ? ($footerOverride ? self::MODE_CUSTOM : self::MODE_INHERIT) : self::MODE_WEBSITE,
+            'settings' => $website ? $this->present($website, $storeOverride, $footerOverride) : null,
             'inheritedCintillo' => $baseSettings ? $this->cintilloFromSettings($baseSettings) : null,
+            'inheritedFooter' => $baseSettings['footer'] ?? null,
+            'linkOptions' => $optionsStore ? $this->footerSettings->optionsFor($optionsStore) : ['categories' => [], 'products' => [], 'pages' => []],
+            'linkOptionsStore' => $optionsStore ? ['id' => $optionsStore->id, 'label' => $optionsStore->name] : null,
             'platforms' => WebsiteHeaderSettings::SOCIAL_PLATFORMS,
         ]);
     }
@@ -78,28 +86,26 @@ class HeaderSettingsController extends Controller
         if ($store) {
             if (($data['cintillo_mode'] ?? self::MODE_INHERIT) === self::MODE_INHERIT) {
                 $this->deleteStoreCintilloOverride($store);
-                $this->auditLogger->log('header_settings.updated', null, "Cintillo de tienda {$store->id} configurado para heredar del website {$website->id}");
-
-                return to_route('admin.header-settings.edit', ['website_id' => $website->id, 'store_id' => $store->id])
-                    ->with('success', 'La tienda ahora hereda el cintillo del website.');
+            } else {
+                StoreConfiguration::updateOrCreate(
+                    ['scope' => ScopedConfigService::SCOPE_STORE, 'scope_id' => $store->id, 'key' => self::CINTILLO_CONFIG_KEY],
+                    ['value' => json_encode($this->cintilloPayloadFromData($data), JSON_THROW_ON_ERROR)],
+                );
             }
 
-            StoreConfiguration::updateOrCreate(
-                [
-                    'scope' => ScopedConfigService::SCOPE_STORE,
-                    'scope_id' => $store->id,
-                    'key' => self::CINTILLO_CONFIG_KEY,
-                ],
-                ['value' => json_encode($this->cintilloPayloadFromData($data), JSON_THROW_ON_ERROR)],
-            );
+            if (($data['footer_mode'] ?? self::MODE_INHERIT) === self::MODE_INHERIT) {
+                $this->footerSettings->deleteOverride($store);
+            } else {
+                $this->footerSettings->saveOverride($store, $data['footer'] ?? []);
+            }
 
-            $this->auditLogger->log('header_settings.updated', null, "Cintillo personalizado de tienda {$store->id} actualizado", [
+            $this->auditLogger->log('header_settings.updated', null, "Header y footer de tienda {$store->id} actualizados", [
                 'website_id' => $website->id,
                 'store_id' => $store->id,
             ]);
 
             return to_route('admin.header-settings.edit', ['website_id' => $website->id, 'store_id' => $store->id])
-                ->with('success', 'Cintillo de tienda actualizado.');
+                ->with('success', 'Configuraci?n de tienda actualizada.');
         }
 
         WebsiteHeaderSettings::updateOrCreate(
@@ -114,7 +120,7 @@ class HeaderSettingsController extends Controller
                 'header_background_color' => $data['header_background_color'] ?? null,
                 'menu_text_color' => $data['menu_text_color'] ?? null,
                 'menu_background_color' => $data['menu_background_color'] ?? null,
-                'footer_settings' => $this->sanitizeFooter($data['footer'] ?? []),
+                'footer_settings' => $this->footerSettings->normalize($data['footer'] ?? [], $website),
             ],
         );
 
@@ -211,7 +217,7 @@ class HeaderSettingsController extends Controller
     /**
      * @return array<string, mixed>
      */
-    private function present(Website $website, ?array $cintilloOverride = null): array
+    private function present(Website $website, ?array $cintilloOverride = null, ?array $footerOverride = null): array
     {
         $settings = WebsiteHeaderSettings::firstWhere('website_id', $website->id);
         $cintillo = $cintilloOverride ?? [
@@ -232,7 +238,7 @@ class HeaderSettingsController extends Controller
             'header_background_color' => $settings?->header_background_color,
             'menu_text_color' => $settings?->menu_text_color,
             'menu_background_color' => $settings?->menu_background_color,
-            'footer' => $this->footerPayload($settings?->footer_settings, $website),
+            'footer' => $footerOverride ?? $this->footerSettings->normalize($settings?->footer_settings, $website),
         ];
     }
 
