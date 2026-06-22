@@ -30,7 +30,7 @@ type CheckoutForm = {
     billing: AddressFields;
 };
 
-const STEPS = ['Contacto', 'Envío', 'Método de envío', 'Pago y revisión'];
+const STEPS = ['Datos de entrega', 'Pago y revisión'];
 
 function emptyAddress(): AddressFields {
     return { first_name: '', last_name: '', company: '', phone: '', line1: '', line2: '', city: '', state: '', postal_code: '', country: 'MX' };
@@ -140,12 +140,22 @@ export default function Checkout({
     }
 
     function canAdvance(): boolean {
-        if (step === 0) return data.email.trim().length > 0;
-        if (step === 1) {
+        if (step === 0) {
             const s = data.shipping;
-            return Boolean(s.first_name && s.last_name && s.line1 && s.city && s.state && s.postal_code && s.country);
+
+            return Boolean(
+                data.email.trim().length > 0 &&
+                    s.first_name &&
+                    s.last_name &&
+                    s.line1 &&
+                    s.city &&
+                    s.state &&
+                    s.postal_code &&
+                    s.country &&
+                    (shippingOptions.length === 0 || data.shipping_method_code),
+            );
         }
-        if (step === 2) return shippingOptions.length === 0 || Boolean(data.shipping_method_code);
+
         return true;
     }
 
@@ -188,121 +198,127 @@ export default function Checkout({
                 </ol>
             </div>
 
-            {/* Step 0 — Contacto */}
+            {/* Step 0 — Datos de entrega */}
             {step === 0 && (
-                <section className="max-w-lg">
-                    <h2 className="mb-3 text-lg font-medium">Información de contacto</h2>
-                    <div className="grid gap-2">
-                        <Label htmlFor="email">Correo electrónico</Label>
-                        <Input
-                            id="email"
-                            type="email"
-                            value={data.email}
-                            onChange={(e) => setData('email', e.target.value)}
-                            required
-                            className="rounded-md border border-neutral-300 bg-white px-3 py-2 text-sm dark:border-neutral-700 dark:bg-neutral-800"
-                        />
-                        <InputError message={errors.email} />
-                    </div>
-                    {customer && (
-                        <p className="mt-2 text-sm text-neutral-500">
-                            Conectado como <strong>{customer.name}</strong>
-                        </p>
-                    )}
-                </section>
-            )}
+                <div className="space-y-8">
+                    <section className="max-w-lg">
+                        <h2 className="mb-3 text-lg font-medium">Información de contacto</h2>
+                        <div className="grid gap-2">
+                            <Label htmlFor="email">Correo electrónico</Label>
+                            <Input
+                                id="email"
+                                type="email"
+                                value={data.email}
+                                onChange={(e) => setData('email', e.target.value)}
+                                required
+                                className="rounded-md border border-neutral-300 bg-white px-3 py-2 text-sm dark:border-neutral-700 dark:bg-neutral-800"
+                            />
+                            <InputError message={errors.email} />
+                        </div>
+                        {customer && (
+                            <p className="mt-2 text-sm text-neutral-500">
+                                Conectado como <strong>{customer.name}</strong>
+                            </p>
+                        )}
+                    </section>
 
-            {/* Step 1 — Dirección de envío */}
-            {step === 1 && (
-                <section>
-                    <h2 className="mb-3 text-lg font-medium">Dirección de envío</h2>
+                    <section>
+                        <h2 className="mb-3 text-lg font-medium">Dirección de envío</h2>
 
-                    {addresses.length > 0 && (
-                        <div className="mb-4">
-                            <p className="mb-2 text-sm text-neutral-500">Seleccionar una dirección guardada</p>
-                            <div className="grid gap-2 sm:grid-cols-2">
-                                {addresses.map((addr) => (
+                        {addresses.length > 0 && (
+                            <div className="mb-4">
+                                <p className="mb-2 text-sm text-neutral-500">Seleccionar una dirección guardada</p>
+                                <div className="grid gap-2 sm:grid-cols-2">
+                                    {addresses.map((addr) => (
+                                        <button
+                                            key={addr.id}
+                                            type="button"
+                                            onClick={() => selectAddress(addr)}
+                                            className={`rounded-md border p-3 text-left text-sm transition-colors ${
+                                                selectedAddressId === addr.id && !useNewAddress
+                                                    ? 'border-neutral-900 bg-neutral-50 dark:border-white dark:bg-neutral-800'
+                                                    : 'border-neutral-200 dark:border-neutral-700'
+                                            }`}
+                                        >
+                                            <div className="font-medium">{addr.first_name} {addr.last_name}</div>
+                                            <div className="mt-1 text-neutral-500">{addr.line1}</div>
+                                            <div className="text-neutral-500">
+                                                {addr.city}, {addr.state} {addr.postal_code}
+                                            </div>
+                                        </button>
+                                    ))}
                                     <button
-                                        key={addr.id}
                                         type="button"
-                                        onClick={() => selectAddress(addr)}
-                                        className={`rounded-md border p-3 text-left text-sm transition-colors ${
-                                            selectedAddressId === addr.id && !useNewAddress
+                                        onClick={selectNewAddress}
+                                        className={`rounded-md border border-dashed p-3 text-sm transition-colors ${
+                                            useNewAddress
                                                 ? 'border-neutral-900 bg-neutral-50 dark:border-white dark:bg-neutral-800'
-                                                : 'border-neutral-200 dark:border-neutral-700'
+                                                : 'border-neutral-300 dark:border-neutral-600'
                                         }`}
                                     >
-                                        <div className="font-medium">{addr.first_name} {addr.last_name}</div>
-                                        <div className="mt-1 text-neutral-500">{addr.line1}</div>
-                                        <div className="text-neutral-500">
-                                            {addr.city}, {addr.state} {addr.postal_code}
-                                        </div>
+                                        + Nueva dirección
                                     </button>
-                                ))}
-                                <button
-                                    type="button"
-                                    onClick={selectNewAddress}
-                                    className={`rounded-md border border-dashed p-3 text-sm transition-colors ${
-                                        useNewAddress
-                                            ? 'border-neutral-900 bg-neutral-50 dark:border-white dark:bg-neutral-800'
-                                            : 'border-neutral-300 dark:border-neutral-600'
-                                    }`}
-                                >
-                                    + Nueva dirección
-                                </button>
+                                </div>
                             </div>
-                        </div>
-                    )}
+                        )}
 
-                    <div className="grid gap-3 sm:grid-cols-2">
-                        {field('shipping', 'first_name', 'Nombre', true)}
-                        {field('shipping', 'last_name', 'Apellidos', true)}
-                        {field('shipping', 'company', 'Empresa')}
-                        {field('shipping', 'phone', 'Teléfono')}
-                        {field('shipping', 'line1', 'Calle y número', true)}
-                        {field('shipping', 'line2', 'Interior / referencia')}
-                        {field('shipping', 'city', 'Ciudad', true)}
-                        {field('shipping', 'state', 'Estado', true)}
-                        {field('shipping', 'postal_code', 'Código postal', true)}
-                        {field('shipping', 'country', 'País (ISO2)', true)}
-                    </div>
-                </section>
+                        <div className="grid gap-3 sm:grid-cols-2">
+                            {field('shipping', 'first_name', 'Nombre', true)}
+                            {field('shipping', 'last_name', 'Apellidos', true)}
+                            {field('shipping', 'company', 'Empresa')}
+                            {field('shipping', 'phone', 'Teléfono')}
+                            {field('shipping', 'line1', 'Calle y número', true)}
+                            {field('shipping', 'line2', 'Interior / referencia')}
+                            {field('shipping', 'city', 'Ciudad', true)}
+                            {field('shipping', 'state', 'Estado', true)}
+                            {field('shipping', 'postal_code', 'Código postal', true)}
+                            {field('shipping', 'country', 'País (ISO2)', true)}
+                        </div>
+                    </section>
+
+                    <section>
+                        <h2 className="mb-3 text-lg font-medium">Método de envío</h2>
+                        {shippingOptions.length === 0 ? (
+                            <p className="text-sm text-neutral-500">No hay métodos de envío disponibles.</p>
+                        ) : shippingOptions.length === 1 ? (
+                            <div className="flex items-center justify-between gap-3 rounded-md border border-neutral-200 bg-neutral-50 p-3 text-sm dark:border-neutral-800 dark:bg-neutral-900">
+                                <div>
+                                    <p className="font-medium">{shippingOptions[0].label}</p>
+                                    <p className="text-neutral-500">Método seleccionado automáticamente.</p>
+                                </div>
+                                <span className="font-medium">
+                                    {Number(shippingOptions[0].amount) === 0 ? 'Gratis' : formatPrice(shippingOptions[0].amount)}
+                                </span>
+                            </div>
+                        ) : (
+                            <div className="space-y-2">
+                                {shippingOptions.map((option) => (
+                                    <label
+                                        key={option.code}
+                                        className="flex cursor-pointer items-center justify-between gap-2 rounded-md border border-neutral-200 p-3 text-sm dark:border-neutral-800"
+                                    >
+                                        <span className="flex items-center gap-2">
+                                            <input
+                                                type="radio"
+                                                name="shipping_method_code"
+                                                value={option.code}
+                                                checked={data.shipping_method_code === option.code}
+                                                onChange={(e) => setData('shipping_method_code', e.target.value)}
+                                                className="size-4"
+                                            />
+                                            {option.label}
+                                        </span>
+                                        <span>{Number(option.amount) === 0 ? 'Gratis' : formatPrice(option.amount)}</span>
+                                    </label>
+                                ))}
+                            </div>
+                        )}
+                    </section>
+                </div>
             )}
 
-            {/* Step 2 — Método de envío */}
-            {step === 2 && (
-                <section>
-                    <h2 className="mb-3 text-lg font-medium">Método de envío</h2>
-                    {shippingOptions.length === 0 ? (
-                        <p className="text-sm text-neutral-500">No hay métodos de envío disponibles.</p>
-                    ) : (
-                        <div className="space-y-2">
-                            {shippingOptions.map((option) => (
-                                <label
-                                    key={option.code}
-                                    className="flex cursor-pointer items-center justify-between gap-2 rounded-md border border-neutral-200 p-3 text-sm dark:border-neutral-800"
-                                >
-                                    <span className="flex items-center gap-2">
-                                        <input
-                                            type="radio"
-                                            name="shipping_method_code"
-                                            value={option.code}
-                                            checked={data.shipping_method_code === option.code}
-                                            onChange={(e) => setData('shipping_method_code', e.target.value)}
-                                            className="size-4"
-                                        />
-                                        {option.label}
-                                    </span>
-                                    <span>{Number(option.amount) === 0 ? 'Gratis' : formatPrice(option.amount)}</span>
-                                </label>
-                            ))}
-                        </div>
-                    )}
-                </section>
-            )}
-
-            {/* Step 3 — Pago y revisión */}
-            {step === 3 && (
+            {/* Step 1 — Pago y revisión */}
+            {step === 1 && (
                 <div className="grid gap-8 lg:grid-cols-3">
                     <div className="space-y-6 lg:col-span-2">
                         <section>
