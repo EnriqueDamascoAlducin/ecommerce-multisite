@@ -409,10 +409,10 @@ export default function Checkout({
                             {field('shipping', 'phone', 'Teléfono')}
                             {field('shipping', 'line1', 'Calle y número', true)}
                             {field('shipping', 'line2', 'Interior / referencia')}
+                            {field('shipping', 'postal_code', 'Código postal', true)}
                             {neighborhoodField('shipping', shippingPostalLookup)}
                             {field('shipping', 'city', 'Ciudad', true)}
                             {field('shipping', 'state', 'Estado', true)}
-                            {field('shipping', 'postal_code', 'Código postal', true)}
                             {field('shipping', 'country', 'País (ISO2)', true)}
                         </div>
                     </section>
@@ -504,10 +504,10 @@ export default function Checkout({
                                     {field('billing', 'phone', 'Teléfono')}
                                     {field('billing', 'line1', 'Calle y número', true)}
                                     {field('billing', 'line2', 'Interior / referencia')}
+                                    {field('billing', 'postal_code', 'Código postal', true)}
                                     {neighborhoodField('billing', billingPostalLookup)}
                                     {field('billing', 'city', 'Ciudad', true)}
                                     {field('billing', 'state', 'Estado', true)}
-                                    {field('billing', 'postal_code', 'Código postal', true)}
                                     {field('billing', 'country', 'País (ISO2)', true)}
                                 </div>
                             )}

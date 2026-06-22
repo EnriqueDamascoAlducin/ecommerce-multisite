@@ -9,6 +9,7 @@ import {
     Image,
     KeyRound,
     LayoutDashboard,
+    MapPin,
     Megaphone,
     Menu,
     Package,
@@ -72,6 +73,7 @@ import media from '@/routes/admin/media';
 import adminOrders from '@/routes/admin/orders';
 import payments from '@/routes/admin/payments';
 import permissions from '@/routes/admin/permissions';
+import postalCodeImport from '@/routes/admin/postal-codes/import';
 import productLabels from '@/routes/admin/product-labels';
 import products from '@/routes/admin/products';
 import promotions from '@/routes/admin/promotions';
@@ -266,6 +268,12 @@ const navGroups: AdminNavGroup[] = [
                 title: 'Configuración',
                 href: configuration.index(),
                 icon: Settings,
+                permission: 'settings.stores',
+            },
+            {
+                title: 'Códigos postales',
+                href: postalCodeImport.create(),
+                icon: MapPin,
                 permission: 'settings.stores',
             },
             {

@@ -16,6 +16,7 @@ use App\Http\Controllers\Admin\MediaController;
 use App\Http\Controllers\Admin\OrderController;
 use App\Http\Controllers\Admin\PaymentSettingsController;
 use App\Http\Controllers\Admin\PermissionController;
+use App\Http\Controllers\Admin\PostalCodeImportController;
 use App\Http\Controllers\Admin\ProductController;
 use App\Http\Controllers\Admin\ProductImportController;
 use App\Http\Controllers\Admin\ProductLabelController;
@@ -70,6 +71,8 @@ Route::middleware(['auth', 'verified'])->prefix('admin')->name('admin.')->group(
 
         Route::get('configuration', [StoreConfigurationController::class, 'index'])->name('configuration.index');
         Route::put('configuration', [StoreConfigurationController::class, 'update'])->name('configuration.update');
+        Route::get('postal-codes/import', [PostalCodeImportController::class, 'create'])->name('postal-codes.import.create');
+        Route::post('postal-codes/import', [PostalCodeImportController::class, 'store'])->name('postal-codes.import.store');
     });
 
     // Configuraci�n de pasarelas de pago (llaves y modo) por sitio.
