@@ -8,13 +8,17 @@ use App\Domain\Store\HeaderMenuService;
 use App\Domain\Store\StoreContext;
 use App\Models\Media;
 use App\Models\Store;
+use App\Models\StoreConfiguration;
 use App\Models\Website;
 use App\Models\WebsiteHeaderSettings;
 use Illuminate\Http\Request;
 use Inertia\Middleware;
+use JsonException;
 
 class HandleInertiaRequests extends Middleware
 {
+    private const CINTILLO_CONFIG_KEY = 'header.cintillo';
+
     /**
      * The root template that's loaded on the first page visit.
      *
@@ -119,28 +123,29 @@ class HandleInertiaRequests extends Middleware
             'locale' => $context->storeView()?->locale,
             'pathPrefix' => $context->pathPrefix(),
             'menu' => $this->buildMenu($store),
-            'header' => $this->headerConfig($website),
+            'header' => $this->headerConfig($website, $store),
         ];
     }
 
     /**
-     * Configuración del encabezado por website (cintillo). Se consulta directo
-     * para no disparar lazy loading sobre la relación del website.
+     * Configuración del encabezado. El cintillo puede sobreescribirse por tienda
+     * y cae al valor base del website cuando no hay override.
      *
      * @return array{cintillo: array{enabled: bool, show_on_mobile: bool, blocks: list<array<string, mixed>>, text_color: string, background_color: string}, colors: array{header_text_color: string|null, header_background_color: string|null, menu_text_color: string|null, menu_background_color: string|null}, footer: array<string, mixed>}
      */
-    private function headerConfig(Website $website): array
+    private function headerConfig(Website $website, Store $store): array
     {
         $settings = WebsiteHeaderSettings::firstWhere('website_id', $website->id);
+        $baseCintillo = [
+            'enabled' => $settings?->cintillo_enabled ?? false,
+            'show_on_mobile' => $settings?->cintillo_show_on_mobile ?? true,
+            'blocks' => $settings?->cintillo_blocks ?? [],
+            'text_color' => $settings?->cintillo_text_color ?? '#ffffff',
+            'background_color' => $settings?->cintillo_background_color ?? '#111827',
+        ];
 
         return [
-            'cintillo' => [
-                'enabled' => $settings?->cintillo_enabled ?? false,
-                'show_on_mobile' => $settings?->cintillo_show_on_mobile ?? true,
-                'blocks' => $settings?->cintillo_blocks ?? [],
-                'text_color' => $settings?->cintillo_text_color ?? '#ffffff',
-                'background_color' => $settings?->cintillo_background_color ?? '#111827',
-            ],
+            'cintillo' => $this->storeCintilloOverride($store) ?? $baseCintillo,
             'colors' => [
                 'header_text_color' => $settings?->header_text_color,
                 'header_background_color' => $settings?->header_background_color,
@@ -203,6 +208,47 @@ class HandleInertiaRequests extends Middleware
     private function buildMenu(Store $store): array
     {
         return app(HeaderMenuService::class)->buildTree($store);
+    }
+
+    /**
+     * @return array{enabled: bool, show_on_mobile: bool, blocks: list<array<string, mixed>>, text_color: string, background_color: string}|null
+     */
+    private function storeCintilloOverride(Store $store): ?array
+    {
+        $value = StoreConfiguration::query()
+            ->where('scope', 'store')
+            ->where('scope_id', $store->id)
+            ->where('key', self::CINTILLO_CONFIG_KEY)
+            ->value('value');
+
+        if (! $value) {
+            return null;
+        }
+
+        try {
+            $decoded = json_decode($value, true, 512, JSON_THROW_ON_ERROR);
+        } catch (JsonException) {
+            return null;
+        }
+
+        if (! is_array($decoded)) {
+            return null;
+        }
+
+        return [
+            'enabled' => (bool) ($decoded['enabled'] ?? false),
+            'show_on_mobile' => (bool) ($decoded['show_on_mobile'] ?? true),
+            'blocks' => is_array($decoded['blocks'] ?? null) ? $decoded['blocks'] : [],
+            'text_color' => $this->hexOrDefault($decoded['text_color'] ?? null, '#ffffff'),
+            'background_color' => $this->hexOrDefault($decoded['background_color'] ?? null, '#111827'),
+        ];
+    }
+
+    private function hexOrDefault(mixed $value, string $default): string
+    {
+        $value = is_string($value) ? $value : '';
+
+        return preg_match('/^#[0-9a-fA-F]{6}$/', $value) === 1 ? $value : $default;
     }
 
     private function versionedMediaUrl(?Media $media): ?string

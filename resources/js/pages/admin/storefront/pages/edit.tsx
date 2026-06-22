@@ -3247,18 +3247,18 @@ function MediaPicker({
             type="button"
             onClick={() => selectMedia(item, true)}
             className={cn(
-                'group grid min-w-0 overflow-hidden rounded-md border bg-white text-left transition-colors dark:bg-neutral-950',
+                'group grid h-full min-w-0 grid-rows-[7rem_auto] overflow-hidden rounded-md border bg-white text-left transition-colors dark:bg-neutral-950',
                 item.id === value
                     ? 'border-red-800 ring-2 ring-red-800'
                     : 'border-neutral-200 hover:border-neutral-400 dark:border-neutral-800 dark:hover:border-neutral-600',
             )}
             title={item.label}
         >
-            <div className="aspect-video overflow-hidden bg-neutral-100 dark:bg-neutral-900">
+            <div className="flex h-28 items-center justify-center overflow-hidden bg-neutral-100 p-2 dark:bg-neutral-900">
                 <img
                     src={item.url}
                     alt={item.label}
-                    className="size-full object-cover transition-transform duration-200 group-hover:scale-[1.02]"
+                    className="max-h-full max-w-full object-contain transition-transform duration-200 group-hover:scale-[1.02]"
                 />
             </div>
             <div className="flex min-w-0 items-center justify-between gap-2 border-t border-neutral-200 px-3 py-2 dark:border-neutral-800">
@@ -3404,14 +3404,14 @@ function MediaPicker({
             )}
 
             <Dialog open={libraryOpen} onOpenChange={setLibraryOpen}>
-                <DialogContent className="max-h-[90vh] overflow-hidden sm:max-w-6xl">
+                <DialogContent className="flex max-h-[90vh] min-h-0 flex-col overflow-hidden sm:max-w-6xl">
                     <DialogHeader>
-                        <DialogTitle>Biblioteca de imagenes</DialogTitle>
+                        <DialogTitle>Biblioteca de imágenes</DialogTitle>
                         <DialogDescription>
                             {libraryDescription}
                         </DialogDescription>
                     </DialogHeader>
-                    <div className="grid min-h-0 grid-cols-1 gap-4 overflow-y-auto pr-2 min-[480px]:grid-cols-2 sm:grid-cols-3 lg:grid-cols-4">
+                    <div className="grid min-h-0 flex-1 grid-cols-2 gap-3 overflow-y-auto pr-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6">
                         {allMedia.map(libraryMediaButton)}
                     </div>
                 </DialogContent>

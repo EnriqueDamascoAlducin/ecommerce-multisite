@@ -8,8 +8,10 @@ use App\Http\Requests\Admin\UpdateMediaRequest;
 use App\Models\Media;
 use App\Services\AuditLogger;
 use App\Services\MediaService;
+use App\Services\MediaUsageService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -19,18 +21,74 @@ class MediaController extends Controller
 {
     public function __construct(
         private readonly MediaService $mediaService,
+        private readonly MediaUsageService $mediaUsage,
         private readonly AuditLogger $auditLogger,
     ) {}
 
-    public function index(): Response
+    public function index(Request $request): Response
     {
-        $media = Media::query()
+        $filters = $this->filters($request);
+        $usedMediaIds = $this->mediaUsage->usedMediaIds($filters['context']);
+
+        $query = Media::query()
+            ->when($filters['name'] !== '', function ($query) use ($filters): void {
+                $search = addcslashes($filters['name'], '%_\\');
+
+                $query->where(function ($query) use ($search): void {
+                    $query->where('name', 'like', "%{$search}%")
+                        ->orWhere('filename', 'like', "%{$search}%")
+                        ->orWhere('title', 'like', "%{$search}%")
+                        ->orWhere('alt', 'like', "%{$search}%");
+                });
+            })
+            ->when($filters['type'] === 'images', fn ($query) => $query->where('is_image', true))
+            ->when($filters['type'] === 'files', fn ($query) => $query->where('is_image', false))
+            ->when($filters['context'] !== 'all' || $filters['usage'] === 'used', function ($query) use ($usedMediaIds): void {
+                $query->whereIn('id', $usedMediaIds ?: [0]);
+            })
+            ->when($filters['usage'] === 'unused', function ($query) use ($usedMediaIds): void {
+                if ($usedMediaIds !== []) {
+                    $query->whereNotIn('id', $usedMediaIds);
+                }
+            });
+
+        $media = $query
             ->latest()
             ->paginate(24)
-            ->through(fn (Media $media) => $this->present($media));
+            ->withQueryString();
+
+        $usageMap = $this->mediaUsage->usagesFor($media->getCollection(), $filters['context']);
+
+        $media->setCollection(
+            $media->getCollection()->map(fn (Media $media): array => $this->present($media, $usageMap[$media->id] ?? [])),
+        );
 
         return Inertia::render('admin/media/index', [
             'media' => $media,
+            'filters' => $filters,
+            'filterOptions' => [
+                'types' => [
+                    ['value' => 'all', 'label' => 'Todos'],
+                    ['value' => 'images', 'label' => 'Imagenes'],
+                    ['value' => 'files', 'label' => 'Archivos'],
+                ],
+                'usages' => [
+                    ['value' => 'all', 'label' => 'Todos'],
+                    ['value' => 'used', 'label' => 'En uso'],
+                    ['value' => 'unused', 'label' => 'Sin uso'],
+                ],
+                'contexts' => [
+                    ['value' => 'all', 'label' => 'Todos los usos'],
+                    ['value' => 'products', 'label' => 'Productos'],
+                    ['value' => 'pages', 'label' => 'Paginas'],
+                    ['value' => 'sections', 'label' => 'Secciones'],
+                    ['value' => 'seo', 'label' => 'SEO'],
+                    ['value' => 'header', 'label' => 'Cintillo'],
+                    ['value' => 'stores', 'label' => 'Tiendas'],
+                    ['value' => 'websites', 'label' => 'Websites'],
+                    ['value' => 'categories', 'label' => 'Categorias'],
+                ],
+            ],
         ]);
     }
 
@@ -87,9 +145,27 @@ class MediaController extends Controller
     }
 
     /**
+     * @return array{name: string, type: string, usage: string, context: string}
+     */
+    private function filters(Request $request): array
+    {
+        $type = $request->string('type')->toString();
+        $usage = $request->string('usage')->toString();
+        $context = $request->string('context')->toString();
+
+        return [
+            'name' => $request->string('name')->trim()->toString(),
+            'type' => in_array($type, ['images', 'files'], true) ? $type : 'all',
+            'usage' => in_array($usage, ['used', 'unused'], true) ? $usage : 'all',
+            'context' => in_array($context, ['products', 'pages', 'sections', 'seo', 'header', 'stores', 'websites', 'categories'], true) ? $context : 'all',
+        ];
+    }
+
+    /**
+     * @param  list<array{context: string, label: string, title: string, description: string|null}>  $usages
      * @return array<string, mixed>
      */
-    private function present(Media $media): array
+    private function present(Media $media, array $usages = []): array
     {
         return [
             'id' => $media->id,
@@ -102,6 +178,7 @@ class MediaController extends Controller
             'title' => $media->title,
             'alt' => $media->alt,
             'created_at' => $media->created_at?->toDateString(),
+            'usages' => $usages,
         ];
     }
 }

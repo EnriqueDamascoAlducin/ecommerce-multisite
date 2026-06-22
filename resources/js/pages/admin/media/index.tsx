@@ -1,6 +1,6 @@
 import { Form, Head, Link, router } from '@inertiajs/react';
-import { FileIcon } from 'lucide-react';
-import { useState } from 'react';
+import { Copy, Eye, FileIcon, Search } from 'lucide-react';
+import { FormEvent, useState } from 'react';
 import MediaController from '@/actions/App/Http/Controllers/Admin/MediaController';
 import InputError from '@/components/input-error';
 import { Badge } from '@/components/ui/badge';
@@ -11,12 +11,18 @@ import {
     DialogContent,
     DialogFooter,
     DialogTitle,
-    DialogTrigger,
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { usePermissions } from '@/hooks/use-permissions';
 import media from '@/routes/admin/media';
+
+type MediaUsage = {
+    context: string;
+    label: string;
+    title: string;
+    description: string | null;
+};
 
 type MediaItem = {
     id: number;
@@ -29,6 +35,19 @@ type MediaItem = {
     title: string | null;
     alt: string | null;
     created_at: string | null;
+    usages: MediaUsage[];
+};
+
+type FilterOption = {
+    value: string;
+    label: string;
+};
+
+type Filters = {
+    name: string;
+    type: string;
+    usage: string;
+    context: string;
 };
 
 type Paginated<T> = {
@@ -38,15 +57,41 @@ type Paginated<T> = {
     total: number;
 };
 
+type Props = {
+    media: Paginated<MediaItem>;
+    filters: Filters;
+    filterOptions: {
+        types: FilterOption[];
+        usages: FilterOption[];
+        contexts: FilterOption[];
+    };
+};
+
 function formatSize(bytes: number): string {
     if (bytes < 1024) return `${bytes} B`;
     if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
     return `${(bytes / 1024 / 1024).toFixed(1)} MB`;
 }
 
-export default function MediaIndex({ media: page }: { media: Paginated<MediaItem> }) {
+function usageSummary(usages: MediaUsage[]): string {
+    if (usages.length === 0) return 'Sin uso detectado';
+
+    return usages
+        .slice(0, 2)
+        .map((usage) => usage.label)
+        .join(', ');
+}
+
+export default function MediaIndex({
+    media: page,
+    filters,
+    filterOptions,
+}: Props) {
     const { can } = usePermissions();
     const [editing, setEditing] = useState<MediaItem | null>(null);
+    const [viewingUsages, setViewingUsages] = useState<MediaItem | null>(null);
+    const [copiedId, setCopiedId] = useState<number | null>(null);
+    const [filterValues, setFilterValues] = useState<Filters>(filters);
 
     const destroy = (item: MediaItem) => {
         if (confirm(`¿Eliminar ${item.name}?`)) {
@@ -54,18 +99,49 @@ export default function MediaIndex({ media: page }: { media: Paginated<MediaItem
         }
     };
 
+    const submitFilters = (event: FormEvent) => {
+        event.preventDefault();
+
+        router.get(media.index().url, filterValues, {
+            preserveScroll: true,
+            preserveState: true,
+        });
+    };
+
+    const copyUrl = async (item: MediaItem) => {
+        await navigator.clipboard.writeText(item.url);
+        setCopiedId(item.id);
+        window.setTimeout(
+            () =>
+                setCopiedId((current) =>
+                    current === item.id ? null : current,
+                ),
+            1800,
+        );
+    };
+
     return (
         <>
             <Head title="Biblioteca de medios" />
 
-            <h1 className="mb-6 text-2xl font-semibold">Biblioteca de medios</h1>
+            <div className="mb-6 flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
+                <div>
+                    <h1 className="text-2xl font-semibold">
+                        Biblioteca de medios
+                    </h1>
+                    <p className="text-sm text-neutral-500">
+                        Busca archivos, copia URLs y revisa dónde se están
+                        usando.
+                    </p>
+                </div>
+            </div>
 
             {can('media.upload') && (
                 <Form
                     {...MediaController.store.form()}
                     options={{ preserveScroll: true }}
                     resetOnSuccess
-                    className="mb-8 rounded-lg border border-neutral-200 bg-white p-4 dark:border-neutral-800 dark:bg-neutral-900"
+                    className="mb-6 rounded-lg border border-neutral-200 bg-white p-4 dark:border-neutral-800 dark:bg-neutral-900"
                 >
                     {({ processing, errors }) => (
                         <div className="flex flex-wrap items-end gap-4">
@@ -78,7 +154,9 @@ export default function MediaIndex({ media: page }: { media: Paginated<MediaItem
                                     multiple
                                     className="text-sm"
                                 />
-                                <InputError message={errors['files.0'] ?? errors.files} />
+                                <InputError
+                                    message={errors['files.0'] ?? errors.files}
+                                />
                             </div>
                             <div className="grid gap-2">
                                 <Label htmlFor="visibility">Visibilidad</Label>
@@ -89,7 +167,9 @@ export default function MediaIndex({ media: page }: { media: Paginated<MediaItem
                                     className="rounded-md border border-neutral-300 bg-white px-3 py-2 text-sm dark:border-neutral-700 dark:bg-neutral-800"
                                 >
                                     <option value="public">Pública</option>
-                                    <option value="private">Privada (descargable)</option>
+                                    <option value="private">
+                                        Privada (descargable)
+                                    </option>
                                 </select>
                             </div>
                             <Button disabled={processing}>Subir</Button>
@@ -98,7 +178,103 @@ export default function MediaIndex({ media: page }: { media: Paginated<MediaItem
                 </Form>
             )}
 
-            <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
+            <form
+                onSubmit={submitFilters}
+                className="mb-6 grid gap-3 rounded-lg border border-neutral-200 bg-white p-4 lg:grid-cols-[minmax(220px,1fr)_repeat(3,180px)_auto] dark:border-neutral-800 dark:bg-neutral-900"
+            >
+                <div className="grid gap-2">
+                    <Label htmlFor="name">Nombre de imagen</Label>
+                    <div className="relative">
+                        <Search className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-neutral-400" />
+                        <Input
+                            id="name"
+                            value={filterValues.name}
+                            onChange={(event) =>
+                                setFilterValues({
+                                    ...filterValues,
+                                    name: event.target.value,
+                                })
+                            }
+                            className="pl-9"
+                            placeholder="Buscar por archivo, título o alt"
+                        />
+                    </div>
+                </div>
+
+                <div className="grid gap-2">
+                    <Label htmlFor="type">Tipo</Label>
+                    <select
+                        id="type"
+                        value={filterValues.type}
+                        onChange={(event) =>
+                            setFilterValues({
+                                ...filterValues,
+                                type: event.target.value,
+                            })
+                        }
+                        className="rounded-md border border-neutral-300 bg-white px-3 py-2 text-sm dark:border-neutral-700 dark:bg-neutral-800"
+                    >
+                        {filterOptions.types.map((option) => (
+                            <option key={option.value} value={option.value}>
+                                {option.label}
+                            </option>
+                        ))}
+                    </select>
+                </div>
+
+                <div className="grid gap-2">
+                    <Label htmlFor="usage">Uso</Label>
+                    <select
+                        id="usage"
+                        value={filterValues.usage}
+                        onChange={(event) =>
+                            setFilterValues({
+                                ...filterValues,
+                                usage: event.target.value,
+                            })
+                        }
+                        className="rounded-md border border-neutral-300 bg-white px-3 py-2 text-sm dark:border-neutral-700 dark:bg-neutral-800"
+                    >
+                        {filterOptions.usages.map((option) => (
+                            <option key={option.value} value={option.value}>
+                                {option.label}
+                            </option>
+                        ))}
+                    </select>
+                </div>
+
+                <div className="grid gap-2">
+                    <Label htmlFor="context">Dónde se usa</Label>
+                    <select
+                        id="context"
+                        value={filterValues.context}
+                        onChange={(event) =>
+                            setFilterValues({
+                                ...filterValues,
+                                context: event.target.value,
+                            })
+                        }
+                        className="rounded-md border border-neutral-300 bg-white px-3 py-2 text-sm dark:border-neutral-700 dark:bg-neutral-800"
+                    >
+                        {filterOptions.contexts.map((option) => (
+                            <option key={option.value} value={option.value}>
+                                {option.label}
+                            </option>
+                        ))}
+                    </select>
+                </div>
+
+                <div className="flex items-end gap-2">
+                    <Button type="submit">Filtrar</Button>
+                    <Button variant="outline" type="button" asChild>
+                        <Link href={media.index().url} preserveScroll>
+                            Limpiar
+                        </Link>
+                    </Button>
+                </div>
+            </form>
+
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
                 {page.data.map((item) => (
                     <div
                         key={item.id}
@@ -106,29 +282,101 @@ export default function MediaIndex({ media: page }: { media: Paginated<MediaItem
                     >
                         <div className="flex aspect-video items-center justify-center bg-neutral-100 dark:bg-neutral-800">
                             {item.is_image ? (
-                                <img src={item.url} alt={item.alt ?? item.name} className="h-full w-full object-cover" />
+                                <img
+                                    src={item.url}
+                                    alt={item.alt ?? item.name}
+                                    className="h-full w-full object-cover"
+                                />
                             ) : (
                                 <FileIcon className="size-10 text-neutral-400" />
                             )}
                         </div>
-                        <div className="space-y-2 p-3">
-                            <p className="truncate text-sm font-medium" title={item.name}>
-                                {item.name}
-                            </p>
-                            <div className="flex items-center justify-between text-xs text-neutral-500">
-                                <span>{formatSize(item.size)}</span>
-                                <Badge variant={item.visibility === 'private' ? 'outline' : 'secondary'}>
-                                    {item.visibility === 'private' ? 'Privada' : 'Pública'}
-                                </Badge>
+                        <div className="space-y-3 p-3">
+                            <div>
+                                <p
+                                    className="truncate text-sm font-medium"
+                                    title={item.name}
+                                >
+                                    {item.name}
+                                </p>
+                                <p
+                                    className="truncate text-xs text-neutral-500"
+                                    title={item.mime_type ?? undefined}
+                                >
+                                    {item.mime_type ?? 'Sin tipo'} ·{' '}
+                                    {formatSize(item.size)}
+                                </p>
                             </div>
-                            <div className="flex gap-2">
+
+                            <div className="flex flex-wrap gap-1.5">
+                                <Badge
+                                    variant={
+                                        item.visibility === 'private'
+                                            ? 'outline'
+                                            : 'secondary'
+                                    }
+                                >
+                                    {item.visibility === 'private'
+                                        ? 'Privada'
+                                        : 'Pública'}
+                                </Badge>
+                                {item.usages.length === 0 ? (
+                                    <Badge variant="outline">Sin uso</Badge>
+                                ) : (
+                                    item.usages
+                                        .slice(0, 3)
+                                        .map((usage, index) => (
+                                            <Badge
+                                                key={`${usage.context}-${usage.title}-${index}`}
+                                                variant="secondary"
+                                            >
+                                                {usage.label}
+                                            </Badge>
+                                        ))
+                                )}
+                            </div>
+
+                            <p className="line-clamp-2 min-h-8 text-xs text-neutral-500">
+                                {usageSummary(item.usages)}
+                                {item.usages.length > 2
+                                    ? ` y ${item.usages.length - 2} más`
+                                    : ''}
+                            </p>
+
+                            <div className="grid grid-cols-2 gap-2">
+                                <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => copyUrl(item)}
+                                >
+                                    <Copy className="size-4" />
+                                    {copiedId === item.id
+                                        ? 'Copiada'
+                                        : 'Copiar URL'}
+                                </Button>
+                                <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => setViewingUsages(item)}
+                                >
+                                    <Eye className="size-4" />
+                                    Ver usos
+                                </Button>
                                 {can('media.upload') && (
-                                    <Button variant="outline" size="sm" onClick={() => setEditing(item)}>
+                                    <Button
+                                        variant="outline"
+                                        size="sm"
+                                        onClick={() => setEditing(item)}
+                                    >
                                         Editar
                                     </Button>
                                 )}
                                 {can('media.delete') && (
-                                    <Button variant="destructive" size="sm" onClick={() => destroy(item)}>
+                                    <Button
+                                        variant="destructive"
+                                        size="sm"
+                                        onClick={() => destroy(item)}
+                                    >
                                         Eliminar
                                     </Button>
                                 )}
@@ -137,8 +385,8 @@ export default function MediaIndex({ media: page }: { media: Paginated<MediaItem
                     </div>
                 ))}
                 {page.data.length === 0 && (
-                    <p className="col-span-full py-8 text-center text-neutral-500">
-                        No hay archivos todavía.
+                    <p className="col-span-full rounded-lg border border-dashed border-neutral-300 py-10 text-center text-neutral-500 dark:border-neutral-700">
+                        No hay archivos con estos filtros.
                     </p>
                 )}
             </div>
@@ -171,7 +419,51 @@ export default function MediaIndex({ media: page }: { media: Paginated<MediaItem
                 </div>
             </div>
 
-            <Dialog open={editing !== null} onOpenChange={(open) => !open && setEditing(null)}>
+            <Dialog
+                open={viewingUsages !== null}
+                onOpenChange={(open) => !open && setViewingUsages(null)}
+            >
+                <DialogContent>
+                    <DialogTitle>Usos de {viewingUsages?.name}</DialogTitle>
+                    {viewingUsages && (
+                        <div className="space-y-3">
+                            {viewingUsages.usages.length === 0 ? (
+                                <p className="rounded-md border border-dashed border-neutral-300 p-4 text-sm text-neutral-500 dark:border-neutral-700">
+                                    No se detectó uso en productos, páginas,
+                                    SEO, cintillo, tiendas, websites o
+                                    categorías.
+                                </p>
+                            ) : (
+                                viewingUsages.usages.map((usage, index) => (
+                                    <div
+                                        key={`${usage.context}-${usage.title}-${index}`}
+                                        className="rounded-md border border-neutral-200 p-3 text-sm dark:border-neutral-800"
+                                    >
+                                        <div className="mb-1 flex items-center gap-2">
+                                            <Badge variant="secondary">
+                                                {usage.label}
+                                            </Badge>
+                                            <span className="font-medium">
+                                                {usage.title}
+                                            </span>
+                                        </div>
+                                        {usage.description && (
+                                            <p className="text-neutral-500">
+                                                {usage.description}
+                                            </p>
+                                        )}
+                                    </div>
+                                ))
+                            )}
+                        </div>
+                    )}
+                </DialogContent>
+            </Dialog>
+
+            <Dialog
+                open={editing !== null}
+                onOpenChange={(open) => !open && setEditing(null)}
+            >
                 <DialogContent>
                     <DialogTitle>Editar medio</DialogTitle>
                     {editing && (
@@ -185,21 +477,36 @@ export default function MediaIndex({ media: page }: { media: Paginated<MediaItem
                                 <>
                                     <div className="grid gap-2">
                                         <Label htmlFor="title">Título</Label>
-                                        <Input id="title" name="title" defaultValue={editing.title ?? ''} />
+                                        <Input
+                                            id="title"
+                                            name="title"
+                                            defaultValue={editing.title ?? ''}
+                                        />
                                         <InputError message={errors.title} />
                                     </div>
                                     <div className="grid gap-2">
-                                        <Label htmlFor="alt">Texto alternativo</Label>
-                                        <Input id="alt" name="alt" defaultValue={editing.alt ?? ''} />
+                                        <Label htmlFor="alt">
+                                            Texto alternativo
+                                        </Label>
+                                        <Input
+                                            id="alt"
+                                            name="alt"
+                                            defaultValue={editing.alt ?? ''}
+                                        />
                                         <InputError message={errors.alt} />
                                     </div>
                                     <DialogFooter className="gap-2">
                                         <DialogClose asChild>
-                                            <Button type="button" variant="secondary">
+                                            <Button
+                                                type="button"
+                                                variant="secondary"
+                                            >
                                                 Cancelar
                                             </Button>
                                         </DialogClose>
-                                        <Button disabled={processing}>Guardar</Button>
+                                        <Button disabled={processing}>
+                                            Guardar
+                                        </Button>
                                     </DialogFooter>
                                 </>
                             )}

@@ -20,6 +20,8 @@ class HeaderSettingsRequest extends FormRequest
     {
         return [
             'website_id' => ['required', 'integer', 'exists:websites,id'],
+            'store_id' => ['nullable', 'integer', 'exists:stores,id'],
+            'cintillo_mode' => ['nullable', Rule::in(['website', 'inherit', 'custom'])],
             'cintillo_enabled' => ['boolean'],
             'cintillo_show_on_mobile' => ['boolean'],
             'cintillo_blocks' => ['nullable', 'array', 'max:3'],
