@@ -14,7 +14,7 @@ class OrderAddress extends Model
     /** @var list<string> */
     protected $fillable = [
         'order_id', 'type', 'first_name', 'last_name', 'company', 'phone',
-        'line1', 'line2', 'city', 'state', 'postal_code', 'country',
+        'line1', 'line2', 'neighborhood', 'city', 'state', 'postal_code', 'country',
     ];
 
     /**

@@ -20,6 +20,7 @@ trait ValidatesCustomerAddresses
             'addresses.*.phone' => ['nullable', 'string', 'max:30'],
             'addresses.*.line1' => ['required', 'string', 'max:255'],
             'addresses.*.line2' => ['nullable', 'string', 'max:255'],
+            'addresses.*.neighborhood' => ['nullable', 'string', 'max:255'],
             'addresses.*.city' => ['required', 'string', 'max:255'],
             'addresses.*.state' => ['required', 'string', 'max:255'],
             'addresses.*.postal_code' => ['required', 'string', 'max:20'],

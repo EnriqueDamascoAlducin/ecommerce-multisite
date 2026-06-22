@@ -15,7 +15,7 @@ class CustomerAddress extends Model
     /** @var list<string> */
     protected $fillable = [
         'customer_id', 'label', 'first_name', 'last_name', 'company', 'phone',
-        'line1', 'line2', 'city', 'state', 'postal_code', 'country',
+        'line1', 'line2', 'neighborhood', 'city', 'state', 'postal_code', 'country',
         'is_default_shipping', 'is_default_billing',
     ];
 

@@ -24,6 +24,7 @@ class CustomerAddressRequest extends FormRequest
             'phone' => ['nullable', 'string', 'max:30'],
             'line1' => ['required', 'string', 'max:255'],
             'line2' => ['nullable', 'string', 'max:255'],
+            'neighborhood' => ['nullable', 'string', 'max:255'],
             'city' => ['required', 'string', 'max:255'],
             'state' => ['required', 'string', 'max:255'],
             'postal_code' => ['required', 'string', 'max:20'],

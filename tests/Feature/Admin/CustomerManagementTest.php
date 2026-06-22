@@ -41,6 +41,7 @@ function addressData(array $overrides = []): array
         'phone' => null,
         'line1' => 'Calle 1',
         'line2' => null,
+        'neighborhood' => 'Centro',
         'city' => 'CDMX',
         'state' => 'CDMX',
         'postal_code' => '01000',
@@ -62,7 +63,7 @@ test('an admin can create a customer with an address and a group', function () {
         'website_id' => $this->website->id,
         'group_id' => $this->group->id,
     ]);
-    $this->assertDatabaseHas('customer_addresses', ['line1' => 'Calle 1', 'is_default_shipping' => true]);
+    $this->assertDatabaseHas('customer_addresses', ['line1' => 'Calle 1', 'neighborhood' => 'Centro', 'is_default_shipping' => true]);
     $this->assertDatabaseHas('audit_logs', ['action' => 'customer.created']);
 });
 

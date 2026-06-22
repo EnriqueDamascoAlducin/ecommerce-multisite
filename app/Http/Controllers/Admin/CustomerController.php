@@ -109,7 +109,7 @@ class CustomerController extends Controller
                 'created_at' => $customer->created_at?->toDateString(),
                 'addresses' => $customer->addresses->map(fn ($address) => $address->only([
                     'id', 'label', 'first_name', 'last_name', 'company', 'phone',
-                    'line1', 'line2', 'city', 'state', 'postal_code', 'country',
+                    'line1', 'line2', 'neighborhood', 'city', 'state', 'postal_code', 'country',
                     'is_default_shipping', 'is_default_billing',
                 ]))->values(),
             ],
@@ -189,7 +189,7 @@ class CustomerController extends Controller
 
             $payload = collect($data)->only([
                 'label', 'first_name', 'last_name', 'company', 'phone',
-                'line1', 'line2', 'city', 'state', 'postal_code', 'country',
+                'line1', 'line2', 'neighborhood', 'city', 'state', 'postal_code', 'country',
             ])->all();
             $payload['is_default_shipping'] = $isShipping;
             $payload['is_default_billing'] = $isBilling;

@@ -93,6 +93,7 @@ class OrderDraftBuilder
             'phone' => $fields['phone'] ?? null,
             'line1' => $fields['line1'],
             'line2' => $fields['line2'] ?? null,
+            'neighborhood' => $fields['neighborhood'] ?? null,
             'city' => $fields['city'],
             'state' => $fields['state'],
             'postal_code' => $fields['postal_code'],

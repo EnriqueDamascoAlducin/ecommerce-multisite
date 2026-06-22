@@ -38,6 +38,7 @@ function checkoutPayload(array $overrides = []): array
             'first_name' => 'Ana',
             'last_name' => 'López',
             'line1' => 'Calle 123',
+            'neighborhood' => 'San Ángel',
             'city' => 'CDMX',
             'state' => 'CDMX',
             'postal_code' => '01000',
@@ -60,8 +61,8 @@ test('a guest can place an order and it becomes pending payment', function () {
         ->and((string) $order->total)->toBe('499.00');
 
     $this->assertDatabaseHas('order_items', ['order_id' => $order->id, 'product_id' => $product->id, 'quantity' => 2]);
-    $this->assertDatabaseHas('order_addresses', ['order_id' => $order->id, 'type' => 'shipping']);
-    $this->assertDatabaseHas('order_addresses', ['order_id' => $order->id, 'type' => 'billing']);
+    $this->assertDatabaseHas('order_addresses', ['order_id' => $order->id, 'type' => 'shipping', 'neighborhood' => 'San Ángel']);
+    $this->assertDatabaseHas('order_addresses', ['order_id' => $order->id, 'type' => 'billing', 'neighborhood' => 'San Ángel']);
 });
 
 test('placing an order reserves stock', function () {
@@ -168,6 +169,7 @@ test('checkout with different billing address creates both addresses', function 
             'first_name' => 'María',
             'last_name' => 'García',
             'line1' => 'Calle 456',
+            'neighborhood' => 'Centro',
             'city' => 'Monterrey',
             'state' => 'NL',
             'postal_code' => '64000',
@@ -179,6 +181,7 @@ test('checkout with different billing address creates both addresses', function 
 
     $order = Order::firstOrFail();
     expect($order->billingAddress->first_name)->toBe('María')
+        ->and($order->billingAddress->neighborhood)->toBe('Centro')
         ->and($order->shippingAddress->first_name)->toBe('Ana');
 });
 
@@ -195,5 +198,6 @@ test('success page includes shipping address', function () {
             ->component('storefront/checkout-success')
             ->where('order.shipping_address.first_name', 'Ana')
             ->where('order.shipping_address.line1', 'Calle 123')
+            ->where('order.shipping_address.neighborhood', 'San Ángel')
         );
 });

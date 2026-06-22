@@ -1,10 +1,11 @@
 import { Head, Link, useForm } from '@inertiajs/react';
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import InputError from '@/components/input-error';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { formatPrice } from '@/lib/storefront';
+import postalCodeLookup from '@/routes/checkout/postal-code';
 import { ChevronRight } from 'lucide-react';
 
 type Item = { name: string; sku: string; quantity: number; unit_price: string; line_total: string };
@@ -15,11 +16,13 @@ type Address = {
     id?: number;
     label?: string;
     first_name: string; last_name: string; company: string | null; phone: string | null;
-    line1: string; line2: string | null; city: string; state: string; postal_code: string; country: string;
+    line1: string; line2: string | null; neighborhood: string | null; city: string; state: string; postal_code: string; country: string;
     is_default_shipping?: boolean;
 };
 
 type AddressFields = Record<string, string>;
+type PostalSettlement = { name: string; type: string | null; city: string; state: string; zone: string | null };
+type PostalLookup = { loading: boolean; settlements: PostalSettlement[]; error: string | null };
 
 type CheckoutForm = {
     email: string;
@@ -33,7 +36,7 @@ type CheckoutForm = {
 const STEPS = ['Datos de entrega', 'Pago y revisión'];
 
 function emptyAddress(): AddressFields {
-    return { first_name: '', last_name: '', company: '', phone: '', line1: '', line2: '', city: '', state: '', postal_code: '', country: 'MX' };
+    return { first_name: '', last_name: '', company: '', phone: '', line1: '', line2: '', neighborhood: '', city: '', state: '', postal_code: '', country: 'MX' };
 }
 
 function addressToFields(addr: Address): AddressFields {
@@ -44,6 +47,7 @@ function addressToFields(addr: Address): AddressFields {
         phone: addr.phone ?? '',
         line1: addr.line1 ?? '',
         line2: addr.line2 ?? '',
+        neighborhood: addr.neighborhood ?? '',
         city: addr.city ?? '',
         state: addr.state ?? '',
         postal_code: addr.postal_code ?? '',
@@ -70,6 +74,16 @@ export default function Checkout({
 }) {
     const [step, setStep] = useState(0);
     const [billingSame, setBillingSame] = useState(true);
+    const [shippingPostalLookup, setShippingPostalLookup] = useState<PostalLookup>({
+        loading: false,
+        settlements: [],
+        error: null,
+    });
+    const [billingPostalLookup, setBillingPostalLookup] = useState<PostalLookup>({
+        loading: false,
+        settlements: [],
+        error: null,
+    });
 
     const defaultAddr = addresses.find((a) => a.is_default_shipping) ?? addresses[0] ?? null;
     const [selectedAddressId, setSelectedAddressId] = useState<number | null>(defaultAddr?.id ?? null);
@@ -83,6 +97,90 @@ export default function Checkout({
         shipping: defaultAddr ? addressToFields(defaultAddr) : emptyAddress(),
         billing: {},
     });
+    const checkoutDataRef = useRef(data);
+
+    checkoutDataRef.current = data;
+
+    useEffect(() => {
+        return lookupPostalCode('shipping', data.shipping.postal_code, setShippingPostalLookup);
+    }, [data.shipping.postal_code]);
+
+    useEffect(() => {
+        if (!billingSame) {
+            return lookupPostalCode('billing', data.billing.postal_code ?? '', setBillingPostalLookup);
+        }
+
+        setBillingPostalLookup({ loading: false, settlements: [], error: null });
+    }, [billingSame, data.billing.postal_code]);
+
+    function lookupPostalCode(
+        prefix: 'shipping' | 'billing',
+        postalCode: string,
+        setLookup: React.Dispatch<React.SetStateAction<PostalLookup>>,
+    ): void | (() => void) {
+        const normalizedPostalCode = postalCode.trim();
+
+        if (!/^\d{5}$/.test(normalizedPostalCode)) {
+            setLookup({ loading: false, settlements: [], error: null });
+
+            return;
+        }
+
+        const controller = new AbortController();
+
+        setLookup((lookup) => ({ ...lookup, loading: true, error: null }));
+
+        fetch(postalCodeLookup.show(normalizedPostalCode).url, {
+            headers: { Accept: 'application/json' },
+            signal: controller.signal,
+        })
+            .then((response) => {
+                if (!response.ok) {
+                    throw new Error('Código postal no encontrado');
+                }
+
+                return response.json() as Promise<{
+                    state: string;
+                    city: string;
+                    settlements: PostalSettlement[];
+                }>;
+            })
+            .then((payload) => {
+                const current = checkoutDataRef.current[prefix];
+                const selectedNeighborhood =
+                    payload.settlements.length === 1
+                        ? payload.settlements[0].name
+                        : payload.settlements.some((settlement) => settlement.name === current.neighborhood)
+                          ? current.neighborhood
+                          : '';
+
+                setData(prefix, {
+                    ...current,
+                    neighborhood: selectedNeighborhood,
+                    city: payload.city,
+                    state: payload.state,
+                    country: 'MX',
+                });
+                setLookup({
+                    loading: false,
+                    settlements: payload.settlements,
+                    error: null,
+                });
+            })
+            .catch((error) => {
+                if (error.name === 'AbortError') {
+                    return;
+                }
+
+                setLookup({
+                    loading: false,
+                    settlements: [],
+                    error: 'No encontramos colonias para este código postal.',
+                });
+            });
+
+        return () => controller.abort();
+    }
 
     function selectAddress(addr: Address) {
         setSelectedAddressId(addr.id ?? null);
@@ -135,6 +233,48 @@ export default function Checkout({
                     className="rounded-md border border-neutral-300 bg-white px-3 py-2 text-sm dark:border-neutral-700 dark:bg-neutral-800"
                 />
                 <InputError message={errors[`${prefix}.${name}` as keyof typeof errors]} />
+            </div>
+        );
+    }
+
+    function neighborhoodField(prefix: 'shipping' | 'billing', lookup: PostalLookup) {
+        const value = data[prefix].neighborhood ?? '';
+        const error = errors[`${prefix}.neighborhood` as keyof typeof errors];
+
+        if (lookup.settlements.length <= 1) {
+            return (
+                <div className="grid gap-1.5">
+                    <Label htmlFor={`${prefix}-neighborhood`}>Colonia</Label>
+                    <Input
+                        id={`${prefix}-neighborhood`}
+                        value={value}
+                        onChange={(event) => setData(prefix, { ...data[prefix], neighborhood: event.target.value })}
+                        className="rounded-md border border-neutral-300 bg-white px-3 py-2 text-sm dark:border-neutral-700 dark:bg-neutral-800"
+                    />
+                    {lookup.loading && <p className="text-xs text-neutral-500">Buscando colonias...</p>}
+                    {lookup.error && <p className="text-xs text-amber-600">{lookup.error}</p>}
+                    <InputError message={error} />
+                </div>
+            );
+        }
+
+        return (
+            <div className="grid gap-1.5">
+                <Label htmlFor={`${prefix}-neighborhood`}>Colonia</Label>
+                <select
+                    id={`${prefix}-neighborhood`}
+                    value={value}
+                    onChange={(event) => setData(prefix, { ...data[prefix], neighborhood: event.target.value })}
+                    className="rounded-md border border-neutral-300 bg-white px-3 py-2 text-sm dark:border-neutral-700 dark:bg-neutral-800"
+                >
+                    <option value="">Selecciona una colonia</option>
+                    {lookup.settlements.map((settlement) => (
+                        <option key={settlement.name} value={settlement.name}>
+                            {settlement.name}
+                        </option>
+                    ))}
+                </select>
+                <InputError message={error} />
             </div>
         );
     }
@@ -269,6 +409,7 @@ export default function Checkout({
                             {field('shipping', 'phone', 'Teléfono')}
                             {field('shipping', 'line1', 'Calle y número', true)}
                             {field('shipping', 'line2', 'Interior / referencia')}
+                            {neighborhoodField('shipping', shippingPostalLookup)}
                             {field('shipping', 'city', 'Ciudad', true)}
                             {field('shipping', 'state', 'Estado', true)}
                             {field('shipping', 'postal_code', 'Código postal', true)}
@@ -363,6 +504,7 @@ export default function Checkout({
                                     {field('billing', 'phone', 'Teléfono')}
                                     {field('billing', 'line1', 'Calle y número', true)}
                                     {field('billing', 'line2', 'Interior / referencia')}
+                                    {neighborhoodField('billing', billingPostalLookup)}
                                     {field('billing', 'city', 'Ciudad', true)}
                                     {field('billing', 'state', 'Estado', true)}
                                     {field('billing', 'postal_code', 'Código postal', true)}
@@ -378,6 +520,9 @@ export default function Checkout({
                                     {data.shipping.first_name} {data.shipping.last_name}
                                 </p>
                                 <p className="text-neutral-500">{data.shipping.line1}</p>
+                                {data.shipping.neighborhood && (
+                                    <p className="text-neutral-500">{data.shipping.neighborhood}</p>
+                                )}
                                 <p className="text-neutral-500">
                                     {data.shipping.city}, {data.shipping.state} {data.shipping.postal_code}
                                 </p>

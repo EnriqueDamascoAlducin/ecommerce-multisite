@@ -14,6 +14,7 @@ function addressPayload(array $overrides = []): array
         'first_name' => 'Ana',
         'last_name' => 'López',
         'line1' => 'Av. Siempre Viva 742',
+        'neighborhood' => 'Centro',
         'city' => 'CDMX',
         'state' => 'CDMX',
         'postal_code' => '01000',
@@ -35,6 +36,7 @@ test('a customer can add an address', function () {
     $this->assertDatabaseHas('customer_addresses', [
         'customer_id' => $this->customer->id,
         'line1' => 'Av. Siempre Viva 742',
+        'neighborhood' => 'Centro',
     ]);
 });
 

@@ -16,6 +16,7 @@ type Address = {
     phone: string | null;
     line1: string;
     line2: string | null;
+    neighborhood: string | null;
     city: string;
     state: string;
     postal_code: string;
@@ -87,6 +88,7 @@ export default function CustomerAddresses({ addresses }: { addresses: Address[] 
                             <p className="text-neutral-500">
                                 {address.first_name} {address.last_name}<br />
                                 {address.line1}{address.line2 ? `, ${address.line2}` : ''}<br />
+                                {address.neighborhood && <>{address.neighborhood}<br /></>}
                                 {address.city}, {address.state}, {address.postal_code} ({address.country})
                             </p>
                         </div>
@@ -114,6 +116,7 @@ function AddressFields({ address, errors }: { address: Address | null; errors: R
             <Field name="company" label="Empresa" defaultValue={address?.company ?? ''} error={errors.company} />
             <Field name="line1" label="Calle y número" defaultValue={address?.line1 ?? ''} error={errors.line1} required />
             <Field name="line2" label="Interior / referencia" defaultValue={address?.line2 ?? ''} error={errors.line2} />
+            <Field name="neighborhood" label="Colonia" defaultValue={address?.neighborhood ?? ''} error={errors.neighborhood} />
             <Field name="city" label="Ciudad" defaultValue={address?.city ?? ''} error={errors.city} required />
             <Field name="state" label="Estado" defaultValue={address?.state ?? ''} error={errors.state} required />
             <Field name="postal_code" label="Código postal" defaultValue={address?.postal_code ?? ''} error={errors.postal_code} required />

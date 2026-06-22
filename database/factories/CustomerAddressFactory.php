@@ -27,6 +27,7 @@ class CustomerAddressFactory extends Factory
             'phone' => fake()->optional()->phoneNumber(),
             'line1' => fake()->streetAddress(),
             'line2' => fake()->optional()->secondaryAddress(),
+            'neighborhood' => fake()->optional()->word(),
             'city' => fake()->city(),
             'state' => fake()->state(),
             'postal_code' => fake()->postcode(),

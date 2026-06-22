@@ -146,7 +146,7 @@ class CheckoutController extends Controller
                 'thumbnail' => $item->product?->primaryMedia('gallery')?->url,
             ])->values(),
             'shipping_address' => $order->shippingAddress?->only([
-                'first_name', 'last_name', 'line1', 'line2', 'city', 'state', 'postal_code', 'country',
+                'first_name', 'last_name', 'line1', 'line2', 'neighborhood', 'city', 'state', 'postal_code', 'country',
             ]),
         ];
     }

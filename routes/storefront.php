@@ -13,6 +13,7 @@ use App\Http\Controllers\Storefront\Auth\RegisterController;
 use App\Http\Controllers\Storefront\CartController;
 use App\Http\Controllers\Storefront\CheckoutController;
 use App\Http\Controllers\Storefront\DownloadController;
+use App\Http\Controllers\Storefront\PostalCodeLookupController;
 use Illuminate\Support\Facades\Route;
 
 // Carrito (invitado o cliente). El carrito de invitado se identifica por la sesión.
@@ -30,6 +31,9 @@ Route::prefix('carrito')->name('cart.')->group(function () {
 Route::prefix('checkout')->name('checkout.')->group(function () {
     Route::get('/', [CheckoutController::class, 'index'])->name('index');
     Route::post('/', [CheckoutController::class, 'store'])->name('store');
+    Route::get('codigo-postal/{postalCode}', [PostalCodeLookupController::class, 'show'])
+        ->name('postal-code.show')
+        ->where('postalCode', '[0-9]{5}');
     Route::get('exito/{order}', [CheckoutController::class, 'success'])->name('success');
     Route::get('pendiente/{order}', [CheckoutController::class, 'pending'])->name('pending');
     Route::get('fallo/{order}', [CheckoutController::class, 'failure'])->name('failure');

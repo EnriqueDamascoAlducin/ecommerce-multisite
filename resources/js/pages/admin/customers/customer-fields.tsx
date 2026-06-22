@@ -13,6 +13,7 @@ export type AddressForm = {
     phone: string;
     line1: string;
     line2: string;
+    neighborhood: string;
     city: string;
     state: string;
     postal_code: string;
@@ -46,6 +47,7 @@ export function blankAddress(): AddressForm {
         phone: '',
         line1: '',
         line2: '',
+        neighborhood: '',
         city: '',
         state: '',
         postal_code: '',
@@ -199,6 +201,7 @@ export default function CustomerFields({
 
                         <AddressField label="Dirección" value={address.line1} onChange={(v) => patchAddress(index, { line1: v })} error={err[`addresses.${index}.line1`]} />
                         <AddressField label="Dirección (línea 2)" value={address.line2} onChange={(v) => patchAddress(index, { line2: v })} error={err[`addresses.${index}.line2`]} />
+                        <AddressField label="Colonia" value={address.neighborhood} onChange={(v) => patchAddress(index, { neighborhood: v })} error={err[`addresses.${index}.neighborhood`]} />
 
                         <div className="grid gap-4 sm:grid-cols-3">
                             <AddressField label="Ciudad" value={address.city} onChange={(v) => patchAddress(index, { city: v })} error={err[`addresses.${index}.city`]} />

@@ -15,6 +15,7 @@ type AddressFields = {
     last_name: string;
     line1: string;
     line2: string | null;
+    neighborhood: string | null;
     city: string;
     state: string;
     postal_code: string;
@@ -196,6 +197,9 @@ export default function CheckoutSuccess({ order }: { order: OrderSummary }) {
                                 <p className="text-neutral-500">{order.shipping_address.line1}</p>
                                 {order.shipping_address.line2 && (
                                     <p className="text-neutral-500">{order.shipping_address.line2}</p>
+                                )}
+                                {order.shipping_address.neighborhood && (
+                                    <p className="text-neutral-500">{order.shipping_address.neighborhood}</p>
                                 )}
                                 <p className="text-neutral-500">
                                     {order.shipping_address.city}, {order.shipping_address.state}{' '}

@@ -12,7 +12,7 @@ import { statusLabel } from './status-labels';
 
 type Address = {
     first_name: string; last_name: string; company: string | null; phone: string | null;
-    line1: string; line2: string | null; city: string; state: string; postal_code: string; country: string;
+    line1: string; line2: string | null; neighborhood: string | null; city: string; state: string; postal_code: string; country: string;
 } | null;
 
 type OrderDetail = {
@@ -117,7 +117,7 @@ export default function OrderShow({ order, statuses }: { order: OrderDetail; sta
     };
 
     const fmtAddress = (a: Address) =>
-        a ? `${a.first_name} ${a.last_name}${a.company ? ` - ${a.company}` : ''}, ${a.line1}${a.line2 ? `, ${a.line2}` : ''}, ${a.city}, ${a.state}, ${a.postal_code} (${a.country})` : '—';
+        a ? `${a.first_name} ${a.last_name}${a.company ? ` - ${a.company}` : ''}, ${a.line1}${a.line2 ? `, ${a.line2}` : ''}${a.neighborhood ? `, ${a.neighborhood}` : ''}, ${a.city}, ${a.state}, ${a.postal_code} (${a.country})` : '—';
 
     const actions = STATUS_ACTIONS[order.status] ?? [];
 
@@ -373,6 +373,7 @@ export default function OrderShow({ order, statuses }: { order: OrderDetail; sta
                                     {order.shipping_address.company && <p>{order.shipping_address.company}</p>}
                                     <p>{order.shipping_address.line1}</p>
                                     {order.shipping_address.line2 && <p>{order.shipping_address.line2}</p>}
+                                    {order.shipping_address.neighborhood && <p>{order.shipping_address.neighborhood}</p>}
                                     <p>
                                         {order.shipping_address.city}, {order.shipping_address.state} {order.shipping_address.postal_code}
                                     </p>
@@ -394,6 +395,7 @@ export default function OrderShow({ order, statuses }: { order: OrderDetail; sta
                                     {order.billing_address.company && <p>{order.billing_address.company}</p>}
                                     <p>{order.billing_address.line1}</p>
                                     {order.billing_address.line2 && <p>{order.billing_address.line2}</p>}
+                                    {order.billing_address.neighborhood && <p>{order.billing_address.neighborhood}</p>}
                                     <p>
                                         {order.billing_address.city}, {order.billing_address.state} {order.billing_address.postal_code}
                                     </p>
