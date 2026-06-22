@@ -478,7 +478,31 @@ test('unpublished cms page returns not found', function () {
         'is_published' => false,
     ]);
 
-    $this->get('/oculta')->assertNotFound();
+    $this->get('/oculta')
+        ->assertNotFound()
+        ->assertInertia(fn ($page) => $page
+            ->component('storefront/error')
+            ->where('status', 404)
+            ->where('store.store.id', $this->store->id)
+            ->where('store.pathPrefix', ''));
+});
+
+test('missing cms page renders the storefront not found page', function () {
+    $this->get('/nosotros')
+        ->assertNotFound()
+        ->assertInertia(fn ($page) => $page
+            ->component('storefront/error')
+            ->where('status', 404)
+            ->where('store.store.id', $this->store->id)
+            ->where('store.pathPrefix', ''));
+});
+
+test('admin not found responses do not render the storefront error page', function () {
+    $response = $this->get('/admin/no-existe');
+
+    $response->assertNotFound();
+
+    expect($response->getContent())->not->toContain('storefront/error');
 });
 
 test('category route still wins over cms catch all route', function () {

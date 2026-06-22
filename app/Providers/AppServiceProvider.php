@@ -21,6 +21,8 @@ use Illuminate\Support\Facades\Date;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\ServiceProvider;
 use Illuminate\Validation\Rules\Password;
+use Inertia\ExceptionResponse;
+use Inertia\Inertia;
 
 class AppServiceProvider extends ServiceProvider
 {
@@ -59,7 +61,25 @@ class AppServiceProvider extends ServiceProvider
         StoreDomain::observe(StorefrontSeoCacheObserver::class);
         StorefrontPage::observe(StorefrontSeoCacheObserver::class);
 
+        $this->configureInertiaExceptionRendering();
         $this->configureDefaults();
+    }
+
+    private function configureInertiaExceptionRendering(): void
+    {
+        Inertia::handleExceptionsUsing(function (ExceptionResponse $response) {
+            if (
+                $response->statusCode() !== 404
+                || $response->request->is('admin', 'admin/*')
+                || ! $response->request->routeIs('storefront.*')
+            ) {
+                return null;
+            }
+
+            return $response->render('storefront/error', [
+                'status' => 404,
+            ])->withSharedData();
+        });
     }
 
     /**
