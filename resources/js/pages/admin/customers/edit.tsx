@@ -56,7 +56,7 @@ export default function CustomerEdit({
         email: customer.email,
         phone: customer.phone ?? '',
         password: '',
-        addresses: customer.addresses,
+        addresses: customer.addresses ?? [],
     });
 
     const group = groups.find((g) => g.id === customer.group_id);

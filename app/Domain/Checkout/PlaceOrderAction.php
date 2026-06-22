@@ -7,6 +7,7 @@ use App\Domain\Inventory\StockReservationService;
 use App\Domain\Inventory\StockService;
 use App\Models\Cart;
 use App\Models\CartPriceRule;
+use App\Models\CustomerAddress;
 use App\Models\InventorySource;
 use App\Models\Order;
 use App\Models\Product;
@@ -50,6 +51,8 @@ class PlaceOrderAction
             foreach ($draft['addresses'] as $address) {
                 $order->addresses()->create($address);
             }
+
+            $this->saveCustomerAddress($cart, $data);
 
             $this->reserveStock($cart, $order);
             $this->consumeCoupon($cart);
@@ -124,5 +127,36 @@ class PlaceOrderAction
             ->where('is_active', true)
             ->get()
             ->each(fn (CartPriceRule $rule) => $rule->increment('times_used'));
+    }
+
+    /** @param array<string, mixed> $data */
+    private function saveCustomerAddress(Cart $cart, array $data): void
+    {
+        if (! ($data['save_address'] ?? false) || ! $cart->customer_id) {
+            return;
+        }
+
+        $hasAddresses = CustomerAddress::query()
+            ->where('customer_id', $cart->customer_id)
+            ->exists();
+        $shipping = $data['shipping'];
+
+        CustomerAddress::create([
+            'customer_id' => $cart->customer_id,
+            'label' => 'Dirección de compra',
+            'first_name' => $shipping['first_name'],
+            'last_name' => $shipping['last_name'],
+            'company' => $shipping['company'] ?? null,
+            'phone' => $shipping['phone'] ?? null,
+            'line1' => $shipping['line1'],
+            'line2' => $shipping['line2'] ?? null,
+            'neighborhood' => $shipping['neighborhood'] ?? null,
+            'city' => $shipping['city'],
+            'state' => $shipping['state'],
+            'postal_code' => $shipping['postal_code'],
+            'country' => $shipping['country'] ?? 'MX',
+            'is_default_shipping' => ! $hasAddresses,
+            'is_default_billing' => ! $hasAddresses && (bool) ($data['billing_same'] ?? false),
+        ]);
     }
 }

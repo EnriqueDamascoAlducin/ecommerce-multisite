@@ -124,6 +124,16 @@ test('addresses are synced and a single default is enforced', function () {
     expect($customer->fresh()->addresses()->count())->toBe(1);
 });
 
+test('the edit page provides websites and addresses for a customer without addresses', function () {
+    $customer = Customer::factory()->create(['website_id' => $this->website->id]);
+
+    $this->get(route('admin.customers.edit', $customer))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->has('websites')
+            ->where('customer.addresses', []));
+});
+
 test('the grid can be filtered by group', function () {
     $other = CustomerGroup::factory()->create(['website_id' => $this->website->id]);
     Customer::factory()->create(['website_id' => $this->website->id, 'group_id' => $this->group->id]);

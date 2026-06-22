@@ -130,6 +130,7 @@ class CustomerController extends Controller
                     'url' => route('admin.orders.show', $order),
                 ]),
             'groups' => $this->groupOptions(),
+            'websites' => $this->websiteOptions(),
         ]);
     }
 

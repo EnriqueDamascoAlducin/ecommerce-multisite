@@ -75,6 +75,13 @@ class CheckoutService
             throw CheckoutException::emptyCart();
         }
 
+        $customer = auth('customer')->user();
+
+        if ($customer && $cart->customer_id !== $customer->id) {
+            $cart->update(['customer_id' => $customer->id]);
+            $cart->setRelation('customer', $customer);
+        }
+
         // Selección de envío (valida disponibilidad; lanza CartException si no aplica).
         $this->cart->setShippingMethod($data['shipping_method_code'] ?? null);
         $cart = $this->cart->current(false);

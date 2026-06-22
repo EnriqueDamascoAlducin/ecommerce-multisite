@@ -5,6 +5,7 @@
 // Espacio de URLs bajo /cuenta para no chocar con el auth del admin (Fortify).
 
 use App\Http\Controllers\Storefront\Account\AddressController;
+use App\Http\Controllers\Storefront\Account\OrderController;
 use App\Http\Controllers\Storefront\Account\ProfileController;
 use App\Http\Controllers\Storefront\Auth\LoginController;
 use App\Http\Controllers\Storefront\Auth\NewPasswordController;
@@ -58,6 +59,8 @@ Route::prefix('cuenta')->name('customer.')->group(function () {
         Route::post('direcciones', [AddressController::class, 'store'])->name('addresses.store');
         Route::put('direcciones/{address}', [AddressController::class, 'update'])->name('addresses.update');
         Route::delete('direcciones/{address}', [AddressController::class, 'destroy'])->name('addresses.destroy');
+
+        Route::get('pedidos', [OrderController::class, 'index'])->name('orders.index');
 
         // Descargas digitales (productos descargables comprados).
         Route::get('descargas', [DownloadController::class, 'index'])->name('downloads.index');

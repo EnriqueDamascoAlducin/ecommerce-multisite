@@ -24,6 +24,7 @@ class PlaceOrderRequest extends FormRequest
             'email' => ['required', 'email', 'max:255'],
             'payment_method' => ['required', Rule::in($codes)],
             'shipping_method_code' => ['nullable', 'string'],
+            'save_address' => ['nullable', 'boolean'],
 
             'shipping' => ['required', 'array'],
             'shipping.first_name' => ['required', 'string', 'max:255'],
