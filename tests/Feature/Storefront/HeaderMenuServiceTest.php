@@ -82,6 +82,31 @@ test('categoryProducts returns products for a category', function () {
     expect($products[0]['name'])->toBe($product->name);
 });
 
+test('categoryProducts excludes hidden variants belonging to a configurable product', function () {
+    $store = Store::factory()->create();
+    $category = Category::factory()->create(['store_id' => $store->id]);
+    $configurable = Product::factory()->create([
+        'type' => Product::TYPE_CONFIGURABLE,
+        'visibility' => 'both',
+    ]);
+    $variant = Product::factory()->create([
+        'type' => Product::TYPE_SIMPLE,
+        'parent_id' => $configurable->id,
+        'visibility' => 'hidden',
+    ]);
+
+    foreach ([$configurable, $variant] as $product) {
+        $product->categories()->attach($category->id);
+        $product->storeLinks()->create(['store_id' => $store->id, 'is_active' => true]);
+    }
+
+    $products = $this->service->categoryProducts($category->id, $store);
+
+    expect($products)->toHaveCount(1)
+        ->and($products[0]['id'])->toBe($configurable->id)
+        ->and($products[0]['name'])->toBe($configurable->name);
+});
+
 test('categoryProducts marks products without managed stock as in stock', function () {
     $store = Store::factory()->create();
     $category = Category::factory()->create(['store_id' => $store->id]);

@@ -5,6 +5,7 @@ use App\Models\Customer;
 use App\Models\CustomerAddress;
 use App\Models\InventorySource;
 use App\Models\Order;
+use App\Models\Product;
 use App\Models\ShippingMethod;
 use App\Models\Store;
 use App\Models\StoreShippingMethod;
@@ -47,6 +48,21 @@ function checkoutPayload(array $overrides = []): array
     ], $overrides);
 }
 
+/** @return array{parent: Product, variant: Product} */
+function hiddenVariantForCheckout(Store $store, InventorySource $source): array
+{
+    $parent = sellableProduct($store, $source, 200);
+    $parent->update(['type' => Product::TYPE_CONFIGURABLE]);
+
+    $variant = sellableProduct($store, $source, 175);
+    $variant->update([
+        'parent_id' => $parent->id,
+        'visibility' => 'hidden',
+    ]);
+
+    return compact('parent', 'variant');
+}
+
 test('a guest can place an order and it becomes pending payment', function () {
     $product = sellableProduct($this->store, $this->source, 200, stock: 10);
     $this->post(route('cart.store'), ['product_id' => $product->id, 'quantity' => 2]);
@@ -63,6 +79,38 @@ test('a guest can place an order and it becomes pending payment', function () {
     $this->assertDatabaseHas('order_items', ['order_id' => $order->id, 'product_id' => $product->id, 'quantity' => 2]);
     $this->assertDatabaseHas('order_addresses', ['order_id' => $order->id, 'type' => 'shipping', 'neighborhood' => 'San Ángel']);
     $this->assertDatabaseHas('order_addresses', ['order_id' => $order->id, 'type' => 'billing', 'neighborhood' => 'San Ángel']);
+});
+
+test('a guest can finish checkout with a hidden configurable variant', function () {
+    ['variant' => $variant] = hiddenVariantForCheckout($this->store, $this->source);
+
+    $this->post(route('cart.store'), [
+        'product_id' => $variant->id,
+        'quantity' => 2,
+    ])->assertSessionHas('success');
+
+    $response = $this->post(route('checkout.store'), checkoutPayload());
+    $order = Order::query()->firstOrFail();
+    $response->assertRedirect(route('checkout.success', $order));
+
+    $this->assertDatabaseHas('order_items', [
+        'order_id' => $order->id,
+        'product_id' => $variant->id,
+        'sku' => $variant->sku,
+        'quantity' => 2,
+    ]);
+});
+
+test('checkout rejects a hidden variant when its configurable parent becomes inactive', function () {
+    ['parent' => $parent, 'variant' => $variant] = hiddenVariantForCheckout($this->store, $this->source);
+    $this->post(route('cart.store'), ['product_id' => $variant->id, 'quantity' => 1]);
+    $parent->update(['status' => Product::STATUS_INACTIVE]);
+
+    $this->post(route('checkout.store'), checkoutPayload())
+        ->assertRedirect(route('checkout.index'))
+        ->assertSessionHas('error');
+
+    expect(Order::query()->count())->toBe(0);
 });
 
 test('placing an order reserves stock', function () {

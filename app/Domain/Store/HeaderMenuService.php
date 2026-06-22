@@ -196,6 +196,7 @@ class HeaderMenuService
         return Product::query()
             ->select('products.id', 'products.slug', 'products.name', 'products.sku')
             ->active()
+            ->where('products.visibility', '!=', 'hidden')
             ->whereHas('categories', fn ($q) => $q->where('categories.id', $categoryId))
             ->whereHas('storeLinks', fn ($q) => $q->where('store_id', $store->id)->where('is_active', true))
             ->with([

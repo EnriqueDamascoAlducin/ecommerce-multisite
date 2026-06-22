@@ -2,9 +2,9 @@
 
 namespace App\Domain\Checkout;
 
+use App\Domain\Catalog\ProductPurchasabilityService;
 use App\Domain\Inventory\StockAvailabilityChecker;
 use App\Models\Cart;
-use App\Models\Product;
 
 /**
  * Validación final antes de crear la orden: cada ítem sigue siendo comprable
@@ -12,7 +12,10 @@ use App\Models\Product;
  */
 class TotalsValidator
 {
-    public function __construct(private readonly StockAvailabilityChecker $availability) {}
+    public function __construct(
+        private readonly StockAvailabilityChecker $availability,
+        private readonly ProductPurchasabilityService $purchasability,
+    ) {}
 
     public function validate(Cart $cart): void
     {
@@ -21,7 +24,7 @@ class TotalsValidator
         foreach ($cart->items as $item) {
             $product = $item->product;
 
-            if (! $product || ! $this->isPurchasable($product, $cart->store_id)) {
+            if (! $product || ! $this->purchasability->isPurchasable($product, $cart->store_id)) {
                 throw CheckoutException::notPurchasable($item->name);
             }
 
@@ -29,17 +32,5 @@ class TotalsValidator
                 throw CheckoutException::stockChanged($item->sku);
             }
         }
-    }
-
-    private function isPurchasable(Product $product, int $storeId): bool
-    {
-        if ($product->status !== Product::STATUS_ACTIVE || $product->visibility === 'hidden') {
-            return false;
-        }
-
-        return $product->storeLinks
-            ->where('store_id', $storeId)
-            ->where('is_active', true)
-            ->isNotEmpty();
     }
 }

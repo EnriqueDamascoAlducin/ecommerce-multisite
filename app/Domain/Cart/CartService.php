@@ -4,6 +4,7 @@ namespace App\Domain\Cart;
 
 use App\Domain\Catalog\BundleService;
 use App\Domain\Catalog\ProductPricingService;
+use App\Domain\Catalog\ProductPurchasabilityService;
 use App\Domain\Inventory\InsufficientStockException;
 use App\Domain\Inventory\StockAvailabilityChecker;
 use App\Domain\Shipping\ShippingService;
@@ -15,7 +16,6 @@ use App\Models\CartPriceRule;
 use App\Models\Customer;
 use App\Models\Product;
 use App\Models\Store;
-use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Str;
 
 /**
@@ -35,6 +35,7 @@ class CartService
         private readonly CartTotalsCalculator $totals,
         private readonly ShippingService $shipping,
         private readonly BundleService $bundles,
+        private readonly ProductPurchasabilityService $purchasability,
     ) {}
 
     /**
@@ -139,7 +140,7 @@ class CartService
         $cart = $this->current();
         $store = $this->context->store();
 
-        if (! $this->isPurchasable($product, $store->id)) {
+        if (! $this->purchasability->isPurchasable($product, $store->id)) {
             throw CartException::notPurchasable($product->name);
         }
 
@@ -329,49 +330,6 @@ class CartService
             : $this->pricing->priceFor($product, $storeId)['effective_price'];
 
         return $effective !== null ? (float) $effective : null;
-    }
-
-    private function isPurchasable(Product $product, int $storeId): bool
-    {
-        if ($product->status !== Product::STATUS_ACTIVE) {
-            return false;
-        }
-
-        $isActiveInStore = $product->storeLinks()
-            ->where('store_id', $storeId)
-            ->where('is_active', true)
-            ->exists();
-
-        if (! $isActiveInStore) {
-            return false;
-        }
-
-        if ($product->visibility === 'hidden') {
-            return $this->isPurchasableVariant($product, $storeId);
-        }
-
-        // Un descargable sin archivos no se puede vender.
-        if ($product->isDownloadable() && ! $product->downloadableLinks()->exists()) {
-            return false;
-        }
-
-        return true;
-    }
-
-    private function isPurchasableVariant(Product $product, int $storeId): bool
-    {
-        if ($product->parent_id === null || $product->type !== Product::TYPE_SIMPLE) {
-            return false;
-        }
-
-        return $product->parent()
-            ->where('type', Product::TYPE_CONFIGURABLE)
-            ->where('status', Product::STATUS_ACTIVE)
-            ->where('visibility', '!=', 'hidden')
-            ->whereHas('storeLinks', fn (Builder $query) => $query
-                ->where('store_id', $storeId)
-                ->where('is_active', true))
-            ->exists();
     }
 
     private function assertStock(Product $product, int $quantity): void
