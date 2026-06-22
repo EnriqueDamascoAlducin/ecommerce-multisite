@@ -80,6 +80,7 @@ type SectionSettings = Record<string, FormDataConvertible> & {
     display_type?: string;
     logo_size?: string;
     logo_radius?: string;
+    logo_radius_percent?: number;
     overlay_enabled?: boolean;
     overlay_color?: string;
     overlay_opacity?: number;
@@ -1508,15 +1509,17 @@ function BrandStripFields({
                         ]}
                         onChange={(value) => setSetting('logo_size', value)}
                     />
-                    <SelectField
+                    <RangeField
                         label="Redondeado"
-                        value={logoRadiusValue(settings.logo_radius)}
-                        options={[
-                            { value: 'none', label: 'Sin redondeado' },
-                            { value: 'medium', label: 'Medio' },
-                            { value: 'full', label: 'Completo' },
-                        ]}
-                        onChange={(value) => setSetting('logo_radius', value)}
+                        value={logoRadiusPercentValue(
+                            settings.logo_radius_percent,
+                            settings.logo_radius,
+                        )}
+                        min={0}
+                        max={100}
+                        onChange={(value) =>
+                            setSetting('logo_radius_percent', value)
+                        }
                     />
                 </div>
             </FieldGroup>
@@ -3922,8 +3925,20 @@ function logoSizeValue(value: unknown): 'small' | 'medium' | 'large' {
     return value === 'small' || value === 'large' ? value : 'medium';
 }
 
-function logoRadiusValue(value: unknown): 'none' | 'medium' | 'full' {
-    return value === 'none' || value === 'full' ? value : 'medium';
+function logoRadiusPercentValue(value: unknown, legacyValue?: unknown): number {
+    if (typeof value === 'number') {
+        return Math.min(Math.max(value, 0), 100);
+    }
+
+    if (legacyValue === 'full') {
+        return 100;
+    }
+
+    if (legacyValue === 'none') {
+        return 0;
+    }
+
+    return 16;
 }
 
 function numberValue(value: unknown): number | null {
@@ -4028,6 +4043,7 @@ function sectionDefaults(type: string): SectionSettings {
                 display_type: 'grid',
                 logo_size: 'medium',
                 logo_radius: 'medium',
+                logo_radius_percent: 16,
             };
         case 'inquiry_form':
             return {

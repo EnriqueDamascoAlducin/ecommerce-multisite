@@ -208,6 +208,7 @@ test('page content can be updated with template section settings', function () {
                     'display_type' => 'carousel',
                     'logo_size' => 'large',
                     'logo_radius' => 'full',
+                    'logo_radius_percent' => 100,
                     'brands' => [
                         [
                             'name' => 'BTL',
@@ -268,6 +269,7 @@ test('page content can be updated with template section settings', function () {
         ->and($sections[StorefrontPageSection::TYPE_BRAND_STRIP]->fresh()->settings['display_type'])->toBe('carousel')
         ->and($sections[StorefrontPageSection::TYPE_BRAND_STRIP]->fresh()->settings['logo_size'])->toBe('large')
         ->and($sections[StorefrontPageSection::TYPE_BRAND_STRIP]->fresh()->settings['logo_radius'])->toBe('full')
+        ->and($sections[StorefrontPageSection::TYPE_BRAND_STRIP]->fresh()->settings['logo_radius_percent'])->toBe(100)
         ->and($sections[StorefrontPageSection::TYPE_BRAND_STRIP]->fresh()->settings['brands'])->toBe([
             [
                 'name' => 'BTL',

@@ -369,9 +369,14 @@ function BrandStrip({ section }: { section: CmsSection }) {
     const brands = arrayValue<CmsBrandValue>(settings.brands).map(brandValue);
     const displayType = displayTypeValue(settings.display_type);
     const logoSize = logoSizeValue(settings.logo_size);
-    const logoRadius = logoRadiusValue(settings.logo_radius);
-    const itemClassName = brandItemClass(logoSize);
+    const logoRadius = logoRadiusPercentValue(
+        settings.logo_radius_percent,
+        settings.logo_radius,
+    );
+    const itemClassName = brandItemClass(logoSize, logoRadius);
     const imageClassName = brandImageClass(logoSize, logoRadius);
+    const itemStyle = brandItemStyle(logoRadius);
+    const imageStyle = brandImageStyle(logoRadius);
 
     return (
         <section
@@ -398,12 +403,14 @@ function BrandStrip({ section }: { section: CmsSection }) {
                             className={`${itemClassName} ${
                                 displayType === 'carousel' ? 'snap-start' : ''
                             }`}
+                            style={itemStyle}
                         >
                             {brand.media?.url ? (
                                 <img
                                     src={brand.media.url}
                                     alt={brand.media.alt ?? brand.name ?? ''}
                                     className={imageClassName}
+                                    style={imageStyle}
                                 />
                             ) : (
                                 brand.name
@@ -419,28 +426,34 @@ function BrandStrip({ section }: { section: CmsSection }) {
 function BrandLink({
     brand,
     className,
+    style,
     children,
 }: {
     brand: CmsBrand;
     className: string;
+    style?: CSSProperties;
     children: ReactNode;
 }) {
     const url = stringValue(brand.url);
 
     if (!url) {
-        return <div className={className}>{children}</div>;
+        return (
+            <div className={className} style={style}>
+                {children}
+            </div>
+        );
     }
 
     if (isExternalUrl(url)) {
         return (
-            <a href={url} className={className}>
+            <a href={url} className={className} style={style}>
                 {children}
             </a>
         );
     }
 
     return (
-        <Link href={url} className={className}>
+        <Link href={url} className={className} style={style}>
             {children}
         </Link>
     );
@@ -1000,35 +1013,90 @@ function logoSizeValue(value: unknown): 'small' | 'medium' | 'large' {
     return value === 'small' || value === 'large' ? value : 'medium';
 }
 
-function logoRadiusValue(value: unknown): 'none' | 'medium' | 'full' {
-    return value === 'none' || value === 'full' ? value : 'medium';
+function logoRadiusPercentValue(value: unknown, legacyValue?: unknown): number {
+    const numericValue =
+        typeof value === 'number'
+            ? value
+            : typeof value === 'string'
+              ? Number(value)
+              : null;
+
+    if (typeof numericValue === 'number' && Number.isFinite(numericValue)) {
+        return Math.min(Math.max(numericValue, 0), 100);
+    }
+
+    if (legacyValue === 'full') {
+        return 100;
+    }
+
+    if (legacyValue === 'none') {
+        return 0;
+    }
+
+    return 16;
 }
 
-function brandItemClass(size: 'small' | 'medium' | 'large'): string {
+function brandItemClass(
+    size: 'small' | 'medium' | 'large',
+    radius: number,
+): string {
+    const baseClass =
+        'flex shrink-0 items-center justify-center border border-neutral-200 bg-white text-center text-xs font-semibold tracking-wide text-neutral-600 shadow-sm shadow-neutral-950/5 transition hover:-translate-y-0.5 hover:shadow-md dark:border-neutral-800 dark:bg-neutral-900 dark:text-neutral-300';
+
+    if (radius >= 100) {
+        const circleSizeClass = {
+            small: 'size-32 p-5',
+            medium: 'size-44 p-7',
+            large: 'size-56 p-9',
+        }[size];
+
+        return `${baseClass} overflow-hidden rounded-full ${circleSizeClass}`;
+    }
+
     const sizeClass = {
         small: 'min-h-16 min-w-36 px-5 py-3',
         medium: 'min-h-24 min-w-48 px-7 py-5',
         large: 'min-h-32 min-w-60 px-8 py-6',
     }[size];
-    return `flex items-center justify-center rounded-lg border border-neutral-200 bg-white text-center text-xs font-semibold tracking-wide text-neutral-600 shadow-sm shadow-neutral-950/5 transition hover:-translate-y-0.5 hover:shadow-md dark:border-neutral-800 dark:bg-neutral-900 dark:text-neutral-300 ${sizeClass}`;
+
+    return `${baseClass} ${sizeClass}`;
 }
 
 function brandImageClass(
     size: 'small' | 'medium' | 'large',
-    radius: 'none' | 'medium' | 'full',
+    radius: number,
 ): string {
+    if (radius >= 100) {
+        return 'h-full w-full object-contain';
+    }
+
     const sizeClass = {
         small: 'h-10 w-32',
         medium: 'h-16 w-44',
         large: 'h-24 w-56',
     }[size];
-    const radiusClass = {
-        none: 'rounded-none',
-        medium: 'rounded-lg',
-        full: 'rounded-full',
-    }[radius];
 
-    return `${sizeClass} object-cover ${radiusClass}`;
+    return `${sizeClass} object-contain`;
+}
+
+function brandItemStyle(radius: number): CSSProperties {
+    if (radius >= 100) {
+        return {};
+    }
+
+    return {
+        borderRadius: `${radius}px`,
+    };
+}
+
+function brandImageStyle(radius: number): CSSProperties {
+    if (radius >= 100) {
+        return {};
+    }
+
+    return {
+        borderRadius: `${radius}px`,
+    };
 }
 
 function brandValue(value: CmsBrandValue): CmsBrand {

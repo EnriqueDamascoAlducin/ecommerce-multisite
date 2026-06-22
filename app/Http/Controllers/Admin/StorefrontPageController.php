@@ -378,6 +378,7 @@ class StorefrontPageController extends Controller
             'sections.*.settings.brands.*.page_id' => ['nullable', 'integer', 'exists:storefront_pages,id'],
             'sections.*.settings.logo_size' => ['nullable', Rule::in(['small', 'medium', 'large'])],
             'sections.*.settings.logo_radius' => ['nullable', Rule::in(['none', 'medium', 'full'])],
+            'sections.*.settings.logo_radius_percent' => ['nullable', 'integer', 'min:0', 'max:100'],
             'sections.*.settings.interest_areas' => ['nullable', 'array'],
             'sections.*.settings.interest_areas.*' => ['nullable', 'string', 'max:255'],
             'sections.*.settings.button_label' => ['nullable', 'string', 'max:255'],

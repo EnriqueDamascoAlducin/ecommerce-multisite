@@ -201,6 +201,7 @@ test('brand strip exposes resolved media and text-only brands', function () {
             'display_type' => 'carousel',
             'logo_size' => 'large',
             'logo_radius' => 'full',
+            'logo_radius_percent' => 100,
             'brands' => [
                 [
                     'name' => 'BTL',
@@ -237,6 +238,7 @@ test('brand strip exposes resolved media and text-only brands', function () {
             ->where('contentPage.sections.0.settings.display_type', 'carousel')
             ->where('contentPage.sections.0.settings.logo_size', 'large')
             ->where('contentPage.sections.0.settings.logo_radius', 'full')
+            ->where('contentPage.sections.0.settings.logo_radius_percent', 100)
             ->where('contentPage.sections.0.settings.brands.0.name', 'BTL')
             ->where('contentPage.sections.0.settings.brands.0.media.url', $media->url)
             ->where('contentPage.sections.0.settings.brands.0.url', "/c/{$category->slug}")
