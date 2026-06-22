@@ -19,6 +19,9 @@ Route::middleware('resolve.store')->group(function () {
     Route::get('c/{slug}', [StorefrontController::class, 'category'])->name('storefront.category');
     Route::get('p/{slug}', [StorefrontController::class, 'product'])->name('storefront.product');
     Route::get('manifest.webmanifest', [PwaController::class, 'manifest'])->name('storefront.pwa.manifest');
+    Route::get('pwa-icon/{size}.png', [PwaController::class, 'icon'])
+        ->where('size', '180|192|512')
+        ->name('storefront.pwa.icon');
     Route::get('service-worker.js', [PwaController::class, 'serviceWorker'])->name('storefront.pwa.service-worker');
     Route::post('consulta', [StoreInquiryController::class, 'store'])->name('storefront.inquiries.store');
 
@@ -59,8 +62,12 @@ Route::middleware('resolve.store')->prefix('{store_code}')->name('storefront.sto
     Route::get('c/{slug}', [StorefrontController::class, 'category'])->name('category');
     Route::get('p/{slug}', [StorefrontController::class, 'product'])->name('product');
     Route::get('manifest.webmanifest', [PwaController::class, 'manifest'])->name('pwa.manifest');
+    Route::get('pwa-icon/{size}.png', [PwaController::class, 'icon'])
+        ->where('size', '180|192|512')
+        ->name('pwa.icon');
     Route::get('service-worker.js', [PwaController::class, 'serviceWorker'])->name('pwa.service-worker');
     Route::post('consulta', [StoreInquiryController::class, 'store'])->name('inquiries.store');
+    require __DIR__.'/storefront-cart.php';
     Route::get('buscar', [StorefrontController::class, 'search'])->name('search');
     Route::get('{slug}', [StorefrontController::class, 'page'])
         ->name('page')

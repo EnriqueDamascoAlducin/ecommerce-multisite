@@ -6,6 +6,8 @@ use App\Models\StoreDomain;
 use App\Models\User;
 use App\Models\Website;
 use Database\Seeders\RolesAndPermissionsSeeder;
+use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Storage;
 
 beforeEach(function () {
     $this->seed(RolesAndPermissionsSeeder::class);
@@ -120,6 +122,36 @@ test('a super admin can replace and remove a store logo', function () {
         'collection' => 'logo',
     ]);
 });
+
+test('a store accepts a square installation icon of at least 512 pixels', function () {
+    Storage::fake('public');
+    $store = Store::factory()->create();
+
+    $this->put(route('admin.stores.update', $store), [
+        'website_id' => $store->website_id,
+        'code' => $store->code,
+        'name' => $store->name,
+        'is_active' => true,
+        'pwa_icon_file' => UploadedFile::fake()->image('install.png', 512, 512),
+    ])->assertRedirect(route('admin.stores.index'));
+
+    expect($store->fresh()->primaryMedia('pwa_icon'))->not->toBeNull();
+});
+
+test('a store rejects installation icons that are small or not square', function (int $width, int $height) {
+    $store = Store::factory()->create();
+
+    $this->put(route('admin.stores.update', $store), [
+        'website_id' => $store->website_id,
+        'code' => $store->code,
+        'name' => $store->name,
+        'is_active' => true,
+        'pwa_icon_file' => UploadedFile::fake()->image('invalid.png', $width, $height),
+    ])->assertSessionHasErrors('pwa_icon_file');
+})->with([
+    'too small' => [256, 256],
+    'not square' => [512, 600],
+]);
 
 test('a domain already used by another store is rejected', function () {
     $other = Store::factory()->create();

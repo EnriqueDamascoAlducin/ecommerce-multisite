@@ -2,17 +2,19 @@
 
 namespace App\Http\Controllers\Storefront;
 
+use App\Domain\Store\PwaIconService;
 use App\Domain\Store\StoreContext;
 use App\Http\Controllers\Controller;
-use App\Models\Media;
-use App\Models\Website;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Response;
-use Illuminate\Support\Str;
+use RuntimeException;
 
 class PwaController extends Controller
 {
-    public function __construct(private readonly StoreContext $context) {}
+    public function __construct(
+        private readonly StoreContext $context,
+        private readonly PwaIconService $pwaIconService,
+    ) {}
 
     public function manifest(): JsonResponse
     {
@@ -20,18 +22,22 @@ class PwaController extends Controller
         $store = $this->context->store();
         $pathPrefix = trim($this->context->pathPrefix(), '/');
         $startUrl = $pathPrefix === '' ? '/' : "/{$pathPrefix}/";
-        $icon = $this->icon($website);
+        $icon = $store && $website ? $this->pwaIconService->source($store, $website) : null;
+        $name = $store?->name ?? $website?->name ?? config('app.name');
+        $iconBase = $pathPrefix === '' ? '/pwa-icon' : "/{$pathPrefix}/pwa-icon";
+        $version = $icon ? $this->pwaIconService->version($icon) : null;
 
         $icons = $icon ? [
-            ['src' => $this->absoluteUrl($this->versionedMediaUrl($icon)), 'sizes' => '192x192', 'type' => $icon->mime_type, 'purpose' => 'any maskable'],
-            ['src' => $this->absoluteUrl($this->versionedMediaUrl($icon)), 'sizes' => '512x512', 'type' => $icon->mime_type, 'purpose' => 'any maskable'],
+            ['src' => url("{$iconBase}/192.png?v={$version}"), 'sizes' => '192x192', 'type' => 'image/png', 'purpose' => 'any'],
+            ['src' => url("{$iconBase}/512.png?v={$version}"), 'sizes' => '512x512', 'type' => 'image/png', 'purpose' => 'any'],
         ] : [];
 
         return response()
             ->json([
-                'name' => $website?->name ?? config('app.name'),
-                'short_name' => $store?->name ?? $website?->name ?? config('app.name'),
-                'description' => "Tienda {$website?->name}",
+                'name' => $name,
+                'short_name' => $name,
+                'description' => $name,
+                'id' => $startUrl,
                 'start_url' => $startUrl,
                 'scope' => $startUrl,
                 'display' => 'standalone',
@@ -40,7 +46,28 @@ class PwaController extends Controller
                 'theme_color' => '#991b1b',
                 'icons' => $icons,
             ])
-            ->header('Content-Type', 'application/manifest+json');
+            ->header('Content-Type', 'application/manifest+json')
+            ->header('Cache-Control', 'no-cache, must-revalidate');
+    }
+
+    public function icon(int $size): Response
+    {
+        $store = $this->context->store();
+        $website = $this->context->website();
+        $icon = $store && $website ? $this->pwaIconService->source($store, $website) : null;
+
+        abort_unless($icon, 404);
+
+        try {
+            $contents = $this->pwaIconService->render($icon, $size);
+        } catch (RuntimeException) {
+            abort(404);
+        }
+
+        return response($contents, 200, [
+            'Content-Type' => 'image/png',
+            'Cache-Control' => 'public, max-age=31536000, immutable',
+        ]);
     }
 
     public function serviceWorker(): Response
@@ -84,32 +111,5 @@ JS;
             'Service-Worker-Allowed' => '/',
             'Cache-Control' => 'no-cache, no-store, must-revalidate',
         ]);
-    }
-
-    private function icon(?Website $website): ?Media
-    {
-        if (! $website) {
-            return null;
-        }
-
-        $website->loadMissing('media');
-
-        return $website->primaryMedia('favicon') ?? $website->primaryMedia('logo');
-    }
-
-    private function versionedMediaUrl(Media $media): string
-    {
-        $separator = str_contains($media->url, '?') ? '&' : '?';
-
-        return $media->url.$separator.'v='.$media->updated_at?->getTimestamp();
-    }
-
-    private function absoluteUrl(string $url): string
-    {
-        if (Str::startsWith($url, ['http://', 'https://'])) {
-            return $url;
-        }
-
-        return url($url);
     }
 }

@@ -10,22 +10,13 @@ use App\Http\Controllers\Storefront\Auth\LoginController;
 use App\Http\Controllers\Storefront\Auth\NewPasswordController;
 use App\Http\Controllers\Storefront\Auth\PasswordResetLinkController;
 use App\Http\Controllers\Storefront\Auth\RegisterController;
-use App\Http\Controllers\Storefront\CartController;
 use App\Http\Controllers\Storefront\CheckoutController;
 use App\Http\Controllers\Storefront\DownloadController;
 use App\Http\Controllers\Storefront\PostalCodeLookupController;
 use Illuminate\Support\Facades\Route;
 
 // Carrito (invitado o cliente). El carrito de invitado se identifica por la sesión.
-Route::prefix('carrito')->name('cart.')->group(function () {
-    Route::get('/', [CartController::class, 'index'])->name('index');
-    Route::post('/', [CartController::class, 'store'])->name('store');
-    Route::post('envio', [CartController::class, 'shipping'])->name('shipping');
-    Route::post('cupon', [CartController::class, 'applyCoupon'])->name('coupon.apply');
-    Route::delete('cupon', [CartController::class, 'removeCoupon'])->name('coupon.remove');
-    Route::patch('{item}', [CartController::class, 'update'])->name('update');
-    Route::delete('{item}', [CartController::class, 'destroy'])->name('destroy');
-});
+require __DIR__.'/storefront-cart.php';
 
 // Checkout (invitado o cliente).
 Route::prefix('checkout')->name('checkout.')->group(function () {

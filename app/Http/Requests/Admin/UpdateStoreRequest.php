@@ -42,6 +42,8 @@ class UpdateStoreRequest extends FormRequest
             'logo_file' => ['nullable', 'image', 'mimes:png,jpg,jpeg,webp,svg', 'max:2048'],
             'logo_media_id' => ['nullable', 'integer', 'exists:media,id'],
             'remove_logo' => ['nullable', 'boolean'],
+            'pwa_icon_file' => ['nullable', 'image', 'mimes:png,jpg,jpeg,webp', 'max:2048', 'dimensions:min_width=512,min_height=512,ratio=1/1'],
+            'remove_pwa_icon' => ['nullable', 'boolean'],
         ];
     }
 

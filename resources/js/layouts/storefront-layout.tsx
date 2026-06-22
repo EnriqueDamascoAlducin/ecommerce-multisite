@@ -102,16 +102,17 @@ export default function StorefrontLayout({
                     <meta
                         head-key="apple-mobile-web-app-title"
                         name="apple-mobile-web-app-title"
-                        content={store.website.name}
+                        content={store.store.name}
                     />
                     {iconUrl && (
                         <link head-key="app-icon" rel="icon" href={iconUrl} />
                     )}
-                    {iconUrl && (
+                    {store.pwa.apple_touch_icon_url && (
                         <link
                             head-key="apple-touch-icon"
                             rel="apple-touch-icon"
-                            href={iconUrl}
+                            sizes="180x180"
+                            href={store.pwa.apple_touch_icon_url}
                         />
                     )}
                 </Head>

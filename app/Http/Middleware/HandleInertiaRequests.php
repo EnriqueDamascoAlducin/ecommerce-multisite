@@ -6,6 +6,7 @@ use App\Domain\Cart\CartService;
 use App\Domain\Store\AdminScopeManager;
 use App\Domain\Store\FooterSettingsService;
 use App\Domain\Store\HeaderMenuService;
+use App\Domain\Store\PwaIconService;
 use App\Domain\Store\StoreContext;
 use App\Models\Media;
 use App\Models\Store;
@@ -92,7 +93,7 @@ class HandleInertiaRequests extends Middleware
     /**
      * Sitio resuelto para el storefront (null en el admin y rutas sin resolver).
      *
-     * @return array{website: array{id: int, code: string, name: string, logo_url: string|null, favicon_url: string|null}, store: array{id: int, code: string, name: string, logo_url: string|null}, locale: string|null, pathPrefix: string, menu: list<array<string, mixed>>, header: array<string, mixed>}|null
+     * @return array{website: array{id: int, code: string, name: string, logo_url: string|null, favicon_url: string|null}, store: array{id: int, code: string, name: string, logo_url: string|null}, pwa: array{apple_touch_icon_url: string|null}, locale: string|null, pathPrefix: string, menu: list<array<string, mixed>>, header: array<string, mixed>}|null
      */
     private function currentStore(): ?array
     {
@@ -106,6 +107,10 @@ class HandleInertiaRequests extends Middleware
         $website = $context->website();
         $store->loadMissing('media');
         $website->loadMissing('media');
+        $pwaIconService = app(PwaIconService::class);
+        $pwaIcon = $pwaIconService->source($store, $website);
+        $pathPrefix = trim($context->pathPrefix(), '/');
+        $pwaIconBase = $pathPrefix === '' ? '/pwa-icon' : "/{$pathPrefix}/pwa-icon";
 
         return [
             'website' => [
@@ -120,6 +125,11 @@ class HandleInertiaRequests extends Middleware
                 'code' => $store->code,
                 'name' => $store->name,
                 'logo_url' => $this->versionedMediaUrl($store->primaryMedia('logo')),
+            ],
+            'pwa' => [
+                'apple_touch_icon_url' => $pwaIcon
+                    ? "{$pwaIconBase}/180.png?v={$pwaIconService->version($pwaIcon)}"
+                    : null,
             ],
             'locale' => $context->storeView()?->locale,
             'pathPrefix' => $context->pathPrefix(),

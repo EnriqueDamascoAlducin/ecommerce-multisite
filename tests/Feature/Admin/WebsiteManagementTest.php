@@ -4,6 +4,7 @@ use App\Models\Media;
 use App\Models\Store;
 use App\Models\User;
 use App\Models\Website;
+use App\Services\MediaService;
 use Database\Seeders\RolesAndPermissionsSeeder;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
@@ -136,7 +137,8 @@ test('the storefront shares the website favicon url', function () {
             ->where('store.website.favicon_url', $media->fresh()->url.'?v='.$media->fresh()->updated_at?->getTimestamp()));
 });
 
-test('the pwa manifest uses the website favicon as app icon', function () {
+test('the pwa manifest uses the store name and falls back to the website favicon', function () {
+    Storage::fake('public');
     $website = Website::factory()->create(['is_default' => true, 'name' => 'Equipos Interferenciales']);
     Store::factory()->create([
         'website_id' => $website->id,
@@ -144,20 +146,16 @@ test('the pwa manifest uses the website favicon as app icon', function () {
         'is_active' => true,
         'name' => 'Tienda Principal',
     ]);
-    $media = Media::factory()->create([
-        'filename' => 'favicon.png',
-        'name' => 'favicon.png',
-        'mime_type' => 'image/png',
-        'extension' => 'png',
-    ]);
+    $media = app(MediaService::class)->store(UploadedFile::fake()->image('favicon.png', 512, 512), 'test');
     $website->syncMediaCollection([$media->id], 'favicon');
 
     $this->get(route('storefront.pwa.manifest'))
         ->assertOk()
         ->assertHeader('Content-Type', 'application/manifest+json')
-        ->assertJsonPath('name', 'Equipos Interferenciales')
+        ->assertJsonPath('name', 'Tienda Principal')
         ->assertJsonPath('short_name', 'Tienda Principal')
-        ->assertJsonPath('icons.0.src', url($media->fresh()->url.'?v='.$media->fresh()->updated_at?->getTimestamp()))
+        ->assertJsonPath('id', '/')
+        ->assertJsonPath('icons.0.src', url("/pwa-icon/192.png?v={$media->id}-{$media->updated_at->getTimestamp()}"))
         ->assertJsonPath('icons.0.type', 'image/png')
         ->assertJsonPath('display', 'standalone');
 });

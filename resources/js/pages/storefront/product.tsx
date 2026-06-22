@@ -10,6 +10,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { formatPrice, type Price, useStoreUrls } from '@/lib/storefront';
+import cart from '@/routes/cart';
 import type { ProductCardData } from './product-card';
 
 type VariantInfo = {
@@ -274,7 +275,7 @@ export default function StorefrontProduct({
 
                     {inStock && (
                         <Form
-                            action="/carrito"
+                            action={urls.path(cart.store.url())}
                             method="post"
                             className="mt-6 flex items-end gap-3"
                         >

@@ -71,6 +71,9 @@ declare module '@inertiajs/core' {
                     name: string;
                     logo_url: string | null;
                 };
+                pwa: {
+                    apple_touch_icon_url: string | null;
+                };
                 locale: string | null;
                 pathPrefix: string;
                 menu: StoreMenuItem[];

@@ -65,6 +65,7 @@ class StoreController extends Controller
             $this->applyDefault($store);
             $this->syncDomains($store, $data['domains'] ?? []);
             $this->persistLogo($store, $request);
+            $this->persistPwaIcon($store, $request);
 
             return $store;
         });
@@ -78,12 +79,14 @@ class StoreController extends Controller
     {
         $store->loadMissing('media');
         $logo = $store->primaryMedia('logo');
+        $pwaIcon = $store->primaryMedia('pwa_icon');
 
         return Inertia::render('admin/stores/edit', [
             'store' => [
                 ...$store->only(['id', 'website_id', 'code', 'name', 'is_default', 'is_active', 'sort_order']),
                 'domains' => $store->domains()->orderByDesc('is_primary')->pluck('host'),
                 'logo' => $logo ? ['id' => $logo->id, 'url' => $logo->url] : null,
+                'pwa_icon' => $pwaIcon ? ['id' => $pwaIcon->id, 'url' => $pwaIcon->url] : null,
             ],
             'websites' => $this->websiteOptions(),
             'availableImages' => $this->availableImages(),
@@ -99,6 +102,7 @@ class StoreController extends Controller
             $this->applyDefault($store);
             $this->syncDomains($store, $data['domains'] ?? []);
             $this->persistLogo($store, $request);
+            $this->persistPwaIcon($store, $request);
         });
 
         $this->auditLogger->log('store.updated', $store, "Store {$store->code} actualizado");
@@ -210,6 +214,26 @@ class StoreController extends Controller
 
         if ($request->boolean('remove_logo')) {
             $store->syncMediaCollection([], 'logo');
+        }
+    }
+
+    private function persistPwaIcon(Store $store, FormRequest $request): void
+    {
+        if ($request->hasFile('pwa_icon_file')) {
+            $media = $this->mediaService->store(
+                $request->file('pwa_icon_file'),
+                'pwa-icon',
+                Media::VISIBILITY_PUBLIC,
+                $request->user()?->id,
+            );
+            $this->auditLogger->log('media.uploaded', $media, "Archivo {$media->name} subido");
+            $store->syncMediaCollection([$media->id], 'pwa_icon');
+
+            return;
+        }
+
+        if ($request->boolean('remove_pwa_icon')) {
+            $store->syncMediaCollection([], 'pwa_icon');
         }
     }
 

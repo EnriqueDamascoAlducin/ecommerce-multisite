@@ -333,8 +333,21 @@ class CartService
 
     private function isPurchasable(Product $product, int $storeId): bool
     {
-        if ($product->status !== Product::STATUS_ACTIVE || $product->visibility === 'hidden') {
+        if ($product->status !== Product::STATUS_ACTIVE) {
             return false;
+        }
+
+        $isActiveInStore = $product->storeLinks()
+            ->where('store_id', $storeId)
+            ->where('is_active', true)
+            ->exists();
+
+        if (! $isActiveInStore) {
+            return false;
+        }
+
+        if ($product->visibility === 'hidden') {
+            return $this->isPurchasableVariant($product, $storeId);
         }
 
         // Un descargable sin archivos no se puede vender.
@@ -342,9 +355,22 @@ class CartService
             return false;
         }
 
-        return $product->storeLinks()
-            ->where('store_id', $storeId)
-            ->where('is_active', true)
+        return true;
+    }
+
+    private function isPurchasableVariant(Product $product, int $storeId): bool
+    {
+        if ($product->parent_id === null || $product->type !== Product::TYPE_SIMPLE) {
+            return false;
+        }
+
+        return $product->parent()
+            ->where('type', Product::TYPE_CONFIGURABLE)
+            ->where('status', Product::STATUS_ACTIVE)
+            ->where('visibility', '!=', 'hidden')
+            ->whereHas('storeLinks', fn (Builder $query) => $query
+                ->where('store_id', $storeId)
+                ->where('is_active', true))
             ->exists();
     }
 

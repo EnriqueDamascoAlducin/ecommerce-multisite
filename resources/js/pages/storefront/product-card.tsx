@@ -162,7 +162,7 @@ export function ProductCard({
                         </Link>
                     ) : (
                         <Form
-                            action={cart.store.url()}
+                            action={urls.path(cart.store.url())}
                             method="post"
                             options={{ preserveScroll: true }}
                         >

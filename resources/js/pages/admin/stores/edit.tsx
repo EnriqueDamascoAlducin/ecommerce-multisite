@@ -15,6 +15,7 @@ type EditableStore = {
     sort_order: number;
     domains: string[];
     logo: { id: number; url: string } | null;
+    pwa_icon: { id: number; url: string } | null;
 };
 
 export default function StoresEdit({
@@ -56,6 +57,7 @@ export default function StoresEdit({
                                 sort_order: store.sort_order,
                                 domains: store.domains,
                                 logo: store.logo,
+                                pwa_icon: store.pwa_icon,
                             }}
                         />
                         <Button disabled={processing}>Guardar cambios</Button>

@@ -14,6 +14,7 @@ type StoreDefaults = {
     sort_order: number;
     domains: string[];
     logo?: { id: number; url: string } | null;
+    pwa_icon?: { id: number; url: string } | null;
 };
 
 export function StoreFields({
@@ -171,6 +172,25 @@ export function StoreFields({
                 availableImages={availableImages}
                 errors={errors}
             />
+
+            <div className="grid gap-2">
+                <p className="text-xs text-neutral-500">
+                    El icono de instalación debe ser PNG, JPG o WebP, cuadrado
+                    y de al menos 512×512 px.
+                </p>
+                <MediaPicker
+                    title="Icono de instalación"
+                    emptyText="Sin icono"
+                    current={defaults?.pwa_icon ?? null}
+                    fileName="pwa_icon_file"
+                    mediaName="pwa_icon_media_id"
+                    removeName="remove_pwa_icon"
+                    removeLabel="Quitar icono"
+                    uploadLabel="Subir icono"
+                    availableImages={[]}
+                    errors={errors}
+                />
+            </div>
         </div>
     );
 }
