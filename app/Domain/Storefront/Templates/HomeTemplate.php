@@ -19,7 +19,7 @@ class HomeTemplate extends PageTemplate
 
     public function description(): string
     {
-        return 'Portada de la tienda con hero, especialidades, tarjetas y formulario.';
+        return 'Portada de la tienda con secciones editables y reordenables.';
     }
 
     public function sections(): array
@@ -29,18 +29,17 @@ class HomeTemplate extends PageTemplate
 
     public function fixedTypes(): array
     {
+        return [];
+    }
+
+    public function extraTypes(): array
+    {
         return [
             StorefrontPageSection::TYPE_HERO,
             StorefrontPageSection::TYPE_SPECIALTY_GRID,
             StorefrontPageSection::TYPE_FEATURE_CARDS,
             StorefrontPageSection::TYPE_BRAND_STRIP,
             StorefrontPageSection::TYPE_INQUIRY_FORM,
-        ];
-    }
-
-    public function extraTypes(): array
-    {
-        return [
             StorefrontPageSection::TYPE_RECOMMENDED_PRODUCTS,
             StorefrontPageSection::TYPE_IMAGE_BANNER,
         ];

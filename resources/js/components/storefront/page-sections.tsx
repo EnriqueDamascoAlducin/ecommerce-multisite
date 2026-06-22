@@ -366,6 +366,11 @@ function FeatureCards({ section }: { section: CmsSection }) {
 function BrandStrip({ section }: { section: CmsSection }) {
     const settings = section.settings;
     const brands = arrayValue<CmsBrandValue>(settings.brands).map(brandValue);
+    const displayType = displayTypeValue(settings.display_type);
+    const logoSize = logoSizeValue(settings.logo_size);
+    const logoRadius = logoRadiusValue(settings.logo_radius);
+    const itemClassName = brandItemClass(logoSize, logoRadius);
+    const imageClassName = brandImageClass(logoSize);
 
     return (
         <section
@@ -378,17 +383,25 @@ function BrandStrip({ section }: { section: CmsSection }) {
                     title={stringValue(settings.title)}
                     titleColor={stringValue(settings.title_color)}
                 />
-                <div className="mt-10 flex flex-wrap justify-center gap-5">
+                <div
+                    className={
+                        displayType === 'carousel'
+                            ? 'mt-10 flex snap-x gap-5 overflow-x-auto pb-3'
+                            : 'mt-10 grid grid-cols-2 justify-items-center gap-5 sm:grid-cols-3 lg:grid-cols-5'
+                    }
+                >
                     {brands.map((brand) => (
                         <div
                             key={`${brand.name}-${brand.media_id ?? 'text'}`}
-                            className="flex min-h-16 min-w-36 items-center justify-center rounded border border-neutral-200 bg-white px-6 py-3 text-center text-xs font-semibold tracking-wide text-neutral-600 shadow-sm shadow-neutral-950/5 dark:border-neutral-800 dark:bg-neutral-900 dark:text-neutral-300"
+                            className={`${itemClassName} ${
+                                displayType === 'carousel' ? 'snap-start' : ''
+                            }`}
                         >
                             {brand.media?.url ? (
                                 <img
                                     src={brand.media.url}
                                     alt={brand.media.alt ?? brand.name ?? ''}
-                                    className="max-h-10 max-w-32 object-contain"
+                                    className={imageClassName}
                                 />
                             ) : (
                                 brand.name
@@ -545,7 +558,7 @@ function ImageBanner({ section }: { section: CmsSection }) {
                         alt={image.alt ?? stringValue(settings.title)}
                         className="absolute inset-0 h-full w-full object-cover"
                     />
-                    <div className="absolute inset-0 bg-linear-to-r from-red-950/90 via-red-950/70 to-slate-950/80" />
+                    <BannerOverlay settings={settings} />
                 </>
             )}
             <div
@@ -596,6 +609,30 @@ function ImageBanner({ section }: { section: CmsSection }) {
                 </div>
             </div>
         </section>
+    );
+}
+
+function BannerOverlay({ settings }: { settings: CmsSection['settings'] }) {
+    if (settings.overlay_enabled === false) {
+        return null;
+    }
+
+    const overlayColor = stringValue(settings.overlay_color);
+
+    if (!isHexColor(overlayColor)) {
+        return (
+            <div className="absolute inset-0 bg-linear-to-r from-red-950/90 via-red-950/70 to-slate-950/80" />
+        );
+    }
+
+    return (
+        <div
+            className="absolute inset-0"
+            style={{
+                backgroundColor: overlayColor,
+                opacity: overlayOpacity(settings.overlay_opacity),
+            }}
+        />
     );
 }
 
@@ -921,6 +958,40 @@ function overlayOpacity(value: unknown): number {
 
 function arrayValue<T>(value: unknown): T[] {
     return Array.isArray(value) ? (value as T[]) : [];
+}
+
+function logoSizeValue(value: unknown): 'small' | 'medium' | 'large' {
+    return value === 'small' || value === 'large' ? value : 'medium';
+}
+
+function logoRadiusValue(value: unknown): 'none' | 'medium' | 'full' {
+    return value === 'none' || value === 'full' ? value : 'medium';
+}
+
+function brandItemClass(
+    size: 'small' | 'medium' | 'large',
+    radius: 'none' | 'medium' | 'full',
+): string {
+    const sizeClass = {
+        small: 'min-h-16 min-w-36 px-5 py-3',
+        medium: 'min-h-24 min-w-48 px-7 py-5',
+        large: 'min-h-32 min-w-60 px-8 py-6',
+    }[size];
+    const radiusClass = {
+        none: 'rounded-none',
+        medium: 'rounded-lg',
+        full: 'rounded-full',
+    }[radius];
+
+    return `flex items-center justify-center border border-neutral-200 bg-white text-center text-xs font-semibold tracking-wide text-neutral-600 shadow-sm shadow-neutral-950/5 dark:border-neutral-800 dark:bg-neutral-900 dark:text-neutral-300 ${sizeClass} ${radiusClass}`;
+}
+
+function brandImageClass(size: 'small' | 'medium' | 'large'): string {
+    return {
+        small: 'max-h-10 max-w-32 object-contain',
+        medium: 'max-h-16 max-w-44 object-contain',
+        large: 'max-h-24 max-w-56 object-contain',
+    }[size];
 }
 
 function brandValue(value: CmsBrandValue): CmsBrand {

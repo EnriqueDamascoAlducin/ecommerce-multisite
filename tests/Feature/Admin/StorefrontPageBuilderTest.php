@@ -1,5 +1,6 @@
 <?php
 
+use App\Domain\Storefront\StorefrontHomeTemplate;
 use App\Models\HeaderMenuItem;
 use App\Models\Media;
 use App\Models\Product;
@@ -18,6 +19,11 @@ beforeEach(function () {
     $admin->assignRole('Super Admin');
     $this->actingAs($admin);
 });
+
+function seededHomeSectionTypes(): array
+{
+    return collect(StorefrontHomeTemplate::sections())->pluck('type')->all();
+}
 
 test('an admin can list storefront pages', function () {
     $store = Store::factory()->create();
@@ -62,7 +68,7 @@ test('home page is seeded with template sections on creation', function () {
         ->where('store_id', $store->id)
         ->firstOrFail();
 
-    expect($page->sections()->pluck('type')->all())->toBe(StorefrontPageSection::FIXED_TYPES);
+    expect($page->sections()->pluck('type')->all())->toBe(seededHomeSectionTypes());
 });
 
 test('existing home page is completed without overwriting edited content', function () {
@@ -81,10 +87,12 @@ test('existing home page is completed without overwriting edited content', funct
     $this->get(route('admin.storefront.pages.edit', $page))
         ->assertOk()
         ->assertInertia(fn ($inertia) => $inertia
-            ->has('page.sections', 5)
+            ->has('page.sections', 1)
             ->where('page.sections.0.settings.title', 'Custom hero'));
 
-    expect($page->fresh()->sections()->pluck('type')->all())->toBe(StorefrontPageSection::FIXED_TYPES);
+    expect($page->fresh()->sections()->pluck('type')->all())->toBe([
+        StorefrontPageSection::TYPE_HERO,
+    ]);
 });
 
 test('non-home pages are not seeded with template sections', function () {
@@ -195,6 +203,9 @@ test('page content can be updated with template section settings', function () {
                     'background_color' => '#fafafa',
                     'eyebrow' => 'Partners',
                     'title' => 'Marcas',
+                    'display_type' => 'carousel',
+                    'logo_size' => 'large',
+                    'logo_radius' => 'full',
                     'brands' => [
                         [
                             'name' => 'BTL',
@@ -239,6 +250,9 @@ test('page content can be updated with template section settings', function () {
         ->and($sections[StorefrontPageSection::TYPE_BRAND_STRIP]->fresh()->settings['background_color'])->toBe('#fafafa')
         ->and($sections[StorefrontPageSection::TYPE_BRAND_STRIP]->fresh()->settings['eyebrow'])->toBe('Partners')
         ->and($sections[StorefrontPageSection::TYPE_BRAND_STRIP]->fresh()->settings['title'])->toBe('Marcas')
+        ->and($sections[StorefrontPageSection::TYPE_BRAND_STRIP]->fresh()->settings['display_type'])->toBe('carousel')
+        ->and($sections[StorefrontPageSection::TYPE_BRAND_STRIP]->fresh()->settings['logo_size'])->toBe('large')
+        ->and($sections[StorefrontPageSection::TYPE_BRAND_STRIP]->fresh()->settings['logo_radius'])->toBe('full')
         ->and($sections[StorefrontPageSection::TYPE_BRAND_STRIP]->fresh()->settings['brands'])->toBe([
             ['name' => 'BTL', 'media_id' => $media->id],
             ['name' => 'DJO', 'media_id' => null],
@@ -448,7 +462,7 @@ test('hero can be saved with slides and strips resolved media objects', function
         ->firstOrFail();
     $sections = $page->sections()->get()->keyBy('type');
 
-    $payload = collect(StorefrontPageSection::FIXED_TYPES)
+    $payload = collect(seededHomeSectionTypes())
         ->map(fn (string $type) => [
             'id' => $sections[$type]->id,
             'settings' => $sections[$type]->settings,
@@ -516,7 +530,7 @@ test('hero rejects more than five slides', function () {
         ->firstOrFail();
     $sections = $page->sections()->get()->keyBy('type');
 
-    $payload = collect(StorefrontPageSection::FIXED_TYPES)
+    $payload = collect(seededHomeSectionTypes())
         ->map(fn (string $type) => [
             'id' => $sections[$type]->id,
             'settings' => $sections[$type]->settings,
@@ -579,6 +593,94 @@ test('home template sections can be reordered', function () {
     }
 });
 
+test('home sections can be deleted without being reinserted', function () {
+    $store = Store::factory()->create();
+
+    $this->post(route('admin.storefront.pages.store'), [
+        'store_id' => $store->id,
+        'title' => 'Home',
+        'slug' => StorefrontPage::HOME,
+        'is_published' => true,
+    ])->assertRedirect();
+
+    $page = StorefrontPage::where('store_id', $store->id)
+        ->where('slug', StorefrontPage::HOME)
+        ->firstOrFail();
+    $sections = $page->sections()->get()->keyBy('type');
+
+    $this->put(route('admin.storefront.pages.update', $page), [
+        'store_id' => $store->id,
+        'title' => 'Home',
+        'is_published' => true,
+        'sections' => collect(seededHomeSectionTypes())
+            ->reject(fn (string $type) => $type === StorefrontPageSection::TYPE_SPECIALTY_GRID)
+            ->map(fn (string $type) => [
+                'id' => $sections[$type]->id,
+                'settings' => $sections[$type]->settings,
+            ])
+            ->values()
+            ->all(),
+    ])->assertRedirect()->assertSessionHasNoErrors();
+
+    expect($page->fresh()->sections()->pluck('type')->all())
+        ->not->toContain(StorefrontPageSection::TYPE_SPECIALTY_GRID);
+
+    $this->get(route('admin.storefront.pages.edit', $page))
+        ->assertOk()
+        ->assertInertia(fn ($inertia) => $inertia
+            ->missing('page.sections.4')
+            ->where('template.fixedTypes', [])
+            ->where('template.extraTypes.1', StorefrontPageSection::TYPE_SPECIALTY_GRID));
+
+    expect($page->fresh()->sections()->pluck('type')->all())
+        ->not->toContain(StorefrontPageSection::TYPE_SPECIALTY_GRID);
+});
+
+test('home can be saved with zero sections and add one back later', function () {
+    $store = Store::factory()->create();
+
+    $this->post(route('admin.storefront.pages.store'), [
+        'store_id' => $store->id,
+        'title' => 'Home',
+        'slug' => StorefrontPage::HOME,
+        'is_published' => true,
+    ])->assertRedirect();
+
+    $page = StorefrontPage::where('store_id', $store->id)
+        ->where('slug', StorefrontPage::HOME)
+        ->firstOrFail();
+
+    $this->put(route('admin.storefront.pages.update', $page), [
+        'store_id' => $store->id,
+        'title' => 'Home',
+        'is_published' => true,
+        'sections' => [],
+    ])->assertRedirect()->assertSessionHasNoErrors();
+
+    expect($page->fresh()->sections()->count())->toBe(0);
+
+    $this->put(route('admin.storefront.pages.update', $page), [
+        'store_id' => $store->id,
+        'title' => 'Home',
+        'is_published' => true,
+        'sections' => [
+            [
+                'type' => StorefrontPageSection::TYPE_SPECIALTY_GRID,
+                'settings' => [
+                    'title' => 'Especialidades sports',
+                    'items' => [],
+                ],
+            ],
+        ],
+    ])->assertRedirect()->assertSessionHasNoErrors();
+
+    $section = $page->fresh()->sections()->firstOrFail();
+
+    expect($section->type)->toBe(StorefrontPageSection::TYPE_SPECIALTY_GRID)
+        ->and($section->settings['title'])->toBe('Especialidades sports')
+        ->and($section->settings['display_order'])->toBe(0);
+});
+
 test('home can add move and delete controlled extra sections', function () {
     $store = Store::factory()->create();
     $media = Media::factory()->create();
@@ -619,6 +721,9 @@ test('home can add move and delete controlled extra sections', function () {
                 'button_label' => 'Ver',
                 'button_url' => '/ver',
                 'image_position' => 'right',
+                'overlay_enabled' => false,
+                'overlay_color' => '#123456',
+                'overlay_opacity' => 45,
             ],
         ],
         [
@@ -679,6 +784,15 @@ test('home can add move and delete controlled extra sections', function () {
         ->firstOrFail()
         ->settings['display_type'])->toBe('carousel');
 
+    $bannerSettings = $page->fresh()->sections()
+        ->where('type', StorefrontPageSection::TYPE_IMAGE_BANNER)
+        ->firstOrFail()
+        ->settings;
+
+    expect($bannerSettings['overlay_enabled'])->toBeFalse()
+        ->and($bannerSettings['overlay_color'])->toBe('#123456')
+        ->and($bannerSettings['overlay_opacity'])->toBe(45);
+
     $extras = $page->fresh()->sections()
         ->whereIn('type', StorefrontPageSection::EXTRA_TYPES)
         ->get();
@@ -719,7 +833,7 @@ test('recommended products must belong to the current store', function () {
         ->where('slug', StorefrontPage::HOME)
         ->firstOrFail();
     $sections = $page->sections()->get()->keyBy('type');
-    $fixedSectionsPayload = collect(StorefrontPageSection::FIXED_TYPES)
+    $fixedSectionsPayload = collect(seededHomeSectionTypes())
         ->map(fn (string $type) => [
             'id' => $sections[$type]->id,
             'settings' => $sections[$type]->settings,

@@ -47,6 +47,27 @@ test('home renders published template sections for the resolved store', function
             ->where('contentPage.sections.4.type', StorefrontPageSection::TYPE_INQUIRY_FORM));
 });
 
+test('home renders only saved sections', function () {
+    $page = StorefrontPage::factory()->create([
+        'store_id' => $this->store->id,
+        'slug' => StorefrontPage::HOME,
+        'is_published' => true,
+    ]);
+
+    StorefrontPageSection::factory()->create([
+        'storefront_page_id' => $page->id,
+        'type' => StorefrontPageSection::TYPE_HERO,
+        'settings' => ['title' => 'Home sin especialidades'],
+    ]);
+
+    $this->get(route('home'))
+        ->assertOk()
+        ->assertInertia(fn ($inertia) => $inertia
+            ->has('contentPage.sections', 1)
+            ->where('contentPage.sections.0.type', StorefrontPageSection::TYPE_HERO)
+            ->where('contentPage.sections.0.settings.title', 'Home sin especialidades'));
+});
+
 test('home renders template sections using saved display order', function () {
     $page = StorefrontPage::factory()->create([
         'store_id' => $this->store->id,
@@ -163,6 +184,9 @@ test('brand strip exposes resolved media and text-only brands', function () {
         'type' => StorefrontPageSection::TYPE_BRAND_STRIP,
         'settings' => [
             'title' => 'Marcas',
+            'display_type' => 'carousel',
+            'logo_size' => 'large',
+            'logo_radius' => 'full',
             'brands' => [
                 ['name' => 'BTL', 'media_id' => $media->id],
                 ['name' => 'DJO', 'media_id' => null],
@@ -174,6 +198,9 @@ test('brand strip exposes resolved media and text-only brands', function () {
         ->assertOk()
         ->assertInertia(fn ($inertia) => $inertia
             ->where('contentPage.sections.0.type', StorefrontPageSection::TYPE_BRAND_STRIP)
+            ->where('contentPage.sections.0.settings.display_type', 'carousel')
+            ->where('contentPage.sections.0.settings.logo_size', 'large')
+            ->where('contentPage.sections.0.settings.logo_radius', 'full')
             ->where('contentPage.sections.0.settings.brands.0.name', 'BTL')
             ->where('contentPage.sections.0.settings.brands.0.media.url', $media->url)
             ->where('contentPage.sections.0.settings.brands.1.name', 'DJO')
@@ -326,6 +353,9 @@ test('home renders controlled extra blocks in saved order', function () {
             'title' => 'Banner nuevo',
             'media_id' => $media->id,
             'image_position' => 'right',
+            'overlay_enabled' => false,
+            'overlay_color' => '#123456',
+            'overlay_opacity' => 45,
         ],
     ]);
 
@@ -346,6 +376,9 @@ test('home renders controlled extra blocks in saved order', function () {
             ->has('contentPage.sections', 6)
             ->where('contentPage.sections.0.type', StorefrontPageSection::TYPE_IMAGE_BANNER)
             ->where('contentPage.sections.0.settings.media.id', $media->id)
+            ->where('contentPage.sections.0.settings.overlay_enabled', false)
+            ->where('contentPage.sections.0.settings.overlay_color', '#123456')
+            ->where('contentPage.sections.0.settings.overlay_opacity', 45)
             ->where('contentPage.sections.1.type', StorefrontPageSection::TYPE_HERO));
 });
 

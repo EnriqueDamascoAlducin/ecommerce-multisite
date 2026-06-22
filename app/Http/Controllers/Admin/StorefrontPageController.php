@@ -3,8 +3,8 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Domain\Storefront\HtmlSanitizer;
-use App\Domain\Storefront\StorefrontSeoService;
 use App\Domain\Storefront\StorefrontPagePresenter;
+use App\Domain\Storefront\StorefrontSeoService;
 use App\Domain\Storefront\Templates\PageTemplate;
 use App\Domain\Storefront\Templates\PageTemplateRegistry;
 use App\Http\Controllers\Controller;
@@ -337,6 +337,9 @@ class StorefrontPageController extends Controller
             'sections.*.settings.map_url' => ['nullable', 'string', 'max:1000', 'url'],
             'sections.*.settings.html' => ['nullable', 'string'],
             'sections.*.settings.media_id' => ['nullable', 'integer', 'exists:media,id'],
+            'sections.*.settings.overlay_enabled' => ['boolean'],
+            'sections.*.settings.overlay_color' => ['nullable', 'hex_color'],
+            'sections.*.settings.overlay_opacity' => ['nullable', 'integer', 'min:0', 'max:100'],
             'sections.*.settings.slides' => ['nullable', 'array', 'max:5'],
             'sections.*.settings.slides.*.media_id' => ['nullable', 'integer', 'exists:media,id'],
             'sections.*.settings.slides.*.eyebrow' => ['nullable', 'string', 'max:255'],
@@ -365,6 +368,8 @@ class StorefrontPageController extends Controller
             'sections.*.settings.brands.*' => ['nullable'],
             'sections.*.settings.brands.*.name' => ['nullable', 'string', 'max:255'],
             'sections.*.settings.brands.*.media_id' => ['nullable', 'integer', 'exists:media,id'],
+            'sections.*.settings.logo_size' => ['nullable', Rule::in(['small', 'medium', 'large'])],
+            'sections.*.settings.logo_radius' => ['nullable', Rule::in(['none', 'medium', 'full'])],
             'sections.*.settings.interest_areas' => ['nullable', 'array'],
             'sections.*.settings.interest_areas.*' => ['nullable', 'string', 'max:255'],
             'sections.*.settings.button_label' => ['nullable', 'string', 'max:255'],

@@ -75,6 +75,11 @@ type SectionSettings = Record<string, FormDataConvertible> & {
     interest_areas?: string[];
     product_ids?: number[];
     display_type?: string;
+    logo_size?: string;
+    logo_radius?: string;
+    overlay_enabled?: boolean;
+    overlay_color?: string;
+    overlay_opacity?: number;
     products?: ProductOption[];
 };
 type HeroSlide = {
@@ -1448,6 +1453,43 @@ function BrandStripFields({
                     onChange={(value) => setSetting('brands', value)}
                 />
             </FieldGroup>
+            <FieldGroup
+                title="Layout"
+                description="Vista y estilo de los logos en el front."
+                icon={Grid3X3}
+            >
+                <div className="grid gap-4 md:grid-cols-3">
+                    <SelectField
+                        label="Vista"
+                        value={displayTypeValue(settings.display_type)}
+                        options={[
+                            { value: 'grid', label: 'Grid' },
+                            { value: 'carousel', label: 'Carrusel' },
+                        ]}
+                        onChange={(value) => setSetting('display_type', value)}
+                    />
+                    <SelectField
+                        label="Tamaño"
+                        value={logoSizeValue(settings.logo_size)}
+                        options={[
+                            { value: 'small', label: 'Chico' },
+                            { value: 'medium', label: 'Medio' },
+                            { value: 'large', label: 'Grande' },
+                        ]}
+                        onChange={(value) => setSetting('logo_size', value)}
+                    />
+                    <SelectField
+                        label="Redondeado"
+                        value={logoRadiusValue(settings.logo_radius)}
+                        options={[
+                            { value: 'none', label: 'Sin redondeado' },
+                            { value: 'medium', label: 'Medio' },
+                            { value: 'full', label: 'Completo' },
+                        ]}
+                        onChange={(value) => setSetting('logo_radius', value)}
+                    />
+                </div>
+            </FieldGroup>
         </>
     );
 }
@@ -1710,6 +1752,42 @@ function ImageBannerFields({
                         value={text(settings.button_url)}
                         onChange={(value) => setSetting('button_url', value)}
                     />
+                </div>
+            </FieldGroup>
+            <FieldGroup
+                title="Opacidad"
+                description="Capa opcional sobre la imagen cuando se usa como fondo."
+                icon={Palette}
+            >
+                <div className="grid gap-3">
+                    <label className="flex items-center gap-2 text-sm">
+                        <Checkbox
+                            checked={settings.overlay_enabled !== false}
+                            onCheckedChange={(checked) =>
+                                setSetting('overlay_enabled', checked === true)
+                            }
+                        />
+                        Aplicar opacidad sobre la imagen
+                    </label>
+                    <div className="grid gap-3 md:grid-cols-[1fr_12rem]">
+                        <ColorField
+                            label="Color de opacidad"
+                            value={text(settings.overlay_color) || '#7f1d1d'}
+                            onChange={(value) =>
+                                setSetting('overlay_color', value)
+                            }
+                        />
+                        <RangeField
+                            label="Opacidad"
+                            value={numberValue(settings.overlay_opacity) ?? 75}
+                            min={0}
+                            max={100}
+                            disabled={settings.overlay_enabled === false}
+                            onChange={(value) =>
+                                setSetting('overlay_opacity', value)
+                            }
+                        />
+                    </div>
                 </div>
             </FieldGroup>
         </>
@@ -3695,6 +3773,14 @@ function displayTypeValue(value: unknown): 'grid' | 'carousel' {
     return value === 'carousel' ? 'carousel' : 'grid';
 }
 
+function logoSizeValue(value: unknown): 'small' | 'medium' | 'large' {
+    return value === 'small' || value === 'large' ? value : 'medium';
+}
+
+function logoRadiusValue(value: unknown): 'none' | 'medium' | 'full' {
+    return value === 'none' || value === 'full' ? value : 'medium';
+}
+
 function numberValue(value: unknown): number | null {
     return typeof value === 'number' ? value : null;
 }
@@ -3749,7 +3835,15 @@ function sectionDefaults(type: string): SectionSettings {
         case 'feature_cards':
             return { ...base, items: [] };
         case 'brand_strip':
-            return { ...base, eyebrow: '', title: 'Marcas', brands: [] };
+            return {
+                ...base,
+                eyebrow: '',
+                title: 'Marcas',
+                brands: [],
+                display_type: 'grid',
+                logo_size: 'medium',
+                logo_radius: 'medium',
+            };
         case 'inquiry_form':
             return {
                 ...base,
@@ -3800,6 +3894,9 @@ function sectionDefaults(type: string): SectionSettings {
                 button_label: 'Ver mas',
                 button_url: '#',
                 image_position: 'right',
+                overlay_enabled: true,
+                overlay_color: '#7f1d1d',
+                overlay_opacity: 75,
             };
     }
 }
