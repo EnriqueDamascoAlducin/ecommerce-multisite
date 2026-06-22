@@ -36,7 +36,7 @@ class PlaceOrderRequest extends FormRequest
             'shipping.city' => ['required', 'string', 'max:255'],
             'shipping.state' => ['required', 'string', 'max:255'],
             'shipping.postal_code' => ['required', 'string', 'max:20'],
-            'shipping.country' => ['required', 'string', 'size:2'],
+            'shipping.country' => ['required', 'string', Rule::in(['MX'])],
 
             'billing_same' => ['boolean'],
             'billing' => ['array'],
@@ -50,7 +50,7 @@ class PlaceOrderRequest extends FormRequest
             'billing.city' => ['required_if:billing_same,0', 'nullable', 'string', 'max:255'],
             'billing.state' => ['required_if:billing_same,0', 'nullable', 'string', 'max:255'],
             'billing.postal_code' => ['required_if:billing_same,0', 'nullable', 'string', 'max:20'],
-            'billing.country' => ['required_if:billing_same,0', 'nullable', 'string', 'size:2'],
+            'billing.country' => ['required_if:billing_same,0', 'nullable', 'string', Rule::in(['MX'])],
         ];
     }
 }

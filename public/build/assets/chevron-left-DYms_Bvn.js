@@ -1,1 +1,0 @@
-import{Ft as e}from"./app-B89v3EL9.js";var t=e(`ChevronLeft`,[[`path`,{d:`m15 18-6-6 6-6`,key:`1wnfg3`}]]);export{t};

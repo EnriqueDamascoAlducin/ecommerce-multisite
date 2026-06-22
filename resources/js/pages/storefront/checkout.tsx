@@ -51,7 +51,7 @@ function addressToFields(addr: Address): AddressFields {
         city: addr.city ?? '',
         state: addr.state ?? '',
         postal_code: addr.postal_code ?? '',
-        country: addr.country ?? 'MX',
+        country: 'MX',
     };
 }
 
@@ -215,6 +215,7 @@ export default function Checkout({
         name: string,
         label: string,
         required = false,
+        disabled = false,
     ) {
         const formData = data[prefix];
         const value = formData[name] ?? '';
@@ -230,6 +231,7 @@ export default function Checkout({
                     value={value}
                     onChange={onChange}
                     required={required}
+                    disabled={disabled}
                     className="rounded-md border border-neutral-300 bg-white px-3 py-2 text-sm dark:border-neutral-700 dark:bg-neutral-800"
                 />
                 <InputError message={errors[`${prefix}.${name}` as keyof typeof errors]} />
@@ -413,7 +415,7 @@ export default function Checkout({
                             {neighborhoodField('shipping', shippingPostalLookup)}
                             {field('shipping', 'city', 'Ciudad', true)}
                             {field('shipping', 'state', 'Estado', true)}
-                            {field('shipping', 'country', 'País (ISO2)', true)}
+                            {field('shipping', 'country', 'País', true, true)}
                         </div>
                     </section>
 
@@ -508,7 +510,7 @@ export default function Checkout({
                                     {neighborhoodField('billing', billingPostalLookup)}
                                     {field('billing', 'city', 'Ciudad', true)}
                                     {field('billing', 'state', 'Estado', true)}
-                                    {field('billing', 'country', 'País (ISO2)', true)}
+                                    {field('billing', 'country', 'País', true, true)}
                                 </div>
                             )}
                         </section>

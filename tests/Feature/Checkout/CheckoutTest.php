@@ -130,6 +130,19 @@ test('email is required to place an order', function () {
         ->assertSessionHasErrors('email');
 });
 
+test('checkout only accepts addresses in mexico', function () {
+    $product = sellableProduct($this->store, $this->source, 100);
+    $this->post(route('cart.store'), ['product_id' => $product->id, 'quantity' => 1]);
+
+    $payload = checkoutPayload();
+    $payload['shipping']['country'] = 'US';
+
+    $this->post(route('checkout.store'), $payload)
+        ->assertSessionHasErrors('shipping.country');
+
+    expect(Order::query()->count())->toBe(0);
+});
+
 test('checkout page includes customer addresses for logged in customers', function () {
     $customer = Customer::factory()->create(['website_id' => $this->website->id]);
     CustomerAddress::factory()->create([
