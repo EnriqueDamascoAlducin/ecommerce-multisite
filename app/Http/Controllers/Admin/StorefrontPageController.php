@@ -9,6 +9,7 @@ use App\Domain\Storefront\Templates\PageTemplate;
 use App\Domain\Storefront\Templates\PageTemplateRegistry;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Admin\StorefrontPageRequest;
+use App\Models\Category;
 use App\Models\HeaderMenuItem;
 use App\Models\Media;
 use App\Models\Product;
@@ -128,6 +129,8 @@ class StorefrontPageController extends Controller
             ],
             'media' => $this->mediaOptions(),
             'products' => $isShared ? [] : $this->productOptions($editorStore),
+            'categories' => $this->categoryOptions($editorStore),
+            'pages' => $this->pageOptions($editorStore),
             'publicUrl' => $this->publicUrl($page, $editorStore),
             'isHome' => $page->slug === StorefrontPage::HOME,
             'template' => [
@@ -368,6 +371,11 @@ class StorefrontPageController extends Controller
             'sections.*.settings.brands.*' => ['nullable'],
             'sections.*.settings.brands.*.name' => ['nullable', 'string', 'max:255'],
             'sections.*.settings.brands.*.media_id' => ['nullable', 'integer', 'exists:media,id'],
+            'sections.*.settings.brands.*.link_type' => ['nullable', Rule::in(['none', 'category', 'product', 'page', 'custom'])],
+            'sections.*.settings.brands.*.url' => ['nullable', 'string', 'max:2048'],
+            'sections.*.settings.brands.*.category_id' => ['nullable', 'integer', 'exists:categories,id'],
+            'sections.*.settings.brands.*.product_id' => ['nullable', 'integer', 'exists:products,id'],
+            'sections.*.settings.brands.*.page_id' => ['nullable', 'integer', 'exists:storefront_pages,id'],
             'sections.*.settings.logo_size' => ['nullable', Rule::in(['small', 'medium', 'large'])],
             'sections.*.settings.logo_radius' => ['nullable', Rule::in(['none', 'medium', 'full'])],
             'sections.*.settings.interest_areas' => ['nullable', 'array'],
@@ -658,6 +666,24 @@ class StorefrontPageController extends Controller
     }
 
     /**
+     * @return list<array{id: int, label: string}>
+     */
+    private function categoryOptions(Store $store): array
+    {
+        return Category::query()
+            ->where('website_id', $store->website_id)
+            ->active()
+            ->orderBy('sort_order')
+            ->orderBy('name')
+            ->get(['id', 'name'])
+            ->map(fn (Category $category) => [
+                'id' => $category->id,
+                'label' => $category->name,
+            ])
+            ->all();
+    }
+
+    /**
      * @return list<array{id: int, label: string, sku: string}>
      */
     private function productOptions(Store $store): array
@@ -674,6 +700,25 @@ class StorefrontPageController extends Controller
                 'id' => $product->id,
                 'label' => $product->name,
                 'sku' => $product->sku,
+            ])
+            ->all();
+    }
+
+    /**
+     * @return list<array{id: int, label: string, slug: string}>
+     */
+    private function pageOptions(Store $store): array
+    {
+        return StorefrontPage::query()
+            ->whereHas('stores', fn ($query) => $query->whereKey($store->id))
+            ->where('is_published', true)
+            ->orderByRaw("CASE WHEN slug = 'home' THEN 0 ELSE 1 END")
+            ->orderBy('title')
+            ->get(['id', 'title', 'slug'])
+            ->map(fn (StorefrontPage $page) => [
+                'id' => $page->id,
+                'label' => $page->slug === StorefrontPage::HOME ? "{$page->title} (/)" : $page->title,
+                'slug' => $page->slug,
             ])
             ->all();
     }

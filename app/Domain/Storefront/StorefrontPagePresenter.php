@@ -6,6 +6,9 @@ use App\Domain\Catalog\BundleService;
 use App\Domain\Catalog\ConfigurableProductService;
 use App\Domain\Catalog\ProductPricingService;
 use App\Domain\Inventory\StockAvailabilityChecker;
+use App\Domain\Store\StoreContext;
+use App\Models\Category;
+use App\Models\HeaderMenuItem;
 use App\Models\Media;
 use App\Models\Product;
 use App\Models\Store;
@@ -65,11 +68,105 @@ class StorefrontPagePresenter
             $settings['products'] = $this->recommendedProducts($settings, $page, $store ?? $page->store);
         }
 
+        if ($section->type === StorefrontPageSection::TYPE_BRAND_STRIP && $store) {
+            $settings['brands'] = $this->brandLinks($settings, $store);
+        }
+
         return [
             'id' => $section->id,
             'type' => $section->type,
             'settings' => $settings,
         ];
+    }
+
+    /**
+     * @param  array<string, mixed>  $settings
+     * @return list<array<string, mixed>|string>
+     */
+    private function brandLinks(array $settings, Store $store): array
+    {
+        return collect($settings['brands'] ?? [])
+            ->map(function (mixed $brand) use ($store): mixed {
+                if (! is_array($brand)) {
+                    return $brand;
+                }
+
+                return [
+                    ...$brand,
+                    'url' => $this->brandUrl($brand, $store),
+                ];
+            })
+            ->values()
+            ->all();
+    }
+
+    /**
+     * @param  array<string, mixed>  $brand
+     */
+    private function brandUrl(array $brand, Store $store): ?string
+    {
+        return match ($brand['link_type'] ?? 'none') {
+            HeaderMenuItem::TYPE_CATEGORY => $this->categoryUrl($brand, $store),
+            HeaderMenuItem::TYPE_PRODUCT => $this->productUrl($brand, $store),
+            HeaderMenuItem::TYPE_PAGE => $this->pageUrl($brand, $store),
+            HeaderMenuItem::TYPE_CUSTOM => trim((string) ($brand['url'] ?? '')) ?: null,
+            default => null,
+        };
+    }
+
+    /**
+     * @param  array<string, mixed>  $brand
+     */
+    private function categoryUrl(array $brand, Store $store): ?string
+    {
+        $source = Category::find($brand['category_id'] ?? null);
+        $category = $source
+            ? Category::query()
+                ->where('website_id', $store->website_id)
+                ->where('slug', $source->slug)
+                ->active()
+                ->first()
+            : null;
+
+        return $category ? $this->storefrontPath($store, "/c/{$category->slug}") : null;
+    }
+
+    /**
+     * @param  array<string, mixed>  $brand
+     */
+    private function productUrl(array $brand, Store $store): ?string
+    {
+        $product = Product::query()
+            ->active()
+            ->whereKey($brand['product_id'] ?? null)
+            ->whereHas('storeLinks', fn ($query) => $query
+                ->where('store_id', $store->id)
+                ->where('is_active', true))
+            ->first();
+
+        return $product ? $this->storefrontPath($store, "/p/{$product->slug}") : null;
+    }
+
+    /**
+     * @param  array<string, mixed>  $brand
+     */
+    private function pageUrl(array $brand, Store $store): ?string
+    {
+        $page = StorefrontPage::query()
+            ->whereKey($brand['page_id'] ?? null)
+            ->where('is_published', true)
+            ->whereHas('stores', fn ($query) => $query->where('stores.id', $store->id))
+            ->first();
+
+        return $page ? $this->storefrontPath($store, $page->slug === StorefrontPage::HOME ? '/' : "/{$page->slug}") : null;
+    }
+
+    private function storefrontPath(Store $store, string $path): string
+    {
+        $prefix = app(StoreContext::class)->pathPrefix();
+        $path = '/'.ltrim($path, '/');
+
+        return $prefix !== '' && $prefix === $store->code ? '/'.$prefix.($path === '/' ? '' : $path) : $path;
     }
 
     /**

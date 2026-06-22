@@ -1,6 +1,7 @@
 <?php
 
 use App\Domain\Storefront\StorefrontHomeTemplate;
+use App\Models\Category;
 use App\Models\InventorySource;
 use App\Models\Media;
 use App\Models\Product;
@@ -173,6 +174,19 @@ test('media ids are resolved in template section settings', function () {
 
 test('brand strip exposes resolved media and text-only brands', function () {
     $media = Media::factory()->create();
+    $category = Category::factory()->create(['store_id' => $this->store->id]);
+    $product = Product::factory()->create(['slug' => 'air-brand']);
+    ProductStore::factory()->create([
+        'product_id' => $product->id,
+        'store_id' => $this->store->id,
+        'is_active' => true,
+    ]);
+    $linkedPage = StorefrontPage::factory()->create([
+        'store_id' => $this->store->id,
+        'slug' => 'marcas',
+        'is_published' => true,
+    ]);
+    $linkedPage->stores()->sync([$this->store->id]);
     $page = StorefrontPage::factory()->create([
         'store_id' => $this->store->id,
         'slug' => StorefrontPage::HOME,
@@ -188,8 +202,30 @@ test('brand strip exposes resolved media and text-only brands', function () {
             'logo_size' => 'large',
             'logo_radius' => 'full',
             'brands' => [
-                ['name' => 'BTL', 'media_id' => $media->id],
-                ['name' => 'DJO', 'media_id' => null],
+                [
+                    'name' => 'BTL',
+                    'media_id' => $media->id,
+                    'link_type' => 'category',
+                    'category_id' => $category->id,
+                ],
+                [
+                    'name' => 'DJO',
+                    'media_id' => null,
+                    'link_type' => 'product',
+                    'product_id' => $product->id,
+                ],
+                [
+                    'name' => 'Airex',
+                    'media_id' => null,
+                    'link_type' => 'page',
+                    'page_id' => $linkedPage->id,
+                ],
+                [
+                    'name' => 'Custom',
+                    'media_id' => null,
+                    'link_type' => 'custom',
+                    'url' => 'https://example.com/marca',
+                ],
             ],
         ],
     ]);
@@ -203,8 +239,12 @@ test('brand strip exposes resolved media and text-only brands', function () {
             ->where('contentPage.sections.0.settings.logo_radius', 'full')
             ->where('contentPage.sections.0.settings.brands.0.name', 'BTL')
             ->where('contentPage.sections.0.settings.brands.0.media.url', $media->url)
+            ->where('contentPage.sections.0.settings.brands.0.url', "/c/{$category->slug}")
             ->where('contentPage.sections.0.settings.brands.1.name', 'DJO')
-            ->where('contentPage.sections.0.settings.brands.1.media_id', null));
+            ->where('contentPage.sections.0.settings.brands.1.media_id', null)
+            ->where('contentPage.sections.0.settings.brands.1.url', '/p/air-brand')
+            ->where('contentPage.sections.0.settings.brands.2.url', '/marcas')
+            ->where('contentPage.sections.0.settings.brands.3.url', 'https://example.com/marca'));
 });
 
 test('hero slides expose resolved media for each slide', function () {

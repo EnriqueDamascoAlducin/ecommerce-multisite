@@ -65,6 +65,9 @@ const RichTextEditor = lazy(() =>
 
 type MediaOption = { id: number; label: string; url: string };
 type ProductOption = { id: number; label: string; sku: string };
+type CategoryOption = { id: number; label: string };
+type PageOption = { id: number; label: string; slug: string };
+type BrandLinkType = 'none' | 'category' | 'product' | 'page' | 'custom';
 type CmsMedia = { id: number; url: string; alt: string | null } | null;
 type SectionSettings = Record<string, FormDataConvertible> & {
     media?: CmsMedia;
@@ -145,6 +148,11 @@ type BuilderBrand = {
     name?: string;
     media_id?: number | null;
     media?: CmsMedia;
+    link_type?: BrandLinkType;
+    url?: string | null;
+    category_id?: number | null;
+    product_id?: number | null;
+    page_id?: number | null;
 };
 type BrandValue = string | BuilderBrand;
 
@@ -218,6 +226,8 @@ export default function StorefrontPageEdit({
     page,
     media,
     products,
+    categories,
+    pages,
     publicUrl,
     isHome,
     template,
@@ -228,6 +238,8 @@ export default function StorefrontPageEdit({
     page: Page;
     media: MediaOption[];
     products: ProductOption[];
+    categories: CategoryOption[];
+    pages: PageOption[];
     publicUrl: string;
     isHome: boolean;
     template: TemplateInfo;
@@ -411,12 +423,14 @@ export default function StorefrontPageEdit({
                             onAddSection={addSection}
                             onRemoveSection={removeSection}
                         />
-                        <SectionPanel
-                            key={activeSection.id}
-                            section={activeSection}
-                            media={media}
-                            products={products}
-                            onSettingsChange={(settings) =>
+                            <SectionPanel
+                                key={activeSection.id}
+                                section={activeSection}
+                                media={media}
+                                products={products}
+                                categories={categories}
+                                pages={pages}
+                                onSettingsChange={(settings) =>
                                 updateSectionSettings(
                                     activeSection.id,
                                     settings,
@@ -1012,11 +1026,15 @@ function SectionPanel({
     section,
     media,
     products,
+    categories,
+    pages,
     onSettingsChange,
 }: {
     section: Section;
     media: MediaOption[];
     products: ProductOption[];
+    categories: CategoryOption[];
+    pages: PageOption[];
     onSettingsChange: (settings: SectionSettings) => void;
 }) {
     const meta = sectionMeta(section.type);
@@ -1121,6 +1139,9 @@ function SectionPanel({
                             <BrandStripFields
                                 settings={section.settings}
                                 media={media}
+                                categories={categories}
+                                products={products}
+                                pages={pages}
                                 setSetting={setSetting}
                             />
                         )}
@@ -1416,10 +1437,16 @@ function FeatureCardsFields({
 function BrandStripFields({
     settings,
     media,
+    categories,
+    products,
+    pages,
     setSetting,
 }: {
     settings: SectionSettings;
     media: MediaOption[];
+    categories: CategoryOption[];
+    products: ProductOption[];
+    pages: PageOption[];
     setSetting: (key: string, value: FormDataConvertible) => void;
 }) {
     return (
@@ -1449,6 +1476,9 @@ function BrandStripFields({
             >
                 <BrandList
                     media={media}
+                    categories={categories}
+                    products={products}
+                    pages={pages}
                     value={arrayValue<BrandValue>(settings.brands)}
                     onChange={(value) => setSetting('brands', value)}
                 />
@@ -2658,10 +2688,16 @@ function StringList({
 
 function BrandList({
     media,
+    categories,
+    products,
+    pages,
     value,
     onChange,
 }: {
     media: MediaOption[];
+    categories: CategoryOption[];
+    products: ProductOption[];
+    pages: PageOption[];
     value: BrandValue[];
     onChange: (value: BuilderBrand[]) => void;
 }) {
@@ -2688,7 +2724,11 @@ function BrandList({
                     onClick={() =>
                         onChange([
                             ...brands,
-                            { name: 'Nueva marca', media_id: null },
+                            {
+                                name: 'Nueva marca',
+                                media_id: null,
+                                link_type: 'none',
+                            },
                         ])
                     }
                 >
@@ -2702,7 +2742,12 @@ function BrandList({
                     title={brand.name || `Marca ${index + 1}`}
                     index={index}
                     total={brands.length}
-                    badges={[brand.media_id ? 'Imagen' : null]}
+                    badges={[
+                        brand.media_id ? 'Imagen' : null,
+                        brand.link_type && brand.link_type !== 'none'
+                            ? 'Link'
+                            : null,
+                    ]}
                     onMoveUp={() => move(index, -1)}
                     onMoveDown={() => move(index, 1)}
                     onRemove={() => remove(index)}
@@ -2725,9 +2770,109 @@ function BrandList({
                                 update(index, { ...brand, media_id })
                             }
                         />
+                        <SelectField
+                            label="Destino"
+                            value={brand.link_type ?? 'none'}
+                            options={[
+                                { value: 'none', label: 'Sin link' },
+                                { value: 'page', label: 'Pagina' },
+                                { value: 'category', label: 'Categoria' },
+                                { value: 'product', label: 'Producto' },
+                                { value: 'custom', label: 'URL personalizada' },
+                            ]}
+                            onChange={(link_type) =>
+                                update(index, {
+                                    ...brand,
+                                    link_type: link_type as BrandLinkType,
+                                    url:
+                                        link_type === 'custom'
+                                            ? (brand.url ?? '')
+                                            : null,
+                                    category_id: null,
+                                    product_id: null,
+                                    page_id: null,
+                                })
+                            }
+                        />
+                        <BrandTargetField
+                            brand={brand}
+                            categories={categories}
+                            products={products}
+                            pages={pages}
+                            onChange={(patch) =>
+                                update(index, { ...brand, ...patch })
+                            }
+                        />
                     </div>
                 </ListCard>
             ))}
+        </div>
+    );
+}
+
+function BrandTargetField({
+    brand,
+    categories,
+    products,
+    pages,
+    onChange,
+}: {
+    brand: BuilderBrand;
+    categories: CategoryOption[];
+    products: ProductOption[];
+    pages: PageOption[];
+    onChange: (patch: Partial<BuilderBrand>) => void;
+}) {
+    const linkType = brand.link_type ?? 'none';
+
+    if (linkType === 'none') {
+        return (
+            <TextField
+                label="Destino seleccionado"
+                value="Sin link"
+                disabled
+                onChange={() => {}}
+            />
+        );
+    }
+
+    if (linkType === 'custom') {
+        return (
+            <TextField
+                label="URL personalizada"
+                value={brand.url ?? ''}
+                placeholder="/categoria o https://..."
+                onChange={(url) => onChange({ url })}
+            />
+        );
+    }
+
+    const options = brandOptionsForType(linkType, {
+        categories,
+        products,
+        pages,
+    });
+    const value = brandTargetId(brand) ?? '';
+
+    return (
+        <div className="grid gap-1.5">
+            <Label>Selecciona destino</Label>
+            <select
+                value={value}
+                onChange={(event) =>
+                    onChange(brandTargetPatch(linkType, event.target.value))
+                }
+                className="h-10 rounded-md border border-neutral-300 bg-white px-3 text-sm transition outline-none focus:border-red-700 focus:ring-2 focus:ring-red-700/10 dark:border-neutral-700 dark:bg-neutral-900"
+            >
+                <option value="">Seleccionar</option>
+                {options.map((option) => (
+                    <option key={option.id} value={option.id}>
+                        {'sku' in option && option.sku
+                            ? `${option.label} (${option.sku})`
+                            : option.label}
+                    </option>
+                ))}
+            </select>
         </div>
     );
 }
@@ -3791,14 +3936,54 @@ function arrayValue<T>(value: unknown): T[] {
 
 function normalizeBrandValue(value: BrandValue): BuilderBrand {
     if (typeof value === 'string') {
-        return { name: value, media_id: null };
+        return { name: value, media_id: null, link_type: 'none' };
     }
 
     return {
         name: value.name ?? '',
         media_id: value.media_id ?? null,
         media: value.media,
+        link_type: value.link_type ?? 'none',
+        url: value.url ?? null,
+        category_id: value.category_id ?? null,
+        product_id: value.product_id ?? null,
+        page_id: value.page_id ?? null,
     };
+}
+
+function brandTargetId(brand: BuilderBrand): number | null {
+    if (brand.link_type === 'category') return brand.category_id ?? null;
+    if (brand.link_type === 'product') return brand.product_id ?? null;
+    if (brand.link_type === 'page') return brand.page_id ?? null;
+    return null;
+}
+
+function brandTargetPatch(
+    linkType: BrandLinkType,
+    value: string,
+): Partial<BuilderBrand> {
+    const id = value === '' ? null : Number(value);
+
+    return {
+        category_id: linkType === 'category' ? id : null,
+        product_id: linkType === 'product' ? id : null,
+        page_id: linkType === 'page' ? id : null,
+        url: null,
+    };
+}
+
+function brandOptionsForType(
+    linkType: BrandLinkType,
+    options: {
+        categories: CategoryOption[];
+        products: ProductOption[];
+        pages: PageOption[];
+    },
+): Array<CategoryOption | ProductOption | PageOption> {
+    if (linkType === 'category') return options.categories;
+    if (linkType === 'product') return options.products;
+    if (linkType === 'page') return options.pages;
+    return [];
 }
 
 function isHexColor(value: string): boolean {

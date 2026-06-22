@@ -1,6 +1,7 @@
 <?php
 
 use App\Domain\Storefront\StorefrontHomeTemplate;
+use App\Models\Category;
 use App\Models\HeaderMenuItem;
 use App\Models\Media;
 use App\Models\Product;
@@ -127,6 +128,7 @@ test('home page cannot be deleted', function () {
 
 test('page content can be updated with template section settings', function () {
     $store = Store::factory()->create();
+    $category = Category::factory()->create(['store_id' => $store->id]);
     $media = Media::factory()->create();
 
     $this->post(route('admin.storefront.pages.store'), [
@@ -210,9 +212,22 @@ test('page content can be updated with template section settings', function () {
                         [
                             'name' => 'BTL',
                             'media_id' => $media->id,
+                            'link_type' => 'custom',
+                            'url' => '/marcas/btl',
+                            'category_id' => null,
+                            'product_id' => null,
+                            'page_id' => null,
                             'media' => ['id' => $media->id, 'url' => $media->url, 'alt' => null],
                         ],
-                        ['name' => 'DJO', 'media_id' => null],
+                        [
+                            'name' => 'DJO',
+                            'media_id' => null,
+                            'link_type' => 'category',
+                            'url' => null,
+                            'category_id' => $category->id,
+                            'product_id' => null,
+                            'page_id' => null,
+                        ],
                     ],
                 ],
             ],
@@ -254,8 +269,24 @@ test('page content can be updated with template section settings', function () {
         ->and($sections[StorefrontPageSection::TYPE_BRAND_STRIP]->fresh()->settings['logo_size'])->toBe('large')
         ->and($sections[StorefrontPageSection::TYPE_BRAND_STRIP]->fresh()->settings['logo_radius'])->toBe('full')
         ->and($sections[StorefrontPageSection::TYPE_BRAND_STRIP]->fresh()->settings['brands'])->toBe([
-            ['name' => 'BTL', 'media_id' => $media->id],
-            ['name' => 'DJO', 'media_id' => null],
+            [
+                'name' => 'BTL',
+                'media_id' => $media->id,
+                'link_type' => 'custom',
+                'url' => '/marcas/btl',
+                'category_id' => null,
+                'product_id' => null,
+                'page_id' => null,
+            ],
+            [
+                'name' => 'DJO',
+                'media_id' => null,
+                'link_type' => 'category',
+                'url' => null,
+                'category_id' => $category->id,
+                'product_id' => null,
+                'page_id' => null,
+            ],
         ])
         ->and($sections[StorefrontPageSection::TYPE_INQUIRY_FORM]->fresh()->settings['background_color'])->toBe('#ffffff')
         ->and($sections[StorefrontPageSection::TYPE_INQUIRY_FORM]->fresh()->settings['title'])->toBe('Cotiza hoy')
