@@ -26,6 +26,7 @@ use App\Http\Controllers\Admin\RoleController;
 use App\Http\Controllers\Admin\SeoSettingsController;
 use App\Http\Controllers\Admin\ShipmentController;
 use App\Http\Controllers\Admin\ShippingMethodController;
+use App\Http\Controllers\Admin\StockImportController;
 use App\Http\Controllers\Admin\StoreConfigurationController;
 use App\Http\Controllers\Admin\StoreController;
 use App\Http\Controllers\Admin\StorefrontPageController;
@@ -62,7 +63,7 @@ Route::middleware(['auth', 'verified'])->prefix('admin')->name('admin.')->group(
         Route::get('permissions', [PermissionController::class, 'index'])->name('permissions.index');
     });
 
-    // Multisitio: websites, tiendas y configuración por scope.
+    // Multisitio: websites, tiendas y configuraciï¿½n por scope.
     Route::middleware('permission:settings.stores')->group(function () {
         Route::resource('websites', WebsiteController::class)->except('show');
         Route::resource('stores', StoreController::class)->except('show');
@@ -71,13 +72,13 @@ Route::middleware(['auth', 'verified'])->prefix('admin')->name('admin.')->group(
         Route::put('configuration', [StoreConfigurationController::class, 'update'])->name('configuration.update');
     });
 
-    // Configuración de pasarelas de pago (llaves y modo) por sitio.
+    // Configuraciï¿½n de pasarelas de pago (llaves y modo) por sitio.
     Route::middleware('permission:settings.payments')->group(function () {
         Route::get('payments', [PaymentSettingsController::class, 'index'])->name('payments.index');
         Route::put('payments', [PaymentSettingsController::class, 'update'])->name('payments.update');
     });
 
-    // Catálogo: productos simples
+    // Catï¿½logo: productos simples
     Route::middleware('permission:catalog.products.view')->group(function () {
         Route::get('products', [ProductController::class, 'index'])->name('products.index');
         Route::get('products/import', [ProductImportController::class, 'create'])->middleware('permission:catalog.products.create')->name('products.import.create');
@@ -104,7 +105,7 @@ Route::middleware(['auth', 'verified'])->prefix('admin')->name('admin.')->group(
             ->name('downloadable.upload');
     });
 
-    // Catálogo: categorías
+    // Catï¿½logo: categorï¿½as
     Route::middleware('permission:catalog.categories.view')->group(function () {
         Route::get('categories', [CategoryController::class, 'index'])->name('categories.index');
         Route::get('categories/create', [CategoryController::class, 'create'])->middleware('permission:catalog.categories.create')->name('categories.create');
@@ -114,7 +115,7 @@ Route::middleware(['auth', 'verified'])->prefix('admin')->name('admin.')->group(
         Route::delete('categories/{category}', [CategoryController::class, 'destroy'])->middleware('permission:catalog.categories.delete')->name('categories.destroy');
     });
 
-    // Catálogo: etiquetas (badges) de productos
+    // Catï¿½logo: etiquetas (badges) de productos
     Route::middleware('permission:catalog.labels.view')->group(function () {
         Route::get('product-labels', [ProductLabelController::class, 'index'])->name('product-labels.index');
         Route::get('product-labels/create', [ProductLabelController::class, 'create'])->middleware('permission:catalog.labels.create')->name('product-labels.create');
@@ -134,7 +135,7 @@ Route::middleware(['auth', 'verified'])->prefix('admin')->name('admin.')->group(
         Route::delete('customers/{customer}', [CustomerController::class, 'destroy'])->middleware('permission:customers.delete')->name('customers.destroy');
     });
 
-    // Grupos de clientes (segmentación por website)
+    // Grupos de clientes (segmentaciï¿½n por website)
     Route::middleware('permission:customer_groups.view')->group(function () {
         Route::get('customer-groups', [CustomerGroupController::class, 'index'])->name('customer-groups.index');
         Route::get('customer-groups/create', [CustomerGroupController::class, 'create'])->middleware('permission:customer_groups.create')->name('customer-groups.create');
@@ -144,7 +145,7 @@ Route::middleware(['auth', 'verified'])->prefix('admin')->name('admin.')->group(
         Route::delete('customer-groups/{customerGroup}', [CustomerGroupController::class, 'destroy'])->middleware('permission:customer_groups.delete')->name('customer-groups.destroy');
     });
 
-    // Catálogo: atributos
+    // Catï¿½logo: atributos
     Route::middleware('permission:catalog.attributes.view')->group(function () {
         Route::get('attributes', [AttributeController::class, 'index'])->name('attributes.index');
         Route::get('attributes/create', [AttributeController::class, 'create'])->middleware('permission:catalog.attributes.create')->name('attributes.create');
@@ -167,6 +168,9 @@ Route::middleware(['auth', 'verified'])->prefix('admin')->name('admin.')->group(
     // Inventario: stock por producto
     Route::middleware('permission:inventory.view')->group(function () {
         Route::get('inventory', [InventoryController::class, 'index'])->name('inventory.index');
+        Route::get('inventory/import', [StockImportController::class, 'create'])->middleware('permission:inventory.adjust')->name('inventory.import.create');
+        Route::post('inventory/import/validate', [StockImportController::class, 'validateUpload'])->middleware('permission:inventory.adjust')->name('inventory.import.validate');
+        Route::post('inventory/import/confirm', [StockImportController::class, 'confirm'])->middleware('permission:inventory.adjust')->name('inventory.import.confirm');
         Route::get('inventory/{product}', [InventoryController::class, 'edit'])->name('inventory.edit');
         Route::put('inventory/{product}', [InventoryController::class, 'update'])->middleware('permission:inventory.adjust')->name('inventory.update');
     });
@@ -185,7 +189,7 @@ Route::middleware(['auth', 'verified'])->prefix('admin')->name('admin.')->group(
         Route::put('promotions/{cartPriceRule}', [PromotionController::class, 'update'])->middleware('permission:promotions.edit')->name('promotions.update');
         Route::delete('promotions/{cartPriceRule}', [PromotionController::class, 'destroy'])->middleware('permission:promotions.delete')->name('promotions.destroy');
 
-        // Reglas de catálogo (descuentos automáticos de precio)
+        // Reglas de catï¿½logo (descuentos automï¿½ticos de precio)
         Route::get('catalog-rules', [CatalogRuleController::class, 'index'])->name('catalog-rules.index');
         Route::get('catalog-rules/create', [CatalogRuleController::class, 'create'])->middleware('permission:promotions.create')->name('catalog-rules.create');
         Route::post('catalog-rules', [CatalogRuleController::class, 'store'])->middleware('permission:promotions.create')->name('catalog-rules.store');
@@ -194,12 +198,12 @@ Route::middleware(['auth', 'verified'])->prefix('admin')->name('admin.')->group(
         Route::delete('catalog-rules/{catalogRule}', [CatalogRuleController::class, 'destroy'])->middleware('permission:promotions.delete')->name('catalog-rules.destroy');
     });
 
-    // Auditoría (registro de acciones administrativas)
+    // Auditorï¿½a (registro de acciones administrativas)
     Route::middleware('permission:audit.view')->group(function () {
         Route::get('audit', [AuditLogController::class, 'index'])->name('audit.index');
     });
 
-    // Ventas: órdenes
+    // Ventas: ï¿½rdenes
     Route::middleware('permission:sales.orders.view')->group(function () {
         Route::get('orders', [OrderController::class, 'index'])->name('orders.index');
         Route::get('orders/{order}', [OrderController::class, 'show'])->name('orders.show');
@@ -217,7 +221,7 @@ Route::middleware(['auth', 'verified'])->prefix('admin')->name('admin.')->group(
         Route::post('invoices/{invoice}/paid', [InvoiceController::class, 'markAsPaid'])->middleware('permission:sales.invoices.edit')->name('invoices.mark-as-paid');
     });
 
-    // Ventas: envíos
+    // Ventas: envï¿½os
     Route::middleware('permission:sales.shipments.view')->group(function () {
         Route::get('shipments', [ShipmentController::class, 'index'])->name('shipments.index');
         Route::get('shipments/{shipment}', [ShipmentController::class, 'show'])->name('shipments.show');
@@ -227,7 +231,7 @@ Route::middleware(['auth', 'verified'])->prefix('admin')->name('admin.')->group(
         Route::post('shipments/{shipment}/cancel', [ShipmentController::class, 'cancel'])->middleware('permission:sales.shipments.cancel')->name('shipments.cancel');
     });
 
-    // Envíos: métodos globales + configuración por tienda
+    // Envï¿½os: mï¿½todos globales + configuraciï¿½n por tienda
     Route::middleware('permission:settings.shipping')->group(function () {
         Route::get('shipping', [ShippingMethodController::class, 'index'])->name('shipping.index');
         Route::get('shipping/create', [ShippingMethodController::class, 'create'])->name('shipping.create');
@@ -240,7 +244,7 @@ Route::middleware(['auth', 'verified'])->prefix('admin')->name('admin.')->group(
         Route::put('shipping-stores', [StoreShippingController::class, 'update'])->name('shipping-stores.update');
     });
 
-    // Encabezado: cintillo (por website) + menú del header (por tienda)
+    // Encabezado: cintillo (por website) + menï¿½ del header (por tienda)
     Route::middleware('permission:settings.storefront')->group(function () {
         Route::get('header-settings', [HeaderSettingsController::class, 'edit'])->name('header-settings.edit');
         Route::put('header-settings', [HeaderSettingsController::class, 'update'])->name('header-settings.update');

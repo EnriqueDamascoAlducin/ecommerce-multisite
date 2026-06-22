@@ -1,9 +1,11 @@
 import { Form, Head, Link } from '@inertiajs/react';
+import { Upload } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { usePermissions } from '@/hooks/use-permissions';
 import inventory from '@/routes/admin/inventory';
+import importRoutes from '@/routes/admin/inventory/import';
 
 type ProductStockRow = {
     id: number;
@@ -35,12 +37,29 @@ export default function InventoryIndex({
         <>
             <Head title="Inventario" />
 
-            <div className="mb-6 flex items-center justify-between">
+            <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
                 <h1 className="text-2xl font-semibold">Inventario</h1>
+                {can('inventory.adjust') && (
+                    <Button variant="outline" asChild>
+                        <Link href={importRoutes.create()}>
+                            <Upload className="size-4" />
+                            Importar stock
+                        </Link>
+                    </Button>
+                )}
             </div>
 
-            <Form {...inventory.index.form()} className="mb-4 flex flex-wrap gap-2" options={{ preserveState: true }}>
-                <Input name="search" defaultValue={filters.search} placeholder="Buscar por nombre o SKU" className="max-w-xs" />
+            <Form
+                {...inventory.index.form()}
+                className="mb-4 flex flex-wrap gap-2"
+                options={{ preserveState: true }}
+            >
+                <Input
+                    name="search"
+                    defaultValue={filters.search}
+                    placeholder="Buscar por nombre o SKU"
+                    className="max-w-xs"
+                />
                 <Button variant="outline">Buscar</Button>
             </Form>
 
@@ -50,29 +69,59 @@ export default function InventoryIndex({
                         <tr>
                             <th className="px-4 py-3 font-medium">SKU</th>
                             <th className="px-4 py-3 font-medium">Nombre</th>
-                            <th className="px-4 py-3 text-right font-medium">Físico</th>
-                            <th className="px-4 py-3 text-right font-medium">Reservado</th>
-                            <th className="px-4 py-3 text-right font-medium">Disponible</th>
-                            <th className="px-4 py-3 text-right font-medium">Acciones</th>
+                            <th className="px-4 py-3 text-right font-medium">
+                                Físico
+                            </th>
+                            <th className="px-4 py-3 text-right font-medium">
+                                Reservado
+                            </th>
+                            <th className="px-4 py-3 text-right font-medium">
+                                Disponible
+                            </th>
+                            <th className="px-4 py-3 text-right font-medium">
+                                Acciones
+                            </th>
                         </tr>
                     </thead>
                     <tbody className="divide-y divide-neutral-100 dark:divide-neutral-800">
                         {products.data.map((product) => (
                             <tr key={product.id}>
-                                <td className="px-4 py-3 font-mono text-xs">{product.sku}</td>
+                                <td className="px-4 py-3 font-mono text-xs">
+                                    {product.sku}
+                                </td>
                                 <td className="px-4 py-3">
                                     <span className="flex items-center gap-2">
                                         {product.name}
-                                        {product.low_stock && <Badge variant="destructive">Stock bajo</Badge>}
+                                        {product.low_stock && (
+                                            <Badge variant="destructive">
+                                                Stock bajo
+                                            </Badge>
+                                        )}
                                     </span>
                                 </td>
-                                <td className="px-4 py-3 text-right">{product.physical}</td>
-                                <td className="px-4 py-3 text-right text-neutral-500">{product.reserved}</td>
-                                <td className="px-4 py-3 text-right font-medium">{product.available}</td>
+                                <td className="px-4 py-3 text-right">
+                                    {product.physical}
+                                </td>
+                                <td className="px-4 py-3 text-right text-neutral-500">
+                                    {product.reserved}
+                                </td>
+                                <td className="px-4 py-3 text-right font-medium">
+                                    {product.available}
+                                </td>
                                 <td className="px-4 py-3 text-right">
                                     {can('inventory.view') && (
-                                        <Button variant="outline" size="sm" asChild>
-                                            <Link href={inventory.edit(product.id)}>Gestionar</Link>
+                                        <Button
+                                            variant="outline"
+                                            size="sm"
+                                            asChild
+                                        >
+                                            <Link
+                                                href={inventory.edit(
+                                                    product.id,
+                                                )}
+                                            >
+                                                Gestionar
+                                            </Link>
                                         </Button>
                                     )}
                                 </td>
@@ -80,7 +129,10 @@ export default function InventoryIndex({
                         ))}
                         {products.data.length === 0 && (
                             <tr>
-                                <td colSpan={6} className="px-4 py-8 text-center text-neutral-500">
+                                <td
+                                    colSpan={6}
+                                    className="px-4 py-8 text-center text-neutral-500"
+                                >
                                     No hay productos.
                                 </td>
                             </tr>
@@ -94,17 +146,25 @@ export default function InventoryIndex({
                 <div className="flex gap-2">
                     {products.prev_page_url ? (
                         <Button variant="outline" size="sm" asChild>
-                            <Link href={products.prev_page_url} preserveScroll>Anterior</Link>
+                            <Link href={products.prev_page_url} preserveScroll>
+                                Anterior
+                            </Link>
                         </Button>
                     ) : (
-                        <Button variant="outline" size="sm" disabled>Anterior</Button>
+                        <Button variant="outline" size="sm" disabled>
+                            Anterior
+                        </Button>
                     )}
                     {products.next_page_url ? (
                         <Button variant="outline" size="sm" asChild>
-                            <Link href={products.next_page_url} preserveScroll>Siguiente</Link>
+                            <Link href={products.next_page_url} preserveScroll>
+                                Siguiente
+                            </Link>
                         </Button>
                     ) : (
-                        <Button variant="outline" size="sm" disabled>Siguiente</Button>
+                        <Button variant="outline" size="sm" disabled>
+                            Siguiente
+                        </Button>
                     )}
                 </div>
             </div>
